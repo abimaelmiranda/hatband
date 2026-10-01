@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Hatband.Core</AssemblyName>
+    <RootNamespace>Hatband.Core</RootNamespace>
+  </PropertyGroup>
+</Project>
