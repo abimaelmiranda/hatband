@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:lang="using:Hatband.App.Localization"
+             xmlns:components="using:Hatband.App.Views.Components"
+             x:Class="Hatband.App.Views.Screens.MenuOverlayView"
+             x:DataType="vm:MainWindowViewModel">
+    <Grid Background="Transparent">
+        <Border Classes="simple-modal-frame">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                    <GradientStop Color="#F21C252F" Offset="0" />
+                    <GradientStop Color="#F20F151C" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid RowDefinitions="Auto,*" RowSpacing="14">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{x:Static lang:Resources.Brand}" Foreground="#AEBBC5" FontSize="10" />
+                    <TextBlock Text="{x:Static lang:Resources.MenuTitle}" FontSize="27" FontWeight="Bold" />
+                </StackPanel>
+                <ScrollViewer Grid.Row="1"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="ItemsHost"
+                                  ItemsSource="{Binding MenuOptions}"
+                                  HorizontalAlignment="Stretch">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="3" HorizontalAlignment="Stretch" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MenuOptionViewModel">
+                                <components:ConsoleNavigationItemView Margin="2,1"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      Symbol="{Binding Symbol}"
+                                                                      Title="{Binding Title}"
+                                                                      ItemBackground="{Binding HighlightBrush}"
+                                                                      ItemBorderBrush="{Binding SelectionBorderBrush}"
+                                                                      Activated="OnMenuOptionClick" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+        </Grid>
+</UserControl>

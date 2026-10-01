@@ -1,0 +1,225 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:lang="using:Hatband.App.Localization"
+             xmlns:components="using:Hatband.App.Views.Components"
+             x:Class="Hatband.App.Views.Screens.GameDetailsScreenView"
+             x:DataType="vm:MainWindowViewModel">
+    <Grid>
+        <Image Classes="background-art"
+               Source="{Binding BackgroundImage}"
+               Opacity="{Binding BackgroundImageOpacity}"
+               Stretch="UniformToFill" />
+        <Image Classes="background-art"
+               Source="{Binding PreviousBackgroundImage}"
+               Opacity="{Binding PreviousBackgroundImageOpacity}"
+               Stretch="UniformToFill" />
+        <Border>
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                    <GradientStop Color="#6610141A" Offset="0" />
+                    <GradientStop Color="#3310141A" Offset="0.42" />
+                    <GradientStop Color="#D9090D12" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+        </Border>
+
+        <Grid Margin="40,28,40,68" RowDefinitions="*,Auto">
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="1.05*,1.35*"
+                  ColumnSpacing="16"
+                  VerticalAlignment="Bottom"
+                  Margin="0,0,0,14">
+                <Border Padding="16"
+                        CornerRadius="8"
+                        Background="#C0090D12">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="12">
+                        <Grid ColumnDefinitions="104,*" ColumnSpacing="14">
+                            <components:GameArtworkView Width="118"
+                                                        Height="168"
+                                                        ShowTitle="False"
+                                                        DataContext="{Binding SelectedGameCard}"
+                                                        VerticalAlignment="Top" />
+                            <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectedGameCard.Name}"
+                                           FontSize="30"
+                                           FontWeight="Bold"
+                                           TextWrapping="Wrap"
+                                           MaxLines="2" />
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="{Binding SelectedGameCard.ReleaseYear}"
+                                               Foreground="#D2D9DF"
+                                               FontSize="12" />
+                                    <TextBlock Text="·"
+                                               Foreground="#D2D9DF"
+                                               FontSize="12" />
+                                    <TextBlock Text="{Binding SelectedGameCard.Genre}"
+                                               Foreground="#D2D9DF"
+                                               FontSize="12" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8" Margin="0,2,0,0">
+                                    <Button x:Name="PlayButton"
+                                            Content="{Binding PrimaryGameActionLabel}"
+                                            Classes="console-action details-action"
+                                            Click="OnPlayButtonClick" />
+                                    <Button x:Name="OptionsButton"
+                                            Grid.Column="1"
+                                            Content="…"
+                                            Classes="subtle-action details-options-action"
+                                            ToolTip.Tip="{x:Static lang:Resources.GameOptionsTooltip}"
+                                            Click="OnOptionsButtonClick" />
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1" Spacing="6">
+                            <TextBlock Text="{x:Static lang:Resources.Description}"
+                                       Foreground="#CFD7DE"
+                                       FontSize="12"
+                                       FontWeight="SemiBold" />
+                            <ScrollViewer MaxHeight="170" VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="{Binding SelectedGameCard.Description}"
+                                           Foreground="#E2E6EA"
+                                           FontSize="13"
+                                           TextWrapping="Wrap" />
+                            </ScrollViewer>
+                        </StackPanel>
+
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Padding="18,16"
+                        CornerRadius="8"
+                        Background="#A8090D12"
+                        VerticalAlignment="Bottom">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="22">
+                        <StackPanel Spacing="9">
+                            <TextBlock Text="{x:Static lang:Resources.LibraryActivity}"
+                                       Foreground="#CFD7DE"
+                                       FontSize="12"
+                                       FontWeight="SemiBold" />
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="14">
+                                <components:GameDetailStatView Label="{x:Static lang:Resources.PlaytimeLabel}"
+                                                               Value="{Binding SelectedGameCard.PlaytimeSummary}" />
+                                <components:GameDetailStatView Grid.Column="1"
+                                                               Label="{x:Static lang:Resources.LastActivityLabel}"
+                                                               Value="{Binding SelectedGameCard.LastActivitySummary}" />
+                                <components:GameDetailStatView Grid.Row="1"
+                                                               Label="{x:Static lang:Resources.Installation}"
+                                                               Value="{Binding SelectedGameCard.InstallStateLabel}" />
+                                <components:GameDetailStatView Grid.Row="1" Grid.Column="1"
+                                                               Label="{x:Static lang:Resources.FavoriteLabel}"
+                                                               Value="{Binding SelectedGameCard.FavoriteLabel}" />
+                            </Grid>
+                        </StackPanel>
+
+                        <Border Grid.Column="1"
+                                Width="1"
+                                Background="#40586470"
+                                HorizontalAlignment="Left"
+                                Margin="-11,4,0,4" />
+
+                        <StackPanel Grid.Column="1" Spacing="9">
+                            <TextBlock Text="{x:Static lang:Resources.GameInformation}"
+                                       Foreground="#CFD7DE"
+                                       FontSize="12"
+                                       FontWeight="SemiBold" />
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="14">
+                                <components:GameDetailStatView Label="{x:Static lang:Resources.Genre}"
+                                                               Value="{Binding SelectedGameCard.Genre}" />
+                                <components:GameDetailStatView Grid.Column="1"
+                                                               Label="{x:Static lang:Resources.Developer}"
+                                                               Value="{Binding SelectedGameCard.Developer}" />
+                                <components:GameDetailStatView Grid.Row="1"
+                                                               Label="{x:Static lang:Resources.Publisher}"
+                                                               Value="{Binding SelectedGameCard.Publisher}" />
+                                <components:GameDetailStatView Grid.Row="1" Grid.Column="1"
+                                                               Label="{x:Static lang:Resources.ReleaseDate}"
+                                                               Value="{Binding SelectedGameCard.ReleaseDateDisplay}" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="1"
+                    Padding="16,9"
+                    CornerRadius="7"
+                    Background="#C0090D12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                    <TextBlock Text="{x:Static lang:Resources.HltbDetailsTitle}"
+                               Foreground="#CFD7DE"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding SelectedGameCard.HasTimeToBeat}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding SelectedGameCard.TimeToBeatSummary}"
+                               Foreground="#E2E6EA"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding SelectedGameCard.HasTimeToBeat}" />
+                    <Image Grid.Column="2"
+                           Source="avares://Hatband.App/Assets/Stores/steam-wordmark-white.png"
+                           Width="76"
+                           Height="20"
+                           Stretch="Uniform"
+                           IsVisible="{Binding SelectedGameCard.IsSteamSource}" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding SelectedGameCard.SourceDisplayName}"
+                               Foreground="#D2D9DF"
+                               FontSize="11"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding SelectedGameCard.IsNonSteamSource}" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border IsVisible="{Binding IsGameOptionsOpen}"
+                Background="Transparent"
+                x:Name="GameOptionsOverlay">
+            <Border Classes="simple-modal-frame">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#F21C252F" Offset="0" />
+                        <GradientStop Color="#F20F151C" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid RowDefinitions="Auto,*" RowSpacing="15">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="{x:Static lang:Resources.GameOptions}"
+                                   Foreground="#AFC0CC"
+                                   FontSize="12" />
+                        <TextBlock Text="{Binding SelectedGameCard.Name}"
+                                   FontSize="25"
+                                   FontWeight="Bold"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1">
+                        <StackPanel x:Name="GameOptionList" Spacing="4">
+                            <components:ConsoleNavigationItemView x:Name="EditGameOptionItem"
+                                                                  TitleFontSize="13"
+                                                                  Symbol="✎"
+                                                                  Title="{x:Static lang:Resources.EditGame}"
+                                                                  Activated="OnEditGameOptionActivated" />
+                            <components:ConsoleNavigationItemView x:Name="HiddenGameOptionItem"
+                                                                  TitleFontSize="13"
+                                                                  Symbol="◉"
+                                                                  Title="{Binding SelectedGameHiddenActionLabel}"
+                                                                  Activated="OnHiddenGameOptionActivated" />
+                            <components:ConsoleNavigationItemView x:Name="CompatibilityOptionItem"
+                                                                  TitleFontSize="13"
+                                                                  Symbol="⚙"
+                                                                  Title="{x:Static lang:Resources.Compatibility}"
+                                                                  Activated="OnCompatibilityOptionActivated" />
+                        </StackPanel>
+                    </Grid>
+
+                </Grid>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:lang="using:Hatband.App.Localization"
+             xmlns:models="using:Hatband.App.ViewModels"
+             x:Class="Hatband.App.Views.Screens.AddGameScreenView"
+             x:DataType="vm:MainWindowViewModel">
+    <Grid Background="Transparent">
+            <Border Width="620"
+                    Height="620"
+                    MaxWidth="660"
+                    MaxHeight="660"
+                    Padding="36"
+                    CornerRadius="14"
+                    Background="#202932"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="{x:Static lang:Resources.AddGameTitle}"
+                               FontSize="12"
+                               Foreground="#BFCBD4" />
+                    <TextBlock Text="{x:Static lang:Resources.AddGameSubtitle}"
+                               FontSize="26"
+                               FontWeight="Bold"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+                    <TextBlock Text="{x:Static lang:Resources.Name}" Foreground="#D9E0E5" />
+                    <TextBox x:Name="GameNameBox" Text="{Binding NewGameName}" PlaceholderText="{x:Static lang:Resources.GameNamePlaceholder}" />
+                    <TextBlock Text="{x:Static lang:Resources.ExecutableOrLauncher}" Foreground="#D9E0E5" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBox Text="{Binding NewGameLaunchTarget}" PlaceholderText="{x:Static lang:Resources.OptionalPath}" />
+                        <Button Grid.Column="1"
+                                Content="{x:Static lang:Resources.ChooseFile}"
+                                Classes="subtle-action"
+                                Click="OnImportExecutableClick" />
+                    </Grid>
+                    <TextBlock Text="{x:Static lang:Resources.InstallFolder}" Foreground="#D9E0E5" />
+                    <TextBox Text="{Binding NewGameInstallDirectory}" PlaceholderText="{x:Static lang:Resources.OptionalFolder}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+                        <Button Content="{x:Static lang:Resources.Cancel}"
+                                Classes="subtle-action standard-action"
+                                Command="{Binding CancelNewGameCommand}" />
+                        <Button Content="{x:Static lang:Resources.Save}"
+                                Classes="console-action standard-action"
+                                Command="{Binding SaveNewGameCommand}"
+                                IsDefault="True" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+</UserControl>

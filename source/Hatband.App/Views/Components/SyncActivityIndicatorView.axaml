@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             x:Class="Hatband.App.Views.Components.SyncActivityIndicatorView"
+             x:DataType="vm:MainWindowViewModel">
+    <Border IsVisible="{Binding IsSyncActivityVisible}"
+            Width="370"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="24,24,28,26"
+            Padding="12,9"
+            CornerRadius="8"
+            Background="#D91A222A"
+            BorderBrush="#3DFFFFFF"
+            BorderThickness="1"
+            IsHitTestVisible="False">
+        <StackPanel Spacing="6">
+            <TextBlock Width="344"
+                       Text="{Binding SyncActivityStatus}"
+                       Foreground="#D6DEE4"
+                       FontSize="11"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis" />
+            <ProgressBar Width="112"
+                         Height="3"
+                         HorizontalAlignment="Left"
+                         Minimum="0"
+                         Maximum="100"
+                         IsIndeterminate="{Binding IsSyncActivityIndeterminate}"
+                         Value="{Binding SyncActivityProgressPercent}"
+                         Background="#394650"
+                         Foreground="#91C7F2" />
+        </StackPanel>
+    </Border>
+</UserControl>

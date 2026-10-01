@@ -1,0 +1,197 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Hatband.App.ViewModels"
+        xmlns:models="using:Hatband.App.ViewModels"
+        xmlns:screens="using:Hatband.App.Views.Screens"
+        xmlns:components="using:Hatband.App.Views.Components"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="1280"
+        d:DesignHeight="800"
+        x:Class="Hatband.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/hatband-icon.png"
+        Title="Hatband"
+        Width="1280"
+        Height="800"
+        MinWidth="850"
+        MinHeight="600"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
+        Opened="OnWindowOpened">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="FullScreenFrameBrush" Color="#141B23" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Border.simple-modal-frame">
+            <Setter Property="Width" Value="480" />
+            <Setter Property="Height" Value="480" />
+            <Setter Property="MaxWidth" Value="520" />
+            <Setter Property="MaxHeight" Value="520" />
+            <Setter Property="Margin" Value="16" />
+            <Setter Property="Padding" Value="20" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="BorderBrush" Value="#526B7884" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.full-screen-frame">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="42,24,42,56" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Background" Value="{StaticResource FullScreenFrameBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+        </Style>
+        <Style Selector="Button.console-action">
+            <Setter Property="Background" Value="#D9E8F1" />
+            <Setter Property="Foreground" Value="#111820" />
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Padding" Value="26,15" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="#00FFFFFF" />
+            <Setter Property="BorderThickness" Value="3" />
+        </Style>
+        <Style Selector="Button.console-action:focus">
+            <Setter Property="BorderBrush" Value="#72D9FF" />
+        </Style>
+        <Style Selector="Button.subtle-action">
+            <Setter Property="Background" Value="#2E3842" />
+            <Setter Property="Foreground" Value="#F2F5F7" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="18,12" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="BorderBrush" Value="#00FFFFFF" />
+            <Setter Property="BorderThickness" Value="3" />
+        </Style>
+        <Style Selector="Button.subtle-action:focus">
+            <Setter Property="BorderBrush" Value="#72D9FF" />
+        </Style>
+        <Style Selector="Button.standard-action">
+            <Setter Property="Width" Value="116" />
+            <Setter Property="Height" Value="49" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.connector-focus">
+            <Setter Property="BorderBrush" Value="#526B7884" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="Button.connector-focus:focus">
+            <Setter Property="BorderBrush" Value="#72D9FF" />
+        </Style>
+        <Style Selector="Button.details-action">
+            <Setter Property="BorderBrush" Value="#00FFFFFF" />
+            <Setter Property="BorderThickness" Value="3" />
+            <Setter Property="Width" Value="104" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.console-action.details-action">
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+        <Style Selector="Button.subtle-action.details-action">
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="Button.details-action:focus">
+            <Setter Property="BorderBrush" Value="#72D9FF" />
+        </Style>
+        <Style Selector="Button.details-options-action">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="25" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="BorderBrush" Value="#00FFFFFF" />
+            <Setter Property="BorderThickness" Value="3" />
+        </Style>
+        <Style Selector="Button.details-options-action:focus">
+            <Setter Property="BorderBrush" Value="#72D9FF" />
+        </Style>
+        <Style Selector="ListBox.game-carousel">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="ListBox.game-carousel ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="9,6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBox.game-carousel ListBoxItem:selected">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ListBox.game-carousel ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Image.background-art">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.45" />
+                </Transitions>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
+    <Grid Background="#11161C">
+        <screens:LibraryScreenView x:Name="LibraryScreenView"
+                                   IsVisible="{Binding IsLibraryBackgroundVisible}"
+                                   Panel.ZIndex="{Binding LibraryScreenZIndex}" />
+
+        <screens:GameDetailsScreenView x:Name="GameDetailsScreenView"
+                                       IsVisible="{Binding IsDetailsBackgroundVisible}"
+                                       Panel.ZIndex="{Binding DetailsScreenZIndex}" />
+
+        <screens:GameMetadataEditorScreenView x:Name="GameMetadataEditorScreenView"
+                                              IsVisible="{Binding IsGameEditorBackgroundVisible}"
+                                              Panel.ZIndex="{Binding GameEditorScreenZIndex}" />
+
+        <screens:AddGameScreenView x:Name="AddGameScreenView"
+                                   IsVisible="{Binding IsAddGameBackgroundVisible}"
+                                   Panel.ZIndex="{Binding AddGameScreenZIndex}" />
+
+        <screens:SettingsScreenView x:Name="SettingsScreenView"
+                                    IsVisible="{Binding IsSettingsBackgroundVisible}"
+                                    Panel.ZIndex="{Binding SettingsScreenZIndex}" />
+
+        <screens:ConnectorsScreenView x:Name="ConnectorsScreenView"
+                                      IsVisible="{Binding IsConnectorsBackgroundVisible}"
+                                      Panel.ZIndex="{Binding ConnectorsScreenZIndex}" />
+
+        <screens:MenuOverlayView x:Name="MenuOverlayView"
+                                 IsVisible="{Binding IsMenuOpen}"
+                                 Panel.ZIndex="{Binding MenuOverlayZIndex}" />
+
+        <components:SyncActivityIndicatorView />
+        <components:StatusMessageView />
+
+        <Border Panel.ZIndex="{Binding MenuOverlayZIndex}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="24"
+                Padding="10,6"
+                CornerRadius="5"
+                Background="#B0101720">
+            <TextBlock Text="{Binding KeyboardHelpText}"
+                       Foreground="#D5DEE5"
+                       FontSize="11" />
+        </Border>
+    </Grid>
+</Window>

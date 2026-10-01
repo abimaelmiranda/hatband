@@ -1,0 +1,188 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:lang="using:Hatband.App.Localization"
+             xmlns:models="using:Hatband.App.ViewModels"
+             xmlns:components="using:Hatband.App.Views.Components"
+             x:Class="Hatband.App.Views.Screens.LibraryScreenView"
+             x:DataType="vm:MainWindowViewModel">
+    <Grid RowDefinitions="Auto,*,Auto">
+            <Image Grid.RowSpan="3"
+                   Classes="background-art"
+                   Source="{Binding PreviousBackgroundImage}"
+                   Opacity="{Binding PreviousBackgroundImageOpacity}"
+                   Stretch="UniformToFill" />
+            <Image Grid.RowSpan="3"
+                   Classes="background-art"
+                   Source="{Binding BackgroundImage}"
+                   Opacity="{Binding BackgroundImageOpacity}"
+                   Stretch="UniformToFill" />
+            <Border Grid.RowSpan="3" Background="#24000000" />
+            <Border Grid.RowSpan="3">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#22000000" Offset="0" />
+                        <GradientStop Color="#10000000" Offset="0.42" />
+                        <GradientStop Color="#70000000" Offset="0.68" />
+                        <GradientStop Color="#ED0B0E12" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="54,34,54,0">
+                <Border Width="48"
+                        Height="48"
+                        CornerRadius="24"
+                        Background="#AA17212B"
+                        BorderBrush="#667B8792"
+                        BorderThickness="1">
+                    <Image Source="avares://Hatband.App/Assets/hatband-icon.png"
+                           Width="34"
+                           Height="34"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+                </Border>
+                <Button Grid.Column="2"
+                        Content="{x:Static lang:Resources.KeyboardMenuButton}"
+                        Click="OnMenuButtonClick"
+                        Background="#33111A22"
+                        Foreground="#E9EFF3"
+                        Padding="18,10"
+                        CornerRadius="16"
+                        BorderThickness="1"
+                        BorderBrush="#557B8792" />
+            </Grid>
+
+            <ListBox x:Name="GameCarousel"
+                     Grid.Row="2"
+                     Classes="game-carousel"
+                     ItemsSource="{Binding Games}"
+                     SelectedItem="{Binding SelectedGameCard, Mode=TwoWay}"
+                     SelectionMode="Single"
+                     HorizontalAlignment="Center"
+                     MaxWidth="1600"
+                     Height="280"
+                     Margin="0,0,0,60"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     IsTabStop="True">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="models:GameCardViewModel">
+                        <Border Width="{Binding CardWidth}"
+                                Height="{Binding CardHeight}"
+                                CornerRadius="9"
+                                BorderBrush="{Binding SelectionBrush}"
+                                BorderThickness="{Binding SelectionBorderThickness}"
+                                Padding="3">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Width" Duration="0:0:0.18" />
+                                    <DoubleTransition Property="Height" Duration="0:0:0.18" />
+                                </Transitions>
+                            </Border.Transitions>
+                            <components:GameArtworkView ShowTitle="True" />
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Grid Grid.Row="1"
+                  Grid.RowSpan="3"
+                  IsVisible="{Binding IsLibraryEmpty}"
+                  Margin="54,12,54,28">
+                <Border MaxWidth="1120"
+                        Width="780"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Padding="34"
+                        CornerRadius="18"
+                        Background="#E31A242E"
+                        BorderBrush="#52607A89"
+                        BorderThickness="1">
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="14">
+                            <Image Source="avares://Hatband.App/Assets/hatband-icon.png"
+                                   Width="48"
+                                   Height="48"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center" />
+                            <StackPanel VerticalAlignment="Center" Spacing="3">
+                                <TextBlock Text="{Binding LibraryEmptyBreadcrumb}"
+                                           Foreground="#AFC0CB"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           LetterSpacing="1" />
+                                <TextBlock Text="{Binding EmptyLibraryTitle}"
+                                           FontSize="26"
+                                           FontWeight="Bold" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock Text="{Binding EmptyLibraryMessage}"
+                                   Foreground="#BDCAD3"
+                                   FontSize="15"
+                                   MaxWidth="700"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,2,0,0">
+                            <Button x:Name="EmptyConnectButton"
+                                    Content="{x:Static lang:Resources.OpenConnectors}"
+                                    Classes="console-action"
+                                    IsVisible="{Binding HasEmptyLibraryActions}"
+                                    Click="OnEmptyPrimaryActionClick" />
+                            <Button x:Name="EmptyAddButton"
+                                    Content="{x:Static lang:Resources.AddManually}"
+                                    Classes="subtle-action"
+                                    IsVisible="{Binding HasEmptyLibraryActions}"
+                                    Click="OnEmptyAddGameClick" />
+                            <Button x:Name="EmptyShowAllButton"
+                                    Content="{x:Static lang:Resources.MenuShowAllGames}"
+                                    Classes="console-action"
+                                    IsVisible="{Binding IsShowingHiddenGames}"
+                                    Click="OnEmptyShowAllGamesClick" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  Grid.RowSpan="3"
+                  IsVisible="{Binding IsLibraryBusy}"
+                  Margin="54,12,54,28"
+                  IsHitTestVisible="False">
+                <Border Width="500"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Padding="34"
+                        CornerRadius="20"
+                        Background="#E31A242E"
+                        BorderBrush="#52607A89"
+                        BorderThickness="1">
+                    <StackPanel Spacing="13">
+                        <Image Source="avares://Hatband.App/Assets/hatband-icon.png"
+                               Width="68"
+                               Height="68"
+                               HorizontalAlignment="Center"
+                               Stretch="Uniform" />
+                        <TextBlock Text="{Binding LibraryBusyTitle}"
+                                   FontSize="25"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding LibraryBusyMessage}"
+                                   Foreground="#BDCAD3"
+                                   FontSize="14"
+                                   HorizontalAlignment="Center" />
+                        <ProgressBar IsIndeterminate="True"
+                                     Height="3"
+                                     Margin="24,4,24,0"
+                                     Background="#394650"
+                                     Foreground="#91C7F2" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+</UserControl>

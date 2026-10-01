@@ -1,0 +1,621 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="MenuLibrary" xml:space="preserve">
+    <value>Biblioteca</value>
+  </data>
+  <data name="MenuAddGame" xml:space="preserve">
+    <value>Adicionar jogo</value>
+  </data>
+  <data name="MenuConnectors" xml:space="preserve">
+    <value>Conectores</value>
+  </data>
+  <data name="MenuSettings" xml:space="preserve">
+    <value>Configurações</value>
+  </data>
+  <data name="MenuExit" xml:space="preserve">
+    <value>Sair</value>
+  </data>
+  <data name="MenuTitle" xml:space="preserve">
+    <value>Menu</value>
+  </data>
+  <data name="KeyboardMenuNavigate" xml:space="preserve">
+    <value>↑  ↓   NAVEGAR       ENTER   ABRIR       ESC   FECHAR</value>
+  </data>
+  <data name="KeyboardEditorHelp" xml:space="preserve">
+    <value>↑ ↓ NAVEGAR   ENTER / → ABRIR   ← VOLTAR   ESC FECHAR</value>
+  </data>
+  <data name="KeyboardArtworkHelp" xml:space="preserve">
+    <value>↑ ↓ ← → SELECIONAR   ENTER USAR   ESC VOLTAR</value>
+  </data>
+  <data name="KeyboardDetailsHelp" xml:space="preserve">
+    <value>↑ ↓ ← → NAVEGAR   ENTER ATIVAR   ESC VOLTAR</value>
+  </data>
+  <data name="LibraryHeader" xml:space="preserve">
+    <value>SUA BIBLIOTECA</value>
+  </data>
+  <data name="KeyboardMenuButton" xml:space="preserve">
+    <value>MENU</value>
+  </data>
+  <data name="KeyboardSelect" xml:space="preserve">
+    <value>←  →   SELECIONAR</value>
+  </data>
+  <data name="KeyboardDetails" xml:space="preserve">
+    <value>ENTER   DETALHES</value>
+  </data>
+  <data name="KeyboardMenu" xml:space="preserve">
+    <value>M   MENU</value>
+  </data>
+  <data name="LibraryBreadcrumb" xml:space="preserve">
+    <value>HATBAND  /  BIBLIOTECA</value>
+  </data>
+  <data name="OpenConnectors" xml:space="preserve">
+    <value>CONECTORES</value>
+  </data>
+  <data name="AddManually" xml:space="preserve">
+    <value>ADICIONAR MANUALMENTE</value>
+  </data>
+  <data name="EmptyTitle" xml:space="preserve">
+    <value>Sua biblioteca está vazia</value>
+  </data>
+  <data name="EmptyAfterSync" xml:space="preserve">
+    <value>Confira se os detalhes dos jogos estão visíveis nas configurações de privacidade da sua conta Steam.</value>
+  </data>
+  <data name="EmptyBeforeSync" xml:space="preserve">
+    <value>Conecte sua conta Steam para reunir seus jogos. Você também pode adicionar um jogo manualmente.</value>
+  </data>
+  <data name="LibraryBusySyncTitle" xml:space="preserve">
+    <value>Reunindo seus jogos</value>
+  </data>
+  <data name="LibraryBusyTitle" xml:space="preserve">
+    <value>Preparando sua biblioteca</value>
+  </data>
+  <data name="LibraryBusySyncMessage" xml:space="preserve">
+    <value>Buscando os jogos da sua conta Steam…</value>
+  </data>
+  <data name="LibraryBusyMessage" xml:space="preserve">
+    <value>Carregando sua coleção…</value>
+  </data>
+  <data name="ConnectorBreadcrumb" xml:space="preserve">
+    <value>HATBAND  /  CONECTORES</value>
+  </data>
+  <data name="ConnectorsFallback" xml:space="preserve">
+    <value>Conectores</value>
+  </data>
+  <data name="SelectConnectorPrompt" xml:space="preserve">
+    <value>Selecione um conector</value>
+  </data>
+  <data name="ConnectorDescription" xml:space="preserve">
+    <value>Conectar conta e sincronizar biblioteca</value>
+  </data>
+  <data name="ChooseConnectionMethod" xml:space="preserve">
+    <value>Escolha como deseja conectar sua conta.</value>
+  </data>
+  <data name="LoginWithQr" xml:space="preserve">
+    <value>Entrar com QR code</value>
+  </data>
+  <data name="SteamAppLogin" xml:space="preserve">
+    <value>Login seguro pelo aplicativo da Steam</value>
+  </data>
+  <data name="CancelConnection" xml:space="preserve">
+    <value>CANCELAR CONEXÃO</value>
+  </data>
+  <data name="Connected" xml:space="preserve">
+    <value>CONECTADO</value>
+  </data>
+  <data name="SyncLibrary" xml:space="preserve">
+    <value>SINCRONIZAR BIBLIOTECA</value>
+  </data>
+  <data name="DisconnectAccount" xml:space="preserve">
+    <value>DESCONECTAR CONTA</value>
+  </data>
+  <data name="KeyboardConnectorHelp" xml:space="preserve">
+    <value>↑ ↓ NAVEGAR   ENTER ABRIR / CONECTAR   ESC VOLTAR</value>
+  </data>
+  <data name="DetailsBreadcrumb" xml:space="preserve">
+    <value>HATBAND  /  DETALHES DO JOGO</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>VOLTAR</value>
+  </data>
+  <data name="GameOptionsTooltip" xml:space="preserve">
+    <value>Opções do jogo</value>
+  </data>
+  <data name="KeyboardGameDetails" xml:space="preserve">
+    <value>↑  ↓   NAVEGAR       ENTER   ATIVAR       ESC   VOLTAR       M   MENU</value>
+  </data>
+  <data name="GameOptions" xml:space="preserve">
+    <value>OPÇÕES DO JOGO</value>
+  </data>
+  <data name="EditGame" xml:space="preserve">
+    <value>Editar jogo</value>
+  </data>
+  <data name="EditGameTitle" xml:space="preserve">
+    <value>DETALHES DO JOGO</value>
+  </data>
+  <data name="GameDetailsSaved" xml:space="preserve">
+    <value>Detalhes do jogo salvos.</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Descrição</value>
+  </data>
+  <data name="Developer" xml:space="preserve">
+    <value>Desenvolvedor</value>
+  </data>
+  <data name="Publisher" xml:space="preserve">
+    <value>Publicadora</value>
+  </data>
+  <data name="Genre" xml:space="preserve">
+    <value>Gênero</value>
+  </data>
+  <data name="ReleaseDate" xml:space="preserve">
+    <value>Data de lançamento</value>
+  </data>
+  <data name="ReleaseDateFormat" xml:space="preserve">
+    <value>AAAA-MM-DD</value>
+  </data>
+  <data name="InvalidReleaseDate" xml:space="preserve">
+    <value>Informe uma data válida no formato AAAA-MM-DD.</value>
+  </data>
+  <data name="GameArtwork" xml:space="preserve">
+    <value>Imagens do jogo</value>
+  </data>
+  <data name="Cover" xml:space="preserve">
+    <value>Capa</value>
+  </data>
+  <data name="Background" xml:space="preserve">
+    <value>Plano de fundo</value>
+  </data>
+  <data name="Icon" xml:space="preserve">
+    <value>Ícone</value>
+  </data>
+  <data name="UseArtwork" xml:space="preserve">
+    <value>Usar imagem</value>
+  </data>
+  <data name="SearchArtwork" xml:space="preserve">
+    <value>Buscar imagens</value>
+  </data>
+  <data name="ArtworkPickerTitle" xml:space="preserve">
+    <value>Escolher imagem</value>
+  </data>
+  <data name="ArtworkPickerHint" xml:space="preserve">
+    <value>Selecione uma imagem para vê-la na proporção correta antes de aplicar ao jogo.</value>
+  </data>
+  <data name="Image" xml:space="preserve">
+    <value>Imagem</value>
+  </data>
+  <data name="LoadingArtworkSources" xml:space="preserve">
+    <value>Buscando imagens na loja do jogo…</value>
+  </data>
+  <data name="LoadingArtworkPreviews" xml:space="preserve">
+    <value>Carregando prévias das imagens…</value>
+  </data>
+  <data name="ArtworkPreviewUnavailable" xml:space="preserve">
+    <value>Prévia indisponível</value>
+  </data>
+  <data name="NoArtworkSourcesFound" xml:space="preserve">
+    <value>Nenhuma imagem encontrada. Busque o jogo na IGN para adicionar opções.</value>
+  </data>
+  <data name="NoUsableArtworkFound" xml:space="preserve">
+    <value>Não foi possível carregar nenhuma prévia. Tente novamente mais tarde ou busque alternativas na IGN.</value>
+  </data>
+  <data name="ArtworkSourcesError" xml:space="preserve">
+    <value>Não foi possível carregar as opções de imagem: {0}</value>
+  </data>
+  <data name="ArtworkDownloadFailed" xml:space="preserve">
+    <value>Não foi possível baixar a imagem selecionada.</value>
+  </data>
+  <data name="RestoreSource" xml:space="preserve">
+    <value>RESTAURAR</value>
+  </data>
+  <data name="SelectArtworkTitle" xml:space="preserve">
+    <value>Selecione uma imagem do jogo</value>
+  </data>
+  <data name="ImageFiles" xml:space="preserve">
+    <value>Arquivos de imagem</value>
+  </data>
+  <data name="SelectArtworkError" xml:space="preserve">
+    <value>Não foi possível selecionar a imagem: {0}</value>
+  </data>
+  <data name="Compatibility" xml:space="preserve">
+    <value>Compatibilidade</value>
+  </data>
+  <data name="ProtonOptionsPlaceholder" xml:space="preserve">
+    <value>As opções específicas, como a configuração do Proton, aparecerão aqui.</value>
+  </data>
+  <data name="KeyboardClose" xml:space="preserve">
+    <value>ESC  FECHAR</value>
+  </data>
+  <data name="AddGameTitle" xml:space="preserve">
+    <value>ADICIONAR JOGO</value>
+  </data>
+  <data name="AddGameSubtitle" xml:space="preserve">
+    <value>Sua próxima aventura começa aqui.</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Nome</value>
+  </data>
+  <data name="GameNamePlaceholder" xml:space="preserve">
+    <value>Nome do jogo</value>
+  </data>
+  <data name="ExecutableOrLauncher" xml:space="preserve">
+    <value>Executável ou inicializador</value>
+  </data>
+  <data name="OptionalPath" xml:space="preserve">
+    <value>Caminho opcional</value>
+  </data>
+  <data name="ChooseFile" xml:space="preserve">
+    <value>ESCOLHER ARQUIVO</value>
+  </data>
+  <data name="InstallFolder" xml:space="preserve">
+    <value>Pasta de instalação</value>
+  </data>
+  <data name="OptionalFolder" xml:space="preserve">
+    <value>Pasta opcional</value>
+  </data>
+  <data name="KeyboardAddGame" xml:space="preserve">
+    <value>TAB   PRÓXIMO       ENTER   ATIVAR</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>CANCELAR</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>SALVAR</value>
+  </data>
+  <data name="SettingsBreadcrumb" xml:space="preserve">
+    <value>HATBAND  /  PREFERÊNCIAS</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Configurações</value>
+  </data>
+  <data name="General" xml:space="preserve">
+    <value>Geral</value>
+  </data>
+  <data name="LanguageDateTimeDescription" xml:space="preserve">
+    <value>Idioma e apresentação de datas e horários</value>
+  </data>
+  <data name="InterfaceLanguage" xml:space="preserve">
+    <value>Idioma da interface</value>
+  </data>
+  <data name="LanguageRestartHint" xml:space="preserve">
+    <value>Aplicado ao reiniciar.</value>
+  </data>
+  <data name="TimeZone" xml:space="preserve">
+    <value>Fuso horário</value>
+  </data>
+  <data name="TimeZoneHint" xml:space="preserve">
+    <value>Os horários são armazenados em UTC e exibidos neste fuso.</value>
+  </data>
+  <data name="Appearance" xml:space="preserve">
+    <value>Aparência</value>
+  </data>
+  <data name="AppearanceDescription" xml:space="preserve">
+    <value>Temas, arte de fundo e apresentação da biblioteca</value>
+  </data>
+  <data name="Controls" xml:space="preserve">
+    <value>Controles</value>
+  </data>
+  <data name="ControlsDescription" xml:space="preserve">
+    <value>Atalhos de teclado e navegação</value>
+  </data>
+  <data name="Library" xml:space="preserve">
+    <value>Biblioteca</value>
+  </data>
+  <data name="LibrarySettingsDescription" xml:space="preserve">
+    <value>Ajustes de organização e apresentação dos jogos</value>
+  </data>
+  <data name="SettingsSectionComingSoon" xml:space="preserve">
+    <value>Mais opções aparecerão aqui conforme forem implementadas.</value>
+  </data>
+  <data name="AutoSaveSettings" xml:space="preserve">
+    <value>As alterações são salvas automaticamente.</value>
+  </data>
+  <data name="KeyboardBack" xml:space="preserve">
+    <value>ESC   VOLTAR</value>
+  </data>
+  <data name="KeyboardSettingsHelp" xml:space="preserve">
+    <value>↑  ↓  NAVEGAR       ENTER  ABRIR       ESC  VOLTAR</value>
+  </data>
+  <data name="NotConnected" xml:space="preserve">
+    <value>Não conectado</value>
+  </data>
+  <data name="Disconnected" xml:space="preserve">
+    <value>Desconectado</value>
+  </data>
+  <data name="ConnectedAs" xml:space="preserve">
+    <value>Conectado como {0}.</value>
+  </data>
+  <data name="SyncingAccount" xml:space="preserve">
+    <value>Sincronizando a biblioteca de {0}…</value>
+  </data>
+  <data name="ConnectBeforeSync" xml:space="preserve">
+    <value>Conecte sua conta Steam antes de sincronizar a biblioteca.</value>
+  </data>
+  <data name="SteamSyncError" xml:space="preserve">
+    <value>Não foi possível sincronizar a biblioteca Steam: {0}</value>
+  </data>
+  <data name="EnterGameName" xml:space="preserve">
+    <value>Informe o nome do jogo.</value>
+  </data>
+  <data name="GameAdded" xml:space="preserve">
+    <value>{0} foi adicionado à biblioteca.</value>
+  </data>
+  <data name="SaveGameError" xml:space="preserve">
+    <value>Não foi possível salvar o jogo: {0}</value>
+  </data>
+  <data name="ConnectingSteam" xml:space="preserve">
+    <value>Conectando à Steam…</value>
+  </data>
+  <data name="ScanQr" xml:space="preserve">
+    <value>Escaneie o QR code com o app Steam e confirme o acesso.</value>
+  </data>
+  <data name="ConnectedSyncing" xml:space="preserve">
+    <value>Conectado como {0}. Sincronizando biblioteca…</value>
+  </data>
+  <data name="ConnectionCancelled" xml:space="preserve">
+    <value>Conexão cancelada.</value>
+  </data>
+  <data name="SteamConnectFailure" xml:space="preserve">
+    <value>Não foi possível conectar à Steam: {0}</value>
+  </data>
+  <data name="SteamLoginFailure" xml:space="preserve">
+    <value>Falha ao conectar à Steam.</value>
+  </data>
+  <data name="SteamSyncAfterLoginFailure" xml:space="preserve">
+    <value>Conta conectada, mas a sincronização da biblioteca falhou.</value>
+  </data>
+  <data name="SyncCompleteEmpty" xml:space="preserve">
+    <value>Sincronização concluída: a Steam não retornou jogos. Confira a privacidade dos detalhes de jogos da conta.</value>
+  </data>
+  <data name="SyncCompleteCount" xml:space="preserve">
+    <value>Sincronização concluída: {0} jogos salvos.</value>
+  </data>
+  <data name="MetadataUpdated" xml:space="preserve">
+    <value>{0}: capas e metadados atualizados</value>
+  </data>
+  <data name="MetadataFailed" xml:space="preserve">
+    <value>{0}: {1} jogos não puderam ser atualizados</value>
+  </data>
+  <data name="MetadataPreparing" xml:space="preserve">
+    <value>{0}: preparando {1} jogos</value>
+  </data>
+  <data name="MetadataProgress" xml:space="preserve">
+    <value>{0}: {1}/{2} · {3}</value>
+  </data>
+  <data name="ArtworkPreparing" xml:space="preserve">
+    <value>{0}: preparando imagens de {1} jogos</value>
+  </data>
+  <data name="ArtworkProgress" xml:space="preserve">
+    <value>{0} imagens: {1}/{2} · {3}</value>
+  </data>
+  <data name="LoadSettingsError" xml:space="preserve">
+    <value>Não foi possível carregar as configurações: {0}</value>
+  </data>
+  <data name="LoadLibraryError" xml:space="preserve">
+    <value>Não foi possível carregar a biblioteca: {0}</value>
+  </data>
+  <data name="LibraryEnrichmentError" xml:space="preserve">
+    <value>Não foi possível atualizar as imagens e os metadados dos jogos: {0}</value>
+  </data>
+  <data name="SettingsSaved" xml:space="preserve">
+    <value>Preferências salvas.</value>
+  </data>
+  <data name="SaveSettingsError" xml:space="preserve">
+    <value>Não foi possível salvar as preferências: {0}</value>
+  </data>
+  <data name="Unavailable" xml:space="preserve">
+    <value>{0} (indisponível)</value>
+  </data>
+  <data name="SteamInstallNotImplemented" xml:space="preserve">
+    <value>A instalação de jogos pela Steam será integrada em uma próxima etapa.</value>
+  </data>
+  <data name="LaunchNotImplemented" xml:space="preserve">
+    <value>O lançamento de jogos será integrado em uma próxima etapa.</value>
+  </data>
+  <data name="SteamDisconnected" xml:space="preserve">
+    <value>Conta Steam desconectada.</value>
+  </data>
+  <data name="ConnectSteamSyncError" xml:space="preserve">
+    <value>Não foi possível conectar à Steam: {0}</value>
+  </data>
+  <data name="FilePickerError" xml:space="preserve">
+    <value>Não foi possível abrir o seletor de arquivos.</value>
+  </data>
+  <data name="SelectExecutableTitle" xml:space="preserve">
+    <value>Selecionar executável do jogo</value>
+  </data>
+  <data name="ChooseLocalFile" xml:space="preserve">
+    <value>Selecione um arquivo local.</value>
+  </data>
+  <data name="SelectExecutableError" xml:space="preserve">
+    <value>Não foi possível selecionar o executável: {0}</value>
+  </data>
+  <data name="UpdateGames" xml:space="preserve">
+    <value>Atualizando jogos…</value>
+  </data>
+  <data name="SteamSyncActivity" xml:space="preserve">
+    <value>Steam · sincronizando biblioteca…</value>
+  </data>
+  <data name="Brand" xml:space="preserve">
+    <value>HATBAND</value>
+  </data>
+  <data name="KeyboardChooseOpen" xml:space="preserve">
+    <value>←  →   ESCOLHER       ENTER   ABRIR       M   MENU</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>INSTALAR</value>
+  </data>
+  <data name="Play" xml:space="preserve">
+    <value>JOGAR</value>
+  </data>
+  <data name="MenuViewHiddenGames" xml:space="preserve">
+    <value>Ver jogos ocultos</value>
+  </data>
+  <data name="MenuShowAllGames" xml:space="preserve">
+    <value>Ver todos os jogos</value>
+  </data>
+  <data name="HiddenGamesHeader" xml:space="preserve">
+    <value>JOGOS OCULTOS</value>
+  </data>
+  <data name="HiddenGamesBreadcrumb" xml:space="preserve">
+    <value>HATBAND  /  JOGOS OCULTOS</value>
+  </data>
+  <data name="HiddenGamesEmptyTitle" xml:space="preserve">
+    <value>Nenhum jogo oculto</value>
+  </data>
+  <data name="HiddenGamesEmptyMessage" xml:space="preserve">
+    <value>Os jogos que você ocultar aparecerão aqui.</value>
+  </data>
+  <data name="HideGame" xml:space="preserve">
+    <value>Ocultar jogo</value>
+  </data>
+  <data name="UnhideGame" xml:space="preserve">
+    <value>Mostrar jogo</value>
+  </data>
+  <data name="GameHidden" xml:space="preserve">
+    <value>{0} foi ocultado.</value>
+  </data>
+  <data name="GameUnhidden" xml:space="preserve">
+    <value>{0} voltou a aparecer na biblioteca.</value>
+  </data>
+  <data name="UpdateGameVisibilityError" xml:space="preserve">
+    <value>Não foi possível alterar a visibilidade do jogo: {0}</value>
+  </data>
+  <data name="HltbDetailsTitle" xml:space="preserve">
+    <value>HOW LONG TO BEAT</value>
+  </data>
+  <data name="HltbMainStory" xml:space="preserve">
+    <value>História principal</value>
+  </data>
+  <data name="HltbMainStoryPlusExtras" xml:space="preserve">
+    <value>História + extras</value>
+  </data>
+  <data name="HltbCompletionist" xml:space="preserve">
+    <value>Complecionista</value>
+  </data>
+  <data name="HltbHours" xml:space="preserve">
+    <value>{0}h</value>
+  </data>
+  <data name="HltbHoursAndMinutes" xml:space="preserve">
+    <value>{0}h {1}min</value>
+  </data>
+  <data name="HltbSyncActivity" xml:space="preserve">
+    <value>HowLongToBeat · sincronizando estimativas…</value>
+  </data>
+  <data name="HltbSyncPreparing" xml:space="preserve">
+    <value>HowLongToBeat · preparando {0} jogos…</value>
+  </data>
+  <data name="HltbSyncProgress" xml:space="preserve">
+    <value>HowLongToBeat · {0}/{1} · {2}</value>
+  </data>
+  <data name="HltbSyncComplete" xml:space="preserve">
+    <value>HowLongToBeat · estimativas atualizadas</value>
+  </data>
+  <data name="HltbSyncFailed" xml:space="preserve">
+    <value>HowLongToBeat · {0} consultas falharam</value>
+  </data>
+  <data name="HltbSyncError" xml:space="preserve">
+    <value>Não foi possível atualizar as estimativas do HowLongToBeat: {0}</value>
+  </data>
+  <data name="RestoreStoreData" xml:space="preserve">
+    <value>Usar dados da loja</value>
+  </data>
+  <data name="ManualGame" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="InstalledStatus" xml:space="preserve">
+    <value>Instalado</value>
+  </data>
+  <data name="NotInstalledStatus" xml:space="preserve">
+    <value>Não instalado</value>
+  </data>
+  <data name="FavoriteStatus" xml:space="preserve">
+    <value>Favorito</value>
+  </data>
+  <data name="FavoriteLabel" xml:space="preserve">
+    <value>Favorito</value>
+  </data>
+  <data name="NotFavoriteStatus" xml:space="preserve">
+    <value>Não favorito</value>
+  </data>
+  <data name="PlaytimeLabel" xml:space="preserve">
+    <value>Tempo jogado</value>
+  </data>
+  <data name="LastActivityLabel" xml:space="preserve">
+    <value>Última vez jogado</value>
+  </data>
+  <data name="NotPlayedYet" xml:space="preserve">
+    <value>Ainda não jogado</value>
+  </data>
+  <data name="PlaytimeMinutes" xml:space="preserve">
+    <value>{0} min</value>
+  </data>
+  <data name="PlaytimeHours" xml:space="preserve">
+    <value>{0} h</value>
+  </data>
+  <data name="PlaytimeHoursMinutes" xml:space="preserve">
+    <value>{0} h {1} min</value>
+  </data>
+  <data name="GameInformation" xml:space="preserve">
+    <value>Informações do jogo</value>
+  </data>
+  <data name="LibraryActivity" xml:space="preserve">
+    <value>Atividade na biblioteca</value>
+  </data>
+  <data name="Installation" xml:space="preserve">
+    <value>Instalação</value>
+  </data>
+  <data name="Source" xml:space="preserve">
+    <value>Origem</value>
+  </data>
+  <data name="MetadataTab" xml:space="preserve">
+    <value>Detalhes</value>
+  </data>
+  <data name="ArtworkTab" xml:space="preserve">
+    <value>Imagens</value>
+  </data>
+  <data name="MetadataSourcesTab" xml:space="preserve">
+    <value>Fontes</value>
+  </data>
+  <data name="MetadataSourceSearch" xml:space="preserve">
+    <value>Buscar</value>
+  </data>
+  <data name="MetadataSourceCustomSearch" xml:space="preserve">
+    <value>Buscar outro termo</value>
+  </data>
+  <data name="MetadataSourceSearchPrompt" xml:space="preserve">
+    <value>Digite outro título para buscar nesta fonte.</value>
+  </data>
+  <data name="MetadataSourceSearching" xml:space="preserve">
+    <value>Buscando pelo título do jogo…</value>
+  </data>
+  <data name="MetadataSourceLoadDetails" xml:space="preserve">
+    <value>Carregar detalhes</value>
+  </data>
+  <data name="MetadataSourceApply" xml:space="preserve">
+    <value>Usar estes dados</value>
+  </data>
+  <data name="MetadataSourceNoResults" xml:space="preserve">
+    <value>Nenhum jogo correspondente foi encontrado.</value>
+  </data>
+  <data name="MetadataSourceApplied" xml:space="preserve">
+    <value>Dados copiados para os campos. Revise antes de salvar.</value>
+  </data>
+  <data name="MetadataLanguageMismatch" xml:space="preserve">
+    <value>Esta fonte retornou texto em outro idioma. Ao aplicar, os campos serão mantidos como substituições manuais.</value>
+  </data>
+  <data name="NoMetadataSourcesAvailable" xml:space="preserve">
+    <value>Nenhuma fonte de metadados pode buscar este jogo.</value>
+  </data>
+</root>

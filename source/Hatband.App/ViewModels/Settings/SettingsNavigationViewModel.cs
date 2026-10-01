@@ -1,0 +1,145 @@
+using System.Collections.ObjectModel;
+using Avalonia.Media;
+using CommunityToolkit.Mvvm.ComponentModel;
+using Hatband.App.Localization;
+
+namespace Hatband.App.ViewModels.Settings;
+
+public partial class SettingsNavigationViewModel : ObservableObject
+{
+    [ObservableProperty]
+    public partial ObservableCollection<SettingsSectionOptionViewModel> Sections { get; set; } = CreateSections();
+
+    [ObservableProperty]
+    public partial int SelectedSectionIndex { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsContentActive { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedFieldIndex { get; set; }
+
+    public bool IsGeneralSection => SelectedSection.Section == SettingsSection.General;
+
+    public bool IsSectionPlaceholderVisible => !IsGeneralSection;
+
+    public SettingsSectionOptionViewModel SelectedSection => Sections[SelectedSectionIndex];
+
+    public bool IsLanguageFieldSelected => IsContentActive && IsGeneralSection && SelectedFieldIndex == 0;
+
+    public bool IsTimeZoneFieldSelected => IsContentActive && IsGeneralSection && SelectedFieldIndex == 1;
+
+    public IBrush LanguageFieldBorderBrush => GetFieldBorderBrush(IsLanguageFieldSelected);
+
+    public IBrush TimeZoneFieldBorderBrush => GetFieldBorderBrush(IsTimeZoneFieldSelected);
+
+    public void MoveSectionSelection(int direction)
+    {
+        if (Sections.Count == 0 || direction == 0)
+        {
+            return;
+        }
+
+        SelectedSectionIndex = Math.Clamp(
+            SelectedSectionIndex + Math.Sign(direction),
+            0,
+            Sections.Count - 1);
+    }
+
+    public void ActivateSection()
+    {
+        IsContentActive = IsGeneralSection;
+        SelectedFieldIndex = 0;
+    }
+
+    public void DeactivateContent()
+    {
+        IsContentActive = false;
+    }
+
+    public void MoveFieldSelection(int direction)
+    {
+        if (!IsContentActive || !IsGeneralSection || direction == 0)
+        {
+            return;
+        }
+
+        SelectedFieldIndex = Math.Clamp(SelectedFieldIndex + Math.Sign(direction), 0, 1);
+    }
+
+    public void SelectField(int index)
+    {
+        if (index is < 0 or > 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        IsContentActive = true;
+        SelectedFieldIndex = index;
+    }
+
+    public void SelectSection(SettingsSectionOptionViewModel section)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+
+        var index = Sections.IndexOf(section);
+        if (index < 0)
+        {
+            throw new ArgumentException("The settings section does not belong to this navigation view model.", nameof(section));
+        }
+
+        IsContentActive = false;
+        SelectedSectionIndex = index;
+    }
+
+    partial void OnSelectedSectionIndexChanged(int value)
+    {
+        for (var index = 0; index < Sections.Count; index++)
+        {
+            Sections[index].IsSelected = index == value;
+        }
+
+        OnPropertyChanged(nameof(SelectedSection));
+        OnPropertyChanged(nameof(IsGeneralSection));
+        OnPropertyChanged(nameof(IsSectionPlaceholderVisible));
+        NotifyFieldSelectionChanged();
+    }
+
+    partial void OnIsContentActiveChanged(bool value)
+    {
+        NotifyFieldSelectionChanged();
+    }
+
+    partial void OnSelectedFieldIndexChanged(int value)
+    {
+        NotifyFieldSelectionChanged();
+    }
+
+    private void NotifyFieldSelectionChanged()
+    {
+        OnPropertyChanged(nameof(IsLanguageFieldSelected));
+        OnPropertyChanged(nameof(IsTimeZoneFieldSelected));
+        OnPropertyChanged(nameof(LanguageFieldBorderBrush));
+        OnPropertyChanged(nameof(TimeZoneFieldBorderBrush));
+    }
+
+    private static ObservableCollection<SettingsSectionOptionViewModel> CreateSections()
+    {
+        var sections = new ObservableCollection<SettingsSectionOptionViewModel>
+        {
+            new(SettingsSection.General, Resources.General, "◉"),
+            new(SettingsSection.Appearance, Resources.Appearance, "◐"),
+            new(SettingsSection.Controls, Resources.Controls, "⌘"),
+            new(SettingsSection.Library, Resources.Library, "▦")
+        };
+        sections[0].IsSelected = true;
+        return sections;
+    }
+
+    private static IBrush GetFieldBorderBrush(bool isSelected)
+    {
+        return isSelected
+            ? new SolidColorBrush(Color.Parse("#72D9FF"))
+            : Brushes.Transparent;
+    }
+}

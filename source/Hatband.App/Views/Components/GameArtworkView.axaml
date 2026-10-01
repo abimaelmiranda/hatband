@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             x:Class="Hatband.App.Views.Components.GameArtworkView"
+             x:Name="Root"
+             x:DataType="vm:GameCardViewModel">
+    <Border CornerRadius="9" ClipToBounds="True">
+        <Grid>
+            <Border Background="{Binding AccentBrush}" />
+            <Image Source="{Binding CoverImage}" Stretch="UniformToFill" />
+            <Border VerticalAlignment="Bottom" Padding="10,26,10,10">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#00101820" Offset="0" />
+                        <GradientStop Color="#E6101820" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <TextBlock Text="{Binding Name}"
+                           x:CompileBindings="False"
+                           IsVisible="{Binding ShowTitle, ElementName=Root}"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           MaxLines="2" />
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

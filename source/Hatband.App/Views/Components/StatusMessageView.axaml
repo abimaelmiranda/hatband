@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             x:Class="Hatband.App.Views.Components.StatusMessageView"
+             x:DataType="vm:MainWindowViewModel">
+    <Border IsVisible="{Binding HasStatusMessage}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Bottom"
+            Margin="24"
+            Padding="16,10"
+            CornerRadius="6"
+            Background="#E51A222A"
+            IsHitTestVisible="False">
+        <TextBlock Text="{Binding StatusMessage}" Foreground="#F4CE78" />
+    </Border>
+</UserControl>

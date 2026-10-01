@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:components="using:Hatband.App.Views.Components"
+             x:Class="Hatband.App.Views.Components.FullScreenNavigationLayout"
+             x:DataType="components:FullScreenNavigationLayout">
+    <Border Classes="full-screen-frame">
+        <Grid RowDefinitions="*,Auto" ColumnDefinitions="210,*">
+            <ContentControl Grid.Row="0"
+                            Content="{Binding NavigationContent, RelativeSource={RelativeSource AncestorType=components:FullScreenNavigationLayout}}"
+                            Margin="0,0,10,0" />
+            <Border Grid.Row="0" Grid.Column="1" Padding="24,16,0,0">
+                <ContentControl Content="{Binding MainContent, RelativeSource={RelativeSource AncestorType=components:FullScreenNavigationLayout}}" />
+            </Border>
+
+            <ContentControl Grid.Row="1"
+                            Grid.Column="1"
+                            Content="{Binding FooterContent, RelativeSource={RelativeSource AncestorType=components:FullScreenNavigationLayout}}"
+                            Margin="24,0,0,0" />
+        </Grid>
+    </Border>
+</UserControl>

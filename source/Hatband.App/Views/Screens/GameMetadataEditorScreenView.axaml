@@ -1,0 +1,386 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:core="using:Hatband.Core.Models"
+             xmlns:components="using:Hatband.App.Views.Components"
+             xmlns:lang="using:Hatband.App.Localization"
+             x:Class="Hatband.App.Views.Screens.GameMetadataEditorScreenView"
+             x:DataType="vm:MainWindowViewModel">
+    <UserControl.Resources>
+        <DataTemplate x:Key="CoverArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
+            <StackPanel Width="170" Spacing="8" Margin="6">
+                <Border Height="220" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}"
+                                   Foreground="#AFC0CC"
+                                   FontSize="12"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding IsPreviewUnavailable}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding DisplayName}"
+                           FontSize="13"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="BackgroundArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
+            <StackPanel Width="290" Spacing="8" Margin="6">
+                <Border Height="180" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}"
+                                   Foreground="#AFC0CC"
+                                   FontSize="12"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding IsPreviewUnavailable}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding DisplayName}"
+                           FontSize="13"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Grid Background="Transparent">
+    <components:FullScreenNavigationLayout>
+        <components:FullScreenNavigationLayout.NavigationContent>
+                    <StackPanel x:Name="EditorSectionList" Spacing="4">
+                        <components:ConsoleNavigationItemView x:Name="MetadataSectionItem"
+                                                              Symbol="▤"
+                                                              Title="{x:Static lang:Resources.MetadataTab}"
+                                                              Activated="OnMetadataSectionActivated" />
+                        <components:ConsoleNavigationItemView x:Name="ArtworkSectionItem"
+                                                              Symbol="▧"
+                                                              Title="{x:Static lang:Resources.ArtworkTab}"
+                                                              Activated="OnArtworkSectionActivated" />
+                        <components:ConsoleNavigationItemView x:Name="SourcesSectionItem"
+                                                              Symbol="↔"
+                                                              Title="{x:Static lang:Resources.MetadataSourcesTab}"
+                                                              Activated="OnSourcesSectionActivated" />
+                    </StackPanel>
+        </components:FullScreenNavigationLayout.NavigationContent>
+
+        <components:FullScreenNavigationLayout.MainContent>
+                        <Grid>
+                    <ScrollViewer x:Name="MetadataSectionContent"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="10" Margin="0,8,8,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{x:Static lang:Resources.Name}" Foreground="#D9E0E5" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Name" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreName}" />
+                        </Grid>
+                        <TextBox x:Name="NameBox" Text="{Binding GameMetadataEditor.Name}" />
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{x:Static lang:Resources.Description}" Foreground="#D9E0E5" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Description" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreDescription}" />
+                        </Grid>
+                        <TextBox Text="{Binding GameMetadataEditor.Description}"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 MinHeight="100"
+                                 MaxHeight="140"
+                                 VerticalContentAlignment="Top" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{x:Static lang:Resources.Developer}" Foreground="#D9E0E5" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Developer" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreDeveloper}" />
+                                </Grid>
+                                <TextBox Text="{Binding GameMetadataEditor.Developer}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{x:Static lang:Resources.Publisher}" Foreground="#D9E0E5" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Publisher" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestorePublisher}" />
+                                </Grid>
+                                <TextBox Text="{Binding GameMetadataEditor.Publisher}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{x:Static lang:Resources.Genre}" Foreground="#D9E0E5" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Genre" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreGenre}" />
+                                </Grid>
+                                <TextBox Text="{Binding GameMetadataEditor.Genre}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{x:Static lang:Resources.ReleaseDate}" Foreground="#D9E0E5" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="ReleaseDate" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreReleaseDate}" />
+                                </Grid>
+                                <TextBox Text="{Binding GameMetadataEditor.ReleaseDate}"
+                                         PlaceholderText="{x:Static lang:Resources.ReleaseDateFormat}" />
+                            </StackPanel>
+                        </Grid>
+
+                                <TextBlock Text="{Binding GameMetadataEditor.ErrorMessage}"
+                                           Foreground="#FF9A9A"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding GameMetadataEditor.HasError}" />
+                            </StackPanel>
+                        </ScrollViewer>
+
+                    <ScrollViewer x:Name="ArtworkSectionContent"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  IsVisible="False">
+                            <StackPanel Spacing="12" Margin="0,8,8,0">
+                        <TextBlock Text="{x:Static lang:Resources.GameArtwork}" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,0" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{x:Static lang:Resources.Cover}" Foreground="#D9E0E5" />
+                                <TextBlock Text="{Binding GameMetadataEditor.CoverArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button x:Name="SearchCoverArtworkButton"
+                                    Grid.Column="1"
+                                    Content="{x:Static lang:Resources.SearchArtwork}"
+                                    Classes="subtle-action"
+                                    Tag="Cover"
+                                    Click="OnSearchArtworkClick" />
+                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Cover" Click="OnRestoreArtworkClick" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{x:Static lang:Resources.Background}" Foreground="#D9E0E5" />
+                                <TextBlock Text="{Binding GameMetadataEditor.BackgroundArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button x:Name="SearchBackgroundArtworkButton"
+                                    Grid.Column="1"
+                                    Content="{x:Static lang:Resources.SearchArtwork}"
+                                    Classes="subtle-action"
+                                    Tag="Background"
+                                    Click="OnSearchArtworkClick" />
+                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Background" Click="OnRestoreArtworkClick" />
+                        </Grid>
+
+                            </StackPanel>
+                        </ScrollViewer>
+
+                    <ScrollViewer x:Name="SourcesSectionContent"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  IsVisible="False">
+                            <StackPanel Spacing="10" Margin="0,8,8,0">
+                        <TextBlock Text="{x:Static lang:Resources.MetadataSourcesTab}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold" />
+                        <ListBox x:Name="MetadataSourceList"
+                                 ItemsSource="{Binding GameMetadataEditor.MetadataSources}"
+                                 SelectedItem="{Binding GameMetadataEditor.SelectedMetadataSource}"
+                                 SelectionChanged="OnMetadataSourceSelectionChanged"
+                                 HorizontalAlignment="Stretch">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GameMetadataSourceViewModel">
+                                    <TextBlock Text="{Binding DisplayName}" Margin="12,6" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <StackPanel Spacing="10"
+                                    IsVisible="{Binding GameMetadataEditor.HasMetadataSources}">
+                            <StackPanel Spacing="10"
+                                        IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.IsCustomSearchOpen}">
+                                <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearchPrompt}"
+                                           Foreground="#AFC0CC"
+                                           TextWrapping="Wrap" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Text="{Binding GameMetadataEditor.SelectedMetadataSource.SearchQuery}"
+                                             PlaceholderText="{x:Static lang:Resources.Name}" />
+                                    <Button Grid.Column="1"
+                                            Content="{x:Static lang:Resources.MetadataSourceSearch}"
+                                            Classes="subtle-action"
+                                            Command="{Binding GameMetadataEditor.SelectedMetadataSource.SearchCommand}"
+                                            IsEnabled="{Binding GameMetadataEditor.SelectedMetadataSource.CanSearch}" />
+                                </Grid>
+                                <Button Content="{x:Static lang:Resources.Back}"
+                                        Classes="subtle-action"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding GameMetadataEditor.SelectedMetadataSource.CloseCustomSearchCommand}" />
+                            </StackPanel>
+                            <StackPanel Spacing="10"
+                                        IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.IsResultViewVisible}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedSearchResult.Name}"
+                                                   FontSize="22"
+                                                   FontWeight="SemiBold"
+                                                   IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.HasSearchResult}" />
+                                        <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearching}"
+                                                   Foreground="#AFC0CC"
+                                                   IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.IsSearching}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Content="{x:Static lang:Resources.MetadataSourceCustomSearch}"
+                                            Classes="subtle-action"
+                                            Command="{Binding GameMetadataEditor.SelectedMetadataSource.OpenCustomSearchCommand}" />
+                                </Grid>
+                                <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.StatusMessage}"
+                                           Foreground="#AFC0CC"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.HasStatusMessage}" />
+                                <Border Background="#302B22"
+                                        CornerRadius="8"
+                                        Padding="12"
+                                        IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.IsLanguageMismatch}">
+                                    <TextBlock Text="{x:Static lang:Resources.MetadataLanguageMismatch}"
+                                               Foreground="#F5D59A"
+                                               TextWrapping="Wrap" />
+                                </Border>
+                                <StackPanel Spacing="6"
+                                            IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.HasLookup}">
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Description}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Developer}" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Publisher}" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Genre}" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.ReleaseDate}" />
+                                </StackPanel>
+                                <Button Content="{x:Static lang:Resources.MetadataSourceApply}"
+                                        Classes="subtle-action"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding GameMetadataEditor.SelectedMetadataSource.ApplyCommand}"
+                                        IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.HasLookup}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock Text="{x:Static lang:Resources.NoMetadataSourcesAvailable}"
+                                   Foreground="#AFC0CC"
+                                   IsVisible="{Binding GameMetadataEditor.HasNoMetadataSources}" />
+
+                            </StackPanel>
+                        </ScrollViewer>
+                        </Grid>
+        </components:FullScreenNavigationLayout.MainContent>
+
+        <components:FullScreenNavigationLayout.FooterContent>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                    <Button Content="{x:Static lang:Resources.Cancel}"
+                            Classes="subtle-action standard-action"
+                            Click="OnCancelClick" />
+                    <Button Content="{x:Static lang:Resources.Save}"
+                            Classes="console-action standard-action"
+                            Command="{Binding GameMetadataEditor.SaveCommand}"
+                            IsDefault="True" />
+        </StackPanel>
+        </components:FullScreenNavigationLayout.FooterContent>
+    </components:FullScreenNavigationLayout>
+
+        <Border x:Name="ArtworkPickerOverlay"
+                Background="Transparent"
+                IsVisible="{Binding GameMetadataEditor.ArtworkPicker.IsArtworkPickerOpen}">
+            <Border Width="760"
+                    Height="760"
+                    MaxWidth="780"
+                    MaxHeight="780"
+                    Padding="26"
+                    CornerRadius="14"
+                    Background="#202932"
+                    BorderBrush="#46535D"
+                    BorderThickness="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{x:Static lang:Resources.ArtworkPickerTitle}"
+                                       FontSize="24"
+                                       FontWeight="Bold" />
+                            <TextBlock Text="{Binding GameMetadataEditor.ArtworkPicker.ActiveArtworkTitle}"
+                                       Foreground="#AFC0CC"
+                                       FontSize="16" />
+                            <TextBlock Text="{x:Static lang:Resources.ArtworkPickerHint}"
+                                       Foreground="#8496A2"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="✕"
+                                FocusAdorner="{x:Null}"
+                                Classes="subtle-action"
+                                Click="OnCloseArtworkPickerClick" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding GameMetadataEditor.ArtworkPicker.ArtworkSourcesStatus}"
+                               Foreground="#AFC0CC"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding GameMetadataEditor.ArtworkPicker.HasArtworkSourcesStatus}" />
+
+                    <Grid Grid.Row="2">
+                        <ListBox x:Name="CoverArtworkList"
+                                 Height="470"
+                                 ItemsSource="{Binding GameMetadataEditor.ArtworkPicker.ActiveArtworkOptions}"
+                                 SelectedItem="{Binding GameMetadataEditor.ArtworkPicker.SelectedActiveArtworkOption}"
+                                 ItemTemplate="{StaticResource CoverArtworkPreviewTemplate}"
+                                 GotFocus="OnArtworkOptionGotFocus"
+                                 IsVisible="{Binding GameMetadataEditor.ArtworkPicker.IsCoverPickerActive}"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="#35434E" />
+                                    <Setter Property="BorderBrush" Value="#64D7F5" />
+                                    <Setter Property="BorderThickness" Value="2" />
+                                    <Setter Property="Padding" Value="4" />
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+
+                        <ListBox x:Name="BackgroundArtworkList"
+                                 Height="470"
+                                 ItemsSource="{Binding GameMetadataEditor.ArtworkPicker.ActiveArtworkOptions}"
+                                 SelectedItem="{Binding GameMetadataEditor.ArtworkPicker.SelectedActiveArtworkOption}"
+                                 ItemTemplate="{StaticResource BackgroundArtworkPreviewTemplate}"
+                                 GotFocus="OnArtworkOptionGotFocus"
+                                 IsVisible="{Binding GameMetadataEditor.ArtworkPicker.IsBackgroundPickerActive}"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="#35434E" />
+                                    <Setter Property="BorderBrush" Value="#64D7F5" />
+                                    <Setter Property="BorderThickness" Value="2" />
+                                    <Setter Property="Padding" Value="4" />
+                                </Style>
+                            </ListBox.Styles>
+                        </ListBox>
+                    </Grid>
+
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                        <Button Content="{x:Static lang:Resources.Cancel}"
+                                FocusAdorner="{x:Null}"
+                                Classes="subtle-action standard-action"
+                                Click="OnCloseArtworkPickerClick" />
+                        <Button Content="{x:Static lang:Resources.UseArtwork}"
+                                FocusAdorner="{x:Null}"
+                                Classes="console-action standard-action"
+                                IsEnabled="{Binding GameMetadataEditor.ArtworkPicker.CanApplyActiveArtwork}"
+                                Click="OnUseSelectedArtworkClick" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>
