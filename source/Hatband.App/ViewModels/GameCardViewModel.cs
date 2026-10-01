@@ -1,8 +1,9 @@
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Hatband.App.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Hatband.App.Localization;
+using Hatband.App.Services;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models;
 
@@ -12,7 +13,7 @@ public partial class GameCardViewModel : ObservableObject
 {
     private readonly string? coverSource;
     private readonly string? backgroundSource;
-    private TimeZoneInfo displayTimeZone;
+    private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
 
     [ObservableProperty]
     public partial Bitmap? CoverImage { get; set; }
@@ -25,10 +26,10 @@ public partial class GameCardViewModel : ObservableObject
 
     public GameCardViewModel(
         Game game,
-        string timeZoneId)
+        DateTimeDisplayFormatter dateTimeDisplayFormatter)
     {
         Game = game;
-        displayTimeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        this.dateTimeDisplayFormatter = dateTimeDisplayFormatter;
         coverSource = game.Metadata.Artwork.CoverImagePath;
         backgroundSource = game.Metadata.Artwork.BackgroundImagePath;
         AccentBrush = new SolidColorBrush(Color.Parse("#11161C"));
@@ -112,7 +113,7 @@ public partial class GameCardViewModel : ObservableObject
                 return Resources.NotPlayedYet;
             }
 
-            return FormatDateInDisplayTimeZone(lastActivity);
+            return dateTimeDisplayFormatter.FormatUtcDate(lastActivity);
         }
     }
 
@@ -176,9 +177,8 @@ public partial class GameCardViewModel : ObservableObject
         BackgroundImage = await loader.LoadAsync(BackgroundSource);
     }
 
-    public void UpdateTimeZone(string timeZoneId)
+    public void RefreshTimeZoneDisplay()
     {
-        displayTimeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
         OnPropertyChanged(nameof(LastActivitySummary));
     }
 
@@ -196,12 +196,5 @@ public partial class GameCardViewModel : ObservableObject
             ? string.Format(System.Globalization.CultureInfo.CurrentCulture, Resources.HltbHours, totalHours)
             : string.Format(System.Globalization.CultureInfo.CurrentCulture, Resources.HltbHoursAndMinutes, totalHours, minutes);
         estimates.Add($"{label}: {formattedDuration}");
-    }
-
-    private string FormatDateInDisplayTimeZone(DateTime dateTime)
-    {
-        var utcDateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
-        var localDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, displayTimeZone);
-        return localDateTime.ToString("d", System.Globalization.CultureInfo.CurrentCulture);
     }
 }

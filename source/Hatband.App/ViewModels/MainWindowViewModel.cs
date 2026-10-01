@@ -24,6 +24,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IGameTimeToBeatSyncService gameTimeToBeatSyncService;
     private readonly ISettingsStore settingsStore;
     private readonly ArtworkImageLoader artworkImageLoader;
+    private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
     private readonly SteamConnectorLoginViewModel steamConnectorLogin;
     private readonly LibrarySyncProgressViewModel librarySyncProgress;
     private List<GameCardViewModel> allGames = [];
@@ -132,6 +133,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IGameTimeToBeatSyncService gameTimeToBeatSyncService,
         ISettingsStore settingsStore,
         ArtworkImageLoader artworkImageLoader,
+        DateTimeDisplayFormatter dateTimeDisplayFormatter,
         IEnumerable<IQrCodeLoginProvider> qrLoginProviders,
         IEnumerable<IGameStoreIntegration> storeIntegrations,
         IGameLibrarySyncService gameLibrarySyncService,
@@ -158,6 +160,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         };
         this.settingsStore = settingsStore;
+        this.dateTimeDisplayFormatter = dateTimeDisplayFormatter;
         SettingsNavigation.PropertyChanged += OnSettingsNavigationPropertyChanged;
         this.gameLibrarySyncService = gameLibrarySyncService;
         this.gameTimeToBeatSyncService = gameTimeToBeatSyncService;
@@ -515,10 +518,11 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        dateTimeDisplayFormatter.SetTimeZone(value.Value);
         Settings.General.TimeZoneId = value.Value;
         foreach (var game in allGames)
         {
-            game.UpdateTimeZone(Settings.General.TimeZoneId);
+            game.RefreshTimeZoneDisplay();
         }
 
         _ = SaveSettingsAsync();
@@ -661,7 +665,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
-            Settings = await settingsStore.LoadAsync(cancellationToken);
+            var loadedSettings = await settingsStore.LoadAsync(cancellationToken);
+            dateTimeDisplayFormatter.SetTimeZone(loadedSettings.General.TimeZoneId);
+            Settings = loadedSettings;
         }
         catch (Exception exception)
         {
@@ -671,7 +677,7 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             var savedGames = await gameLibraryService.GetGamesAsync(cancellationToken);
-            SetGames(savedGames.Select(game => new GameCardViewModel(game, Settings.General.TimeZoneId)));
+            SetGames(savedGames.Select(game => new GameCardViewModel(game, dateTimeDisplayFormatter)));
 
             await Task.WhenAll(allGames.Select(game => game.LoadCoverAsync(artworkImageLoader)));
         }
@@ -1243,7 +1249,7 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             var savedGames = await gameLibraryService.GetGamesAsync();
-            SetGames(savedGames.Select(savedGame => new GameCardViewModel(savedGame, Settings.General.TimeZoneId)));
+            SetGames(savedGames.Select(savedGame => new GameCardViewModel(savedGame, dateTimeDisplayFormatter)));
             SelectedGameCard = Games.FirstOrDefault(item => item.Game.Id == game.Id);
             await Task.WhenAll(allGames.Select(item => item.LoadCoverAsync(artworkImageLoader)));
             ClearNewGameForm();
@@ -1338,7 +1344,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var previousCard = allGames[allGamesIndex];
         var wasSelected = ReferenceEquals(SelectedGameCard, previousCard);
         game.IsHidden = previousCard.Game.IsHidden;
-        var card = new GameCardViewModel(game, Settings.General.TimeZoneId)
+        var card = new GameCardViewModel(game, dateTimeDisplayFormatter)
         {
             IsSelected = wasSelected
         };

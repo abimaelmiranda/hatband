@@ -36,6 +36,7 @@ public partial class App : Application
                 .AddProvider(new FileLoggerProvider(Path.Combine(dataDirectory, "hatband.log"))));
             services.AddHatbandInfrastructure($"Data Source={databasePath}", dataDirectory);
             services.AddSingleton(new ArtworkImageLoader(dataDirectory));
+            services.AddSingleton<DateTimeDisplayFormatter>();
             services.AddSingleton<MainWindowViewModel>();
 
             var serviceProvider = services.BuildServiceProvider();
