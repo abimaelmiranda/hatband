@@ -5,7 +5,9 @@ namespace Hatband.Core.Abstractions;
 
 public interface IGameManagementService
 {
-    Task<GameManagementResult> InstallAsync(Game game, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default);
+
+    Task<GameManagementResult> InstallAsync(Game game, GameInstallLocation? location = null, CancellationToken cancellationToken = default);
 
     Task<GameManagementResult> UninstallAsync(Game game, CancellationToken cancellationToken = default);
 

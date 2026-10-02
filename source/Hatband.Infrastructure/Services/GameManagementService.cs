@@ -15,9 +15,24 @@ public sealed class GameManagementService : IGameManagementService
         providersBySource = providers.ToDictionary(provider => provider.SourceId);
     }
 
-    public Task<GameManagementResult> InstallAsync(Game game, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default)
     {
-        return ExecuteAsync(game, provider => provider.InstallAsync(game, cancellationToken));
+        ArgumentNullException.ThrowIfNull(game);
+
+        if (game.SourceId is not GameSourceId sourceId || !providersBySource.TryGetValue(sourceId, out var provider))
+        {
+            return Task.FromResult<IReadOnlyList<GameInstallLocation>>([]);
+        }
+
+        return provider.GetInstallLocationsAsync(game, cancellationToken);
+    }
+
+    public Task<GameManagementResult> InstallAsync(
+        Game game,
+        GameInstallLocation? location = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteAsync(game, provider => provider.InstallAsync(game, location, cancellationToken));
     }
 
     public Task<GameManagementResult> UninstallAsync(Game game, CancellationToken cancellationToken = default)

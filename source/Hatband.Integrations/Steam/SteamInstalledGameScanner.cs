@@ -22,13 +22,19 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
         return Task.Run(() => ScanInstalledGames(cancellationToken), cancellationToken);
     }
 
+    public Task<IReadOnlyList<SteamLibraryLocation>> GetLibraryLocationsAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => FindLibraryLocations(cancellationToken, primarySteamRootOnly: true), cancellationToken);
+    }
+
     private IReadOnlyList<SteamLibraryGame> ScanInstalledGames(CancellationToken cancellationToken)
     {
         var gamesByAppId = new Dictionary<uint, SteamLibraryGame>();
 
-        foreach (var libraryPath in FindLibraryPaths(FindSteamRoots(), hostSystemInfo.Platform == HostOperatingSystem.Windows))
+        foreach (var library in FindLibraryLocations(cancellationToken, primarySteamRootOnly: false))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var libraryPath = library.Path;
             var steamAppsPath = Path.Combine(libraryPath, "steamapps");
             if (!Directory.Exists(steamAppsPath))
             {
@@ -137,40 +143,75 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
         return DistinctExistingDirectories(paths, hostSystemInfo.Platform == HostOperatingSystem.Windows);
     }
 
-    private static IReadOnlyList<string> FindLibraryPaths(IEnumerable<string> steamRoots, bool isWindows)
+    private IReadOnlyList<SteamLibraryLocation> FindLibraryLocations(
+        CancellationToken cancellationToken,
+        bool primarySteamRootOnly)
     {
-        var paths = new List<string>();
-        foreach (var steamRoot in steamRoots)
+        var locations = new List<SteamLibraryLocation>();
+        var isWindows = hostSystemInfo.Platform == HostOperatingSystem.Windows;
+        var seenPaths = new HashSet<string>(isWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        foreach (var steamRoot in FindSteamRoots())
         {
-            paths.Add(steamRoot);
+            cancellationToken.ThrowIfCancellationRequested();
+            var rootLocations = new Dictionary<int, string>();
             var libraryFolders = Path.Combine(steamRoot, "steamapps", "libraryfolders.vdf");
             if (!File.Exists(libraryFolders))
             {
-                continue;
+                rootLocations.TryAdd(0, steamRoot);
             }
-
-            try
+            else
             {
-                using var stream = File.OpenRead(libraryFolders);
-                var root = new KeyValue();
-                root.ReadAsText(stream);
-                var folders = FindChild(root, "libraryfolders") ?? root;
-                foreach (var folder in folders.Children)
+                try
                 {
-                    var path = GetValue(folder, "path") ?? folder.Value;
-                    if (!string.IsNullOrWhiteSpace(path))
+                    using var stream = File.OpenRead(libraryFolders);
+                    var root = new KeyValue();
+                    root.ReadAsText(stream);
+                    var folders = FindChild(root, "libraryfolders") ?? root;
+                    foreach (var folder in folders.Children)
                     {
-                        paths.Add(path);
+                        if (!int.TryParse(folder.Name, out var volumeIndex))
+                        {
+                            continue;
+                        }
+
+                        var path = GetValue(folder, "path") ?? folder.Value;
+                        if (!string.IsNullOrWhiteSpace(path))
+                        {
+                            rootLocations.TryAdd(volumeIndex, path);
+                        }
                     }
                 }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or FormatException)
+                {
+                    // Use the default library if the additional-library index is malformed.
+                }
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or FormatException)
+
+            if (rootLocations.Count == 0)
             {
-                // Keep the default library even if the additional-library index is malformed.
+                rootLocations.TryAdd(0, steamRoot);
+            }
+
+            foreach (var (volumeIndex, path) in rootLocations.OrderBy(location => location.Key))
+            {
+                var fullPath = Path.GetFullPath(path);
+                if (Directory.Exists(fullPath) && seenPaths.Add(fullPath))
+                {
+                    locations.Add(new SteamLibraryLocation
+                    {
+                        VolumeIndex = volumeIndex,
+                        Path = fullPath
+                    });
+                }
+            }
+
+            if (primarySteamRootOnly && locations.Count > 0)
+            {
+                break;
             }
         }
 
-        return DistinctExistingDirectories(paths, isWindows);
+        return locations;
     }
 
     private static IReadOnlyList<string> DistinctExistingDirectories(IEnumerable<string> paths, bool isWindows)

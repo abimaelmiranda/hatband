@@ -11,4 +11,6 @@ public sealed class HatbandSettings
     public int Version { get; set; } = CurrentVersion;
 
     public GeneralSettings General { get; set; } = new();
+
+    public SteamSettings Steam { get; set; } = new();
 }

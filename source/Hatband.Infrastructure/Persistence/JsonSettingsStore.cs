@@ -47,6 +47,11 @@ public sealed class JsonSettingsStore : ISettingsStore
                 throw new JsonException("The General settings section cannot be null.");
             }
 
+            if (settings.Steam is null)
+            {
+                throw new JsonException("The Steam settings section cannot be null.");
+            }
+
             return settings;
         }
         finally
