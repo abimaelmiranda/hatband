@@ -1,5 +1,7 @@
 using Hatband.Core.Abstractions;
+using Hatband.Infrastructure.Host;
 using Hatband.Infrastructure.Persistence;
+using Hatband.Infrastructure.Services;
 using Hatband.Integrations;
 using Hatband.Integrations.Steam;
 using Hatband.Integrations.Steam.Abstractions;
@@ -37,6 +39,8 @@ public static class InfrastructureServiceCollectionExtensions
             new FileSystemGameArtworkStorage(appDataFileSystem));
         services.AddSingleton<ISettingsStore>(
             new JsonSettingsStore(appDataFileSystem));
+        services.AddSingleton<IGameManagementService, GameManagementService>();
+        services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
         services.AddSingleton<IGameTimeToBeatSyncService, GameTimeToBeatSyncService>();
@@ -66,6 +70,11 @@ public static class InfrastructureServiceCollectionExtensions
             .FromAssemblyOf<IntegrationAssemblyMarker>()
             .AddClasses(classes => classes.AssignableTo<IGameArtworkSearchProvider>())
             .As<IGameArtworkSearchProvider>()
+            .WithSingletonLifetime());
+        services.Scan(scan => scan
+            .FromAssemblyOf<IntegrationAssemblyMarker>()
+            .AddClasses(classes => classes.AssignableTo<IGameManagementProvider>())
+            .As<IGameManagementProvider>()
             .WithSingletonLifetime());
 
         return services;
