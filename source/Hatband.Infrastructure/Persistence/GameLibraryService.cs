@@ -154,4 +154,36 @@ public sealed class GameLibraryService : IGameLibraryService
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task RefreshInstallationStatesAsync(
+        GameSourceId sourceId,
+        IReadOnlyList<GameInstallationInfo> installedGames,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(installedGames);
+        var installedGamesBySourceId = installedGames.ToDictionary(
+            game => game.SourceGameId,
+            StringComparer.Ordinal);
+
+        await using var context = new HatbandDbContext(options);
+        var games = await context.Games
+            .Where(game => game.SourceId == sourceId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var game in games)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (game.SourceGameId is not null && installedGamesBySourceId.TryGetValue(game.SourceGameId, out var installation))
+            {
+                game.IsInstalled = true;
+                game.InstallDirectory = installation.InstallDirectory;
+                continue;
+            }
+
+            game.IsInstalled = false;
+            game.InstallDirectory = null;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
 }

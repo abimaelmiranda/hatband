@@ -19,6 +19,11 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
 
     public Task<IReadOnlyList<SteamLibraryGame>> ScanAsync(CancellationToken cancellationToken = default)
     {
+        return Task.Run(() => ScanInstalledGames(cancellationToken), cancellationToken);
+    }
+
+    private IReadOnlyList<SteamLibraryGame> ScanInstalledGames(CancellationToken cancellationToken)
+    {
         var gamesByAppId = new Dictionary<uint, SteamLibraryGame>();
 
         foreach (var libraryPath in FindLibraryPaths(FindSteamRoots(), hostSystemInfo.Platform == HostOperatingSystem.Windows))
@@ -48,10 +53,9 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
             }
         }
 
-        IReadOnlyList<SteamLibraryGame> result = gamesByAppId.Values
+        return gamesByAppId.Values
             .OrderBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
-        return Task.FromResult(result);
     }
 
     private static SteamLibraryGame? ReadInstalledGame(string manifestPath)

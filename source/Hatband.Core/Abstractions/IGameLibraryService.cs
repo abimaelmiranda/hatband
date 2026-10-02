@@ -35,4 +35,9 @@ public interface IGameLibraryService
         GameSourceId sourceId,
         IReadOnlyList<Game> importedGames,
         CancellationToken cancellationToken = default);
+
+    Task RefreshInstallationStatesAsync(
+        GameSourceId sourceId,
+        IReadOnlyList<GameInstallationInfo> installedGames,
+        CancellationToken cancellationToken = default);
 }

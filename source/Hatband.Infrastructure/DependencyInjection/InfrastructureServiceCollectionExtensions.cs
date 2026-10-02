@@ -40,6 +40,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISettingsStore>(
             new JsonSettingsStore(appDataFileSystem));
         services.AddSingleton<IGameManagementService, GameManagementService>();
+        services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
@@ -75,6 +76,11 @@ public static class InfrastructureServiceCollectionExtensions
             .FromAssemblyOf<IntegrationAssemblyMarker>()
             .AddClasses(classes => classes.AssignableTo<IGameManagementProvider>())
             .As<IGameManagementProvider>()
+            .WithSingletonLifetime());
+        services.Scan(scan => scan
+            .FromAssemblyOf<IntegrationAssemblyMarker>()
+            .AddClasses(classes => classes.AssignableTo<IGameInstallationProvider>())
+            .As<IGameInstallationProvider>()
             .WithSingletonLifetime());
 
         return services;
