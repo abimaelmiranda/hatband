@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
@@ -15,6 +16,7 @@ using Hatband.Core.Enums;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models;
 using Hatband.Core.Models.Settings;
+using Microsoft.Extensions.Logging;
 
 namespace Hatband.App.ViewModels;
 
@@ -28,6 +30,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly IGameManagementService gameManagementService;
     private readonly GameProcessSessionService gameProcessSessionService;
+    private readonly ILogger<MainWindowViewModel> logger;
     private readonly ArtworkImageLoader artworkImageLoader;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
     private readonly SteamConnectorLoginViewModel steamConnectorLogin;
@@ -36,10 +39,11 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly Stack<HatbandScreen> navigationHistory = new();
     private readonly Dictionary<Guid, bool> pendingInstallationStates = [];
     private readonly SemaphoreSlim installationStateRefreshGate = new(1, 1);
-    private readonly HashSet<Guid> activeMonitoredGames = [];
+    private readonly Dictionary<Guid, GameCardViewModel> activeMonitoredGames = [];
     private CancellationTokenSource? installationPollingCancellation;
     private Task? installationPollingTask;
     private bool returnToMenuOnBack;
+    private Guid? activeGameSessionId;
 
     [ObservableProperty]
     public partial ObservableCollection<GameCardViewModel> Games { get; set; } = [];
@@ -127,6 +131,15 @@ public partial class MainWindowViewModel : ViewModelBase
     public partial bool IsShowingHiddenGames { get; set; }
 
     [ObservableProperty]
+    public partial bool IsGameSessionActive { get; set; }
+
+    [ObservableProperty]
+    public partial string? ActiveGameSessionName { get; set; }
+
+    [ObservableProperty]
+    public partial Bitmap? ActiveGameSessionBackgroundImage { get; set; }
+
+    [ObservableProperty]
     public partial string? StatusMessage { get; set; }
 
     [ObservableProperty]
@@ -153,12 +166,14 @@ public partial class MainWindowViewModel : ViewModelBase
         IHostSystemInfo hostSystemInfo,
         IGameManagementService gameManagementService,
         GameProcessSessionService gameProcessSessionService,
-        IGameInstallationStateSyncService gameInstallationStateSyncService)
+        IGameInstallationStateSyncService gameInstallationStateSyncService,
+        ILogger<MainWindowViewModel> logger)
     {
         this.gameLibraryService = gameLibraryService;
         this.hostSystemInfo = hostSystemInfo;
         this.gameManagementService = gameManagementService;
         this.gameProcessSessionService = gameProcessSessionService;
+        this.logger = logger;
         this.gameInstallationStateSyncService = gameInstallationStateSyncService;
         AddGame = new AddGameViewModel(gameLibraryService);
         AddGame.PropertyChanged += OnAddGamePropertyChanged;
@@ -1011,18 +1026,49 @@ public partial class MainWindowViewModel : ViewModelBase
         gameProcessSessionService.Watch(
             gameCard.Game.Id,
             target,
-            monitorEvent => ApplyGameProcessMonitorEvent(gameCard.Game.Id, monitorEvent));
+            monitorEvent => ApplyGameProcessMonitorEvent(gameCard, monitorEvent));
+        _ = LoadGameSessionBackgroundAsync(gameCard);
     }
 
-    private void ApplyGameProcessMonitorEvent(Guid gameId, GameProcessMonitorEvent monitorEvent)
+    private async Task LoadGameSessionBackgroundAsync(GameCardViewModel gameCard)
     {
+        try
+        {
+            var image = gameCard.BackgroundImage ?? await artworkImageLoader.LoadAsync(gameCard.BackgroundSource);
+            if (image is null)
+            {
+                return;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                gameCard.BackgroundImage = image;
+                if (activeGameSessionId == gameCard.Game.Id)
+                {
+                    ActiveGameSessionBackgroundImage = image;
+                }
+            });
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Could not load the game session background for game {GameId}.", gameCard.Game.Id);
+        }
+    }
+
+    private void ApplyGameProcessMonitorEvent(GameCardViewModel gameCard, GameProcessMonitorEvent monitorEvent)
+    {
+        var gameId = gameCard.Game.Id;
         switch (monitorEvent)
         {
             case GameProcessMonitorEvent.Started:
                 var wasAnyGameActive = activeMonitoredGames.Count > 0;
-                activeMonitoredGames.Add(gameId);
+                activeMonitoredGames.TryAdd(gameId, gameCard);
                 if (!wasAnyGameActive)
                 {
+                    activeGameSessionId = gameId;
+                    ActiveGameSessionName = gameCard.Name;
+                    ActiveGameSessionBackgroundImage = gameCard.BackgroundImage;
+                    IsGameSessionActive = true;
                     GameSessionStarted?.Invoke(this, EventArgs.Empty);
                 }
 
@@ -1031,7 +1077,18 @@ public partial class MainWindowViewModel : ViewModelBase
             case GameProcessMonitorEvent.Failed:
                 if (activeMonitoredGames.Remove(gameId) && activeMonitoredGames.Count == 0)
                 {
+                    ActiveGameSessionName = null;
+                    ActiveGameSessionBackgroundImage = null;
+                    activeGameSessionId = null;
+                    IsGameSessionActive = false;
                     GameSessionEnded?.Invoke(this, EventArgs.Empty);
+                }
+                else if (activeMonitoredGames.Count > 0)
+                {
+                    var activeGame = activeMonitoredGames.Values.First();
+                    activeGameSessionId = activeGame.Game.Id;
+                    ActiveGameSessionName = activeGame.Name;
+                    ActiveGameSessionBackgroundImage = activeGame.BackgroundImage;
                 }
 
                 break;

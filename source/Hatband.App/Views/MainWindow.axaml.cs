@@ -97,6 +97,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (viewModel.IsGameSessionActive)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
             if (viewModel.IsGameEditorScreen && viewModel.GameMetadataEditor.IsArtworkPickerOpen)

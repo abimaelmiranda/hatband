@@ -657,4 +657,7 @@
   <data name="NoMetadataSourcesAvailable" xml:space="preserve">
     <value>Nenhuma fonte de metadados pode buscar este jogo.</value>
   </data>
+  <data name="GameSessionOverlayTitle" xml:space="preserve">
+    <value>Jogo em execução</value>
+  </data>
 </root>

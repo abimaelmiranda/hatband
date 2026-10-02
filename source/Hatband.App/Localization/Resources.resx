@@ -657,4 +657,7 @@
   <data name="NoMetadataSourcesAvailable" xml:space="preserve">
     <value>No metadata sources can search this game.</value>
   </data>
+  <data name="GameSessionOverlayTitle" xml:space="preserve">
+    <value>Game in progress</value>
+  </data>
 </root>

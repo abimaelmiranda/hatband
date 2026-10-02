@@ -181,6 +181,7 @@
 
         <components:SyncActivityIndicatorView />
         <components:StatusMessageView />
+        <components:GameSessionOverlayView />
 
         <Border Panel.ZIndex="{Binding MenuOverlayZIndex}"
                 HorizontalAlignment="Left"
