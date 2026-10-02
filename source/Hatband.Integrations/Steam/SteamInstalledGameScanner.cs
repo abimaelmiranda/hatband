@@ -1,3 +1,5 @@
+using Hatband.Core.Abstractions;
+using Hatband.Core.Enums;
 using Hatband.Integrations.Steam.Abstractions;
 using Hatband.Integrations.Steam.Models;
 using Microsoft.Win32;
@@ -7,11 +9,19 @@ namespace Hatband.Integrations.Steam;
 
 public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
 {
+    private readonly IHostSystemInfo hostSystemInfo;
+
+    public SteamInstalledGameScanner(IHostSystemInfo hostSystemInfo)
+    {
+        ArgumentNullException.ThrowIfNull(hostSystemInfo);
+        this.hostSystemInfo = hostSystemInfo;
+    }
+
     public Task<IReadOnlyList<SteamLibraryGame>> ScanAsync(CancellationToken cancellationToken = default)
     {
         var gamesByAppId = new Dictionary<uint, SteamLibraryGame>();
 
-        foreach (var libraryPath in FindLibraryPaths(FindSteamRoots()))
+        foreach (var libraryPath in FindLibraryPaths(FindSteamRoots(), hostSystemInfo.Platform == HostOperatingSystem.Windows))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var steamAppsPath = Path.Combine(libraryPath, "steamapps");
@@ -85,7 +95,7 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
         };
     }
 
-    private static IReadOnlyList<string> FindSteamRoots()
+    private IReadOnlyList<string> FindSteamRoots()
     {
         var paths = new List<string>();
         var compatPath = Environment.GetEnvironmentVariable("STEAM_COMPAT_CLIENT_INSTALL_PATH");
@@ -94,10 +104,10 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
             paths.Add(compatPath);
         }
 
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var home = hostSystemInfo.UserProfileDirectory;
         if (!string.IsNullOrWhiteSpace(home))
         {
-            if (OperatingSystem.IsMacOS())
+            if (hostSystemInfo.Platform == HostOperatingSystem.MacOS)
             {
                 paths.Add(Path.Combine(home, "Library", "Application Support", "Steam"));
             }
@@ -110,7 +120,7 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
             }
         }
 
-        if (OperatingSystem.IsWindows())
+        if (hostSystemInfo.Platform == HostOperatingSystem.Windows && OperatingSystem.IsWindows())
         {
             using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
             var registryPath = steamKey?.GetValue("SteamPath") as string;
@@ -120,10 +130,10 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
             }
         }
 
-        return DistinctExistingDirectories(paths);
+        return DistinctExistingDirectories(paths, hostSystemInfo.Platform == HostOperatingSystem.Windows);
     }
 
-    private static IReadOnlyList<string> FindLibraryPaths(IEnumerable<string> steamRoots)
+    private static IReadOnlyList<string> FindLibraryPaths(IEnumerable<string> steamRoots, bool isWindows)
     {
         var paths = new List<string>();
         foreach (var steamRoot in steamRoots)
@@ -156,15 +166,15 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
             }
         }
 
-        return DistinctExistingDirectories(paths);
+        return DistinctExistingDirectories(paths, isWindows);
     }
 
-    private static IReadOnlyList<string> DistinctExistingDirectories(IEnumerable<string> paths)
+    private static IReadOnlyList<string> DistinctExistingDirectories(IEnumerable<string> paths, bool isWindows)
     {
         return paths
             .Where(Directory.Exists)
             .Select(Path.GetFullPath)
-            .Distinct(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)
+            .Distinct(isWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)
             .ToArray();
     }
 

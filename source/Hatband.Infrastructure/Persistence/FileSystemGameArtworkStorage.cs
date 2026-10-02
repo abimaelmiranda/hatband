@@ -12,12 +12,12 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
         Timeout = TimeSpan.FromSeconds(30)
     };
 
-    private readonly string dataDirectory;
+    private readonly IAppDataFileSystem appDataFileSystem;
 
-    public FileSystemGameArtworkStorage(string dataDirectory)
+    public FileSystemGameArtworkStorage(IAppDataFileSystem appDataFileSystem)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(dataDirectory);
-        this.dataDirectory = Path.GetFullPath(dataDirectory);
+        ArgumentNullException.ThrowIfNull(appDataFileSystem);
+        this.appDataFileSystem = appDataFileSystem;
     }
 
     public bool IsAvailable(string? path)
@@ -27,10 +27,9 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
             return false;
         }
 
-        var fullPath = Path.IsPathRooted(path)
-            ? path
-            : Path.Combine(dataDirectory, path.Replace('/', Path.DirectorySeparatorChar));
-        return File.Exists(fullPath);
+        return Path.IsPathRooted(path)
+            ? File.Exists(path)
+            : appDataFileSystem.FileExists(path);
     }
 
     public async Task<GameArtwork> StoreAsync(
@@ -95,13 +94,12 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
 
         var assetName = GetAssetName(slot);
         var relativeDirectory = Path.Combine("artwork", gameId.ToString());
-        var fullDirectory = Path.Combine(dataDirectory, relativeDirectory);
-        Directory.CreateDirectory(fullDirectory);
+        appDataFileSystem.CreateDirectory(relativeDirectory);
 
         var fileName = $"custom-{assetName}-{Guid.NewGuid():N}{extension}";
         var relativePath = Path.Combine(relativeDirectory, fileName)
             .Replace(Path.DirectorySeparatorChar, '/');
-        var fullPath = Path.Combine(fullDirectory, fileName);
+        var fullPath = appDataFileSystem.GetPath(relativePath);
         var temporaryPath = fullPath + ".import";
 
         try
@@ -162,8 +160,7 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
             }
 
             var relativeDirectory = Path.Combine("artwork", gameId.ToString());
-            var fullDirectory = Path.Combine(dataDirectory, relativeDirectory);
-            Directory.CreateDirectory(fullDirectory);
+            appDataFileSystem.CreateDirectory(relativeDirectory);
 
             var normalizedExtension = extension.ToLowerInvariant();
             var sourceName = Path.GetFileNameWithoutExtension(sourceUri.AbsolutePath);
@@ -172,7 +169,7 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
                 : assetName + normalizedExtension;
             var relativePath = Path.Combine(relativeDirectory, fileName)
                 .Replace(Path.DirectorySeparatorChar, '/');
-            var fullPath = Path.Combine(fullDirectory, fileName);
+            var fullPath = appDataFileSystem.GetPath(relativePath);
             if (string.Equals(
                     existingPath?.Replace('\\', '/'),
                     relativePath,

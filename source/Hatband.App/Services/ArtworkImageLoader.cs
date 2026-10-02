@@ -1,5 +1,6 @@
 using Avalonia.Media.Imaging;
 using System.Net.Http;
+using Hatband.Core.Abstractions;
 
 namespace Hatband.App.Services;
 
@@ -10,12 +11,12 @@ public sealed class ArtworkImageLoader
         Timeout = TimeSpan.FromSeconds(20)
     };
 
-    private readonly string dataDirectory;
+    private readonly IAppDataFileSystem appDataFileSystem;
 
-    public ArtworkImageLoader(string dataDirectory)
+    public ArtworkImageLoader(IAppDataFileSystem appDataFileSystem)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(dataDirectory);
-        this.dataDirectory = Path.GetFullPath(dataDirectory);
+        ArgumentNullException.ThrowIfNull(appDataFileSystem);
+        this.appDataFileSystem = appDataFileSystem;
     }
 
     public async Task<Bitmap?> LoadAsync(string? source)
@@ -27,15 +28,14 @@ public sealed class ArtworkImageLoader
 
         try
         {
-            var filePath = Path.IsPathRooted(source)
-                ? source
-                : Path.Combine(dataDirectory, source.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(filePath))
+            if (!Path.IsPathRooted(source) && !appDataFileSystem.FileExists(source))
             {
                 return null;
             }
 
-            var imageBytes = await File.ReadAllBytesAsync(filePath);
+            var imageBytes = Path.IsPathRooted(source)
+                ? await File.ReadAllBytesAsync(source)
+                : await appDataFileSystem.ReadAllBytesAsync(source);
             if (imageBytes is not { Length: > 0 })
             {
                 return null;

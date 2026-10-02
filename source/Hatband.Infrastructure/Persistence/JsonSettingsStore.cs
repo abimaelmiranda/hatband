@@ -8,13 +8,15 @@ namespace Hatband.Infrastructure.Persistence;
 public sealed class JsonSettingsStore : ISettingsStore
 {
     private readonly string settingsFilePath;
+    private readonly IAppDataFileSystem appDataFileSystem;
     private readonly SemaphoreSlim fileLock = new(1, 1);
 
-    public JsonSettingsStore(string settingsFilePath)
+    public JsonSettingsStore(IAppDataFileSystem appDataFileSystem)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(settingsFilePath);
+        ArgumentNullException.ThrowIfNull(appDataFileSystem);
 
-        this.settingsFilePath = settingsFilePath;
+        this.appDataFileSystem = appDataFileSystem;
+        settingsFilePath = "config.json";
     }
 
     public async Task<HatbandSettings> LoadAsync(CancellationToken cancellationToken = default)
@@ -23,18 +25,17 @@ public sealed class JsonSettingsStore : ISettingsStore
 
         try
         {
-            if (!File.Exists(settingsFilePath))
+            if (!appDataFileSystem.FileExists(settingsFilePath))
             {
                 var defaultSettings = new HatbandSettings();
                 await SaveFileAsync(defaultSettings, cancellationToken);
                 return defaultSettings;
             }
 
-            await using var settingsFile = File.OpenRead(settingsFilePath);
-            var settings = await JsonSerializer.DeserializeAsync(
-                settingsFile,
-                HatbandJsonSerializerContext.Default.HatbandSettings,
-                cancellationToken);
+            var fileContents = await appDataFileSystem.ReadAllBytesAsync(settingsFilePath, cancellationToken);
+            var settings = JsonSerializer.Deserialize(
+                fileContents,
+                HatbandJsonSerializerContext.Default.HatbandSettings);
 
             if (settings is null)
             {
@@ -76,42 +77,15 @@ public sealed class JsonSettingsStore : ISettingsStore
         HatbandSettings settings,
         CancellationToken cancellationToken)
     {
-        var settingsDirectory = Path.GetDirectoryName(settingsFilePath);
-        if (string.IsNullOrWhiteSpace(settingsDirectory))
-        {
-            throw new InvalidOperationException("The settings file path must include a directory.");
-        }
-
-        Directory.CreateDirectory(settingsDirectory);
-
-        var temporaryFilePath = $"{settingsFilePath}.{Guid.NewGuid():N}.tmp";
-
-        try
-        {
-            await using (var temporaryFile = new FileStream(
-                temporaryFilePath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize: 4096,
-                useAsync: true))
-            {
-                await JsonSerializer.SerializeAsync(
-                    temporaryFile,
-                    settings,
-                    HatbandJsonSerializerContext.Default.HatbandSettings,
-                    cancellationToken);
-                await temporaryFile.FlushAsync(cancellationToken);
-            }
-
-            File.Move(temporaryFilePath, settingsFilePath, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporaryFilePath))
-            {
-                File.Delete(temporaryFilePath);
-            }
-        }
+        using var contents = new MemoryStream();
+        await JsonSerializer.SerializeAsync(
+            contents,
+            settings,
+            HatbandJsonSerializerContext.Default.HatbandSettings,
+            cancellationToken);
+        await appDataFileSystem.WriteAllBytesAtomicallyAsync(
+            settingsFilePath,
+            contents.ToArray(),
+            cancellationToken);
     }
 }

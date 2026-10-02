@@ -8,6 +8,7 @@ using Hatband.App.Views;
 using Hatband.Core.Abstractions;
 using Hatband.Infrastructure.DependencyInjection;
 using Hatband.Infrastructure.Persistence;
+using Hatband.Infrastructure.Host;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -24,18 +25,17 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var dataDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Hatband");
-            Directory.CreateDirectory(dataDirectory);
-
-            var databasePath = Path.Combine(dataDirectory, "hatband.db");
+            var hostSystemInfo = new HostSystemInfo();
+            var appDataFileSystem = new AppDataFileSystem(hostSystemInfo);
+            var databasePath = appDataFileSystem.GetPath("hatband.db");
             var services = new ServiceCollection();
+            services.AddSingleton<IHostSystemInfo>(hostSystemInfo);
+            services.AddSingleton<IAppDataFileSystem>(appDataFileSystem);
             services.AddLogging(logging => logging
                 .SetMinimumLevel(LogLevel.Information)
-                .AddProvider(new FileLoggerProvider(Path.Combine(dataDirectory, "hatband.log"))));
-            services.AddHatbandInfrastructure($"Data Source={databasePath}", dataDirectory);
-            services.AddSingleton(new ArtworkImageLoader(dataDirectory));
+                .AddProvider(new FileLoggerProvider(appDataFileSystem.GetPath("hatband.log"))));
+            services.AddHatbandInfrastructure($"Data Source={databasePath}", appDataFileSystem);
+            services.AddSingleton<ArtworkImageLoader>();
             services.AddSingleton<DateTimeDisplayFormatter>();
             services.AddSingleton<MainWindowViewModel>();
 

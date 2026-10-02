@@ -15,11 +15,11 @@ public static class InfrastructureServiceCollectionExtensions
     public static IServiceCollection AddHatbandInfrastructure(
         this IServiceCollection services,
         string connectionString,
-        string dataDirectory)
+        IAppDataFileSystem appDataFileSystem)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
-        ArgumentException.ThrowIfNullOrWhiteSpace(dataDirectory);
+        ArgumentNullException.ThrowIfNull(appDataFileSystem);
 
         services.AddLogging();
 
@@ -34,9 +34,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IGameLibraryService>(provider =>
             provider.GetRequiredService<GameLibraryService>());
         services.AddSingleton<IGameArtworkStorage>(
-            new FileSystemGameArtworkStorage(dataDirectory));
+            new FileSystemGameArtworkStorage(appDataFileSystem));
         services.AddSingleton<ISettingsStore>(
-            new JsonSettingsStore(Path.Combine(dataDirectory, "config.json")));
+            new JsonSettingsStore(appDataFileSystem));
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
         services.AddSingleton<IGameTimeToBeatSyncService, GameTimeToBeatSyncService>();
