@@ -417,11 +417,29 @@
   <data name="Unavailable" xml:space="preserve">
     <value>{0} (unavailable)</value>
   </data>
-  <data name="SteamInstallNotImplemented" xml:space="preserve">
-    <value>Steam game installation will be available in a future update.</value>
+  <data name="SteamInstallRequested" xml:space="preserve">
+    <value>Installation was sent to Steam. Choose a drive in the Steam window.</value>
   </data>
-  <data name="LaunchNotImplemented" xml:space="preserve">
-    <value>Launching games will be available in a future update.</value>
+  <data name="SteamUninstallRequested" xml:space="preserve">
+    <value>Uninstallation was sent to Steam.</value>
+  </data>
+  <data name="GameLaunchRequested" xml:space="preserve">
+    <value>The launch request was sent to Steam.</value>
+  </data>
+  <data name="StoreClientOpened" xml:space="preserve">
+    <value>Steam was opened. Complete the action in its client.</value>
+  </data>
+  <data name="GameManagementUnavailable" xml:space="preserve">
+    <value>Could not open Steam or send the request.</value>
+  </data>
+  <data name="GameManagementUnsupported" xml:space="preserve">
+    <value>This store does not support game management yet.</value>
+  </data>
+  <data name="GameManagementError" xml:space="preserve">
+    <value>Could not manage the game: {0}</value>
+  </data>
+  <data name="GameInstallationRefreshError" xml:space="preserve">
+    <value>Could not refresh local game installation states: {0}</value>
   </data>
   <data name="SteamDisconnected" xml:space="preserve">
     <value>Steam account disconnected.</value>
@@ -479,6 +497,9 @@
   </data>
   <data name="HideGame" xml:space="preserve">
     <value>Hide game</value>
+  </data>
+  <data name="UninstallGame" xml:space="preserve">
+    <value>Uninstall game</value>
   </data>
   <data name="UnhideGame" xml:space="preserve">
     <value>Unhide game</value>

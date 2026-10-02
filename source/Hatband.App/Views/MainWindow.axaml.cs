@@ -21,6 +21,8 @@ public partial class MainWindow : Window
         GameDetailsScreenView.EditRequested += FocusGameEditor;
         ConnectorsScreenView.ConnectorOpened += OnConnectorOpened;
         AddHandler(InputElement.KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
+        Activated += OnWindowActivated;
+        Closed += OnWindowClosed;
     }
 
     private async void OnWindowOpened(object? sender, EventArgs e)
@@ -40,7 +42,23 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    private async void OnWindowActivated(object? sender, EventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.RefreshPendingInstallationStatesAsync();
+        }
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.StopPendingInstallationPolling();
+        }
+    }
+
+    private async void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainWindowViewModel viewModel)
         {
@@ -403,7 +421,7 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    viewModel.ActivatePrimaryGameAction();
+                    await viewModel.ActivatePrimaryGameActionAsync();
                 }
 
                 e.Handled = true;

@@ -248,6 +248,12 @@
                                                                   Symbol="◉"
                                                                   Title="{Binding SelectedGameHiddenActionLabel}"
                                                                   Activated="OnHiddenGameOptionActivated" />
+                            <components:ConsoleNavigationItemView x:Name="UninstallGameOptionItem"
+                                                                  TitleFontSize="13"
+                                                                  Symbol="⌫"
+                                                                  Title="{x:Static lang:Resources.UninstallGame}"
+                                                                  IsVisible="{Binding CanUninstallSelectedGame}"
+                                                                  Activated="OnUninstallGameOptionActivated" />
                             <components:ConsoleNavigationItemView x:Name="CompatibilityOptionItem"
                                                                   TitleFontSize="13"
                                                                   Symbol="⚙"

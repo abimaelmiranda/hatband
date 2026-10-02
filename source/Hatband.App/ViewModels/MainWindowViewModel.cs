@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Hatband.Core.Enums;
 using Hatband.Core.Enums.Stores;
 using Hatband.App.Services;
 using Hatband.Core.Abstractions.Authentication;
@@ -22,14 +23,20 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IGameLibraryService gameLibraryService;
     private readonly IGameLibrarySyncService gameLibrarySyncService;
     private readonly IGameTimeToBeatSyncService gameTimeToBeatSyncService;
+    private readonly IGameInstallationStateSyncService gameInstallationStateSyncService;
     private readonly ISettingsStore settingsStore;
     private readonly IHostSystemInfo hostSystemInfo;
+    private readonly IGameManagementService gameManagementService;
     private readonly ArtworkImageLoader artworkImageLoader;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
     private readonly SteamConnectorLoginViewModel steamConnectorLogin;
     private readonly LibrarySyncProgressViewModel librarySyncProgress;
     private List<GameCardViewModel> allGames = [];
     private readonly Stack<HatbandScreen> navigationHistory = new();
+    private readonly Dictionary<Guid, bool> pendingInstallationStates = [];
+    private readonly SemaphoreSlim installationStateRefreshGate = new(1, 1);
+    private CancellationTokenSource? installationPollingCancellation;
+    private Task? installationPollingTask;
     private bool returnToMenuOnBack;
 
     [ObservableProperty]
@@ -141,10 +148,14 @@ public partial class MainWindowViewModel : ViewModelBase
         IGameArtworkStorage artworkStorage,
         IEnumerable<IGameMetadataSearchProvider> metadataSearchProviders,
         IEnumerable<IGameArtworkSearchProvider> artworkSearchProviders,
-        IHostSystemInfo hostSystemInfo)
+        IHostSystemInfo hostSystemInfo,
+        IGameManagementService gameManagementService,
+        IGameInstallationStateSyncService gameInstallationStateSyncService)
     {
         this.gameLibraryService = gameLibraryService;
         this.hostSystemInfo = hostSystemInfo;
+        this.gameManagementService = gameManagementService;
+        this.gameInstallationStateSyncService = gameInstallationStateSyncService;
         AddGame = new AddGameViewModel(gameLibraryService);
         AddGame.PropertyChanged += OnAddGamePropertyChanged;
         AddGame.CreationCompleted += OnAddGameCreationCompleted;
@@ -365,6 +376,12 @@ public partial class MainWindowViewModel : ViewModelBase
     };
 
     public string PrimaryGameActionLabel => IsPrimaryGameActionInstall ? Resources.Install : Resources.Play;
+
+    public bool CanUninstallSelectedGame => SelectedGameCard?.Game is
+    {
+        SourceId: GameSourceId.Steam,
+        IsInstalled: true
+    };
 
     public bool IsPrimaryGameActionEnabled => SelectedGameCard?.IsCompatibleWithHost ?? true;
 
@@ -630,6 +647,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsPrimaryGameActionInstall));
         OnPropertyChanged(nameof(PrimaryGameActionLabel));
         OnPropertyChanged(nameof(IsPrimaryGameActionEnabled));
+        OnPropertyChanged(nameof(CanUninstallSelectedGame));
         OnPropertyChanged(nameof(SelectedGameHiddenActionLabel));
 
         foreach (var game in allGames)
@@ -682,6 +700,22 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
+            try
+            {
+                await gameInstallationStateSyncService.RefreshAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                StatusMessage = string.Format(
+                    CultureInfo.CurrentCulture,
+                    Resources.GameInstallationRefreshError,
+                    exception.Message);
+            }
+
             var savedGames = await gameLibraryService.GetGamesAsync(cancellationToken);
             SetGames(savedGames.Select(game => new GameCardViewModel(game, dateTimeDisplayFormatter, hostSystemInfo)));
 
@@ -918,11 +952,176 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public event EventHandler? ReturnToLibraryRequested;
 
-    public void ActivatePrimaryGameAction()
+    public async Task ActivatePrimaryGameActionAsync(CancellationToken cancellationToken = default)
     {
-        StatusMessage = IsPrimaryGameActionInstall
-            ? Resources.SteamInstallNotImplemented
-            : Resources.LaunchNotImplemented;
+        if (SelectedGameCard is null)
+        {
+            return;
+        }
+
+        var game = SelectedGameCard.Game;
+        var isInstall = IsPrimaryGameActionInstall;
+        try
+        {
+            var result = isInstall
+                ? await gameManagementService.InstallAsync(game, cancellationToken)
+                : await gameManagementService.LaunchAsync(game, cancellationToken);
+            var action = isInstall ? GameManagementAction.Install : GameManagementAction.Launch;
+            StatusMessage = GetGameManagementStatus(result, action);
+            if (isInstall && result is (GameManagementResult.ProtocolOpened or GameManagementResult.StoreClientOpened))
+            {
+                StartInstallationStatePolling(game.Id, isInstalled: true);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameManagementError, exception.Message);
+        }
+    }
+
+    public async Task UninstallSelectedGameAsync(CancellationToken cancellationToken = default)
+    {
+        if (SelectedGameCard is null || !CanUninstallSelectedGame)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await gameManagementService.UninstallAsync(SelectedGameCard.Game, cancellationToken);
+            StatusMessage = GetGameManagementStatus(result, GameManagementAction.Uninstall);
+            if (result is GameManagementResult.ProtocolOpened or GameManagementResult.StoreClientOpened)
+            {
+                StartInstallationStatePolling(SelectedGameCard.Game.Id, isInstalled: false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameManagementError, exception.Message);
+        }
+    }
+
+    public async Task RefreshPendingInstallationStatesAsync(CancellationToken cancellationToken = default)
+    {
+        if (pendingInstallationStates.Count == 0)
+        {
+            return;
+        }
+
+        await installationStateRefreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (pendingInstallationStates.Count == 0)
+            {
+                return;
+            }
+
+            await gameInstallationStateSyncService.RefreshAsync(cancellationToken);
+            var refreshedGames = await gameLibraryService.GetGamesAsync(cancellationToken);
+            var gamesById = refreshedGames.ToDictionary(game => game.Id);
+            foreach (var gameCard in allGames.ToArray())
+            {
+                if (gamesById.TryGetValue(gameCard.Game.Id, out var refreshedGame) &&
+                    (gameCard.Game.IsInstalled != refreshedGame.IsInstalled ||
+                     gameCard.Game.InstallDirectory != refreshedGame.InstallDirectory))
+                {
+                    UpdateGameCard(refreshedGame);
+                }
+            }
+
+            foreach (var (gameId, isInstalled) in pendingInstallationStates.ToArray())
+            {
+                if (gamesById.TryGetValue(gameId, out var refreshedGame) && refreshedGame.IsInstalled == isInstalled)
+                {
+                    pendingInstallationStates.Remove(gameId);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(
+                CultureInfo.CurrentCulture,
+                Resources.GameInstallationRefreshError,
+                exception.Message);
+        }
+        finally
+        {
+            installationStateRefreshGate.Release();
+        }
+    }
+
+    public void StopPendingInstallationPolling()
+    {
+        installationPollingCancellation?.Cancel();
+    }
+
+    private void StartInstallationStatePolling(Guid gameId, bool isInstalled)
+    {
+        pendingInstallationStates[gameId] = isInstalled;
+        if (installationPollingTask is { IsCompleted: false })
+        {
+            return;
+        }
+
+        installationPollingCancellation?.Dispose();
+        installationPollingCancellation = new CancellationTokenSource();
+        installationPollingTask = PollInstallationStatesAsync(installationPollingCancellation.Token);
+    }
+
+    private async Task PollInstallationStatesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (pendingInstallationStates.Count > 0)
+            {
+                await RefreshPendingInstallationStatesAsync(cancellationToken);
+                if (pendingInstallationStates.Count == 0)
+                {
+                    break;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            installationPollingCancellation?.Dispose();
+            installationPollingCancellation = null;
+            installationPollingTask = null;
+        }
+    }
+
+    private static string GetGameManagementStatus(GameManagementResult result, GameManagementAction action)
+    {
+        return result switch
+        {
+            GameManagementResult.ProtocolOpened => action switch
+            {
+                GameManagementAction.Install => Resources.SteamInstallRequested,
+                GameManagementAction.Uninstall => Resources.SteamUninstallRequested,
+                GameManagementAction.Launch => Resources.GameLaunchRequested,
+                _ => throw new ArgumentOutOfRangeException(nameof(action))
+            },
+            GameManagementResult.StoreClientOpened => Resources.StoreClientOpened,
+            GameManagementResult.Unavailable => Resources.GameManagementUnavailable,
+            GameManagementResult.Unsupported => Resources.GameManagementUnsupported,
+            _ => throw new ArgumentOutOfRangeException(nameof(result))
+        };
     }
 
     public void ToggleMenu()

@@ -13,7 +13,7 @@ public partial class GameDetailsScreenView : UserControl
     public GameDetailsScreenView()
     {
         InitializeComponent();
-        gameOptionItems = [EditGameOptionItem, HiddenGameOptionItem, CompatibilityOptionItem];
+        gameOptionItems = [EditGameOptionItem, HiddenGameOptionItem, UninstallGameOptionItem, CompatibilityOptionItem];
         UpdateGameOptionSelection();
     }
 
@@ -23,13 +23,16 @@ public partial class GameDetailsScreenView : UserControl
 
     public Control GameOptionsNavigationRoot => GameOptionsOverlay;
 
-    public bool IsGameOptionListItemFocused => gameOptionItems.Any(item => item.HasKeyboardFocus);
+    public bool IsGameOptionListItemFocused => GetVisibleGameOptionItems().Any(item => item.HasKeyboardFocus);
 
     public bool IsOptionsButtonFocused => OptionsButton.IsFocused;
 
     public void FocusSelectedGameOption()
     {
-        gameOptionItems[selectedGameOptionIndex].FocusItem();
+        var visibleItems = GetVisibleGameOptionItems();
+        selectedGameOptionIndex = Math.Clamp(selectedGameOptionIndex, 0, visibleItems.Length - 1);
+        UpdateGameOptionSelection();
+        visibleItems[selectedGameOptionIndex].FocusItem();
     }
 
     public void MoveGameOptionSelection(int direction)
@@ -39,17 +42,17 @@ public partial class GameDetailsScreenView : UserControl
             return;
         }
 
-        selectedGameOptionIndex = Math.Clamp(
-            selectedGameOptionIndex + Math.Sign(direction),
-            0,
-            gameOptionItems.Length - 1);
+        var visibleItems = GetVisibleGameOptionItems();
+        selectedGameOptionIndex = Math.Clamp(selectedGameOptionIndex + Math.Sign(direction), 0, visibleItems.Length - 1);
         UpdateGameOptionSelection();
         FocusSelectedGameOption();
     }
 
     public void ActivateSelectedGameOption()
     {
-        ActivateGameOption(selectedGameOptionIndex);
+        var visibleItems = GetVisibleGameOptionItems();
+        var selectedItem = visibleItems[selectedGameOptionIndex];
+        ActivateGameOption(Array.IndexOf(gameOptionItems, selectedItem));
     }
 
     public event Action? EditRequested;
@@ -97,6 +100,11 @@ public partial class GameDetailsScreenView : UserControl
 
     private void OnCompatibilityOptionActivated(object? sender, EventArgs e)
     {
+        ActivateGameOption(3);
+    }
+
+    private void OnUninstallGameOptionActivated(object? sender, EventArgs e)
+    {
         ActivateGameOption(2);
     }
 
@@ -115,23 +123,41 @@ public partial class GameDetailsScreenView : UserControl
                     viewModel.ToggleSelectedGameHiddenCommand.Execute(null);
                 }
                 break;
+            case 2:
+                if (DataContext is MainWindowViewModel uninstallViewModel)
+                {
+                    _ = uninstallViewModel.UninstallSelectedGameAsync();
+                }
+                break;
         }
     }
 
     private void UpdateGameOptionSelection()
     {
-        for (var index = 0; index < gameOptionItems.Length; index++)
+        var visibleItems = GetVisibleGameOptionItems();
+        selectedGameOptionIndex = Math.Clamp(selectedGameOptionIndex, 0, visibleItems.Length - 1);
+        foreach (var item in gameOptionItems)
         {
-            gameOptionItems[index].SetSelected(index == selectedGameOptionIndex);
+            item.SetSelected(ReferenceEquals(item, visibleItems[selectedGameOptionIndex]));
         }
 
     }
 
-    private void OnPlayButtonClick(object? sender, RoutedEventArgs e)
+    private ConsoleNavigationItemView[] GetVisibleGameOptionItems()
+    {
+        if (DataContext is MainWindowViewModel viewModel && viewModel.CanUninstallSelectedGame)
+        {
+            return gameOptionItems;
+        }
+
+        return [EditGameOptionItem, HiddenGameOptionItem, CompatibilityOptionItem];
+    }
+
+    private async void OnPlayButtonClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
-            viewModel.ActivatePrimaryGameAction();
+            await viewModel.ActivatePrimaryGameActionAsync();
         }
     }
 
