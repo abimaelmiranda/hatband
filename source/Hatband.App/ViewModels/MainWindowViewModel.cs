@@ -23,6 +23,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IGameLibrarySyncService gameLibrarySyncService;
     private readonly IGameTimeToBeatSyncService gameTimeToBeatSyncService;
     private readonly ISettingsStore settingsStore;
+    private readonly IHostSystemInfo hostSystemInfo;
     private readonly ArtworkImageLoader artworkImageLoader;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
     private readonly SteamConnectorLoginViewModel steamConnectorLogin;
@@ -139,9 +140,11 @@ public partial class MainWindowViewModel : ViewModelBase
         IGameLibrarySyncService gameLibrarySyncService,
         IGameArtworkStorage artworkStorage,
         IEnumerable<IGameMetadataSearchProvider> metadataSearchProviders,
-        IEnumerable<IGameArtworkSearchProvider> artworkSearchProviders)
+        IEnumerable<IGameArtworkSearchProvider> artworkSearchProviders,
+        IHostSystemInfo hostSystemInfo)
     {
         this.gameLibraryService = gameLibraryService;
+        this.hostSystemInfo = hostSystemInfo;
         AddGame = new AddGameViewModel(gameLibraryService);
         AddGame.PropertyChanged += OnAddGamePropertyChanged;
         AddGame.CreationCompleted += OnAddGameCreationCompleted;
@@ -362,6 +365,8 @@ public partial class MainWindowViewModel : ViewModelBase
     };
 
     public string PrimaryGameActionLabel => IsPrimaryGameActionInstall ? Resources.Install : Resources.Play;
+
+    public bool IsPrimaryGameActionEnabled => SelectedGameCard?.IsCompatibleWithHost ?? true;
 
     public string SelectedGameHiddenActionLabel => SelectedGameCard?.Game.IsHidden == true
         ? Resources.UnhideGame
@@ -624,6 +629,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(IsPrimaryGameActionInstall));
         OnPropertyChanged(nameof(PrimaryGameActionLabel));
+        OnPropertyChanged(nameof(IsPrimaryGameActionEnabled));
         OnPropertyChanged(nameof(SelectedGameHiddenActionLabel));
 
         foreach (var game in allGames)
@@ -677,7 +683,7 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             var savedGames = await gameLibraryService.GetGamesAsync(cancellationToken);
-            SetGames(savedGames.Select(game => new GameCardViewModel(game, dateTimeDisplayFormatter)));
+            SetGames(savedGames.Select(game => new GameCardViewModel(game, dateTimeDisplayFormatter, hostSystemInfo)));
 
             await Task.WhenAll(allGames.Select(game => game.LoadCoverAsync(artworkImageLoader)));
         }
@@ -1249,7 +1255,7 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             var savedGames = await gameLibraryService.GetGamesAsync();
-            SetGames(savedGames.Select(savedGame => new GameCardViewModel(savedGame, dateTimeDisplayFormatter)));
+            SetGames(savedGames.Select(savedGame => new GameCardViewModel(savedGame, dateTimeDisplayFormatter, hostSystemInfo)));
             SelectedGameCard = Games.FirstOrDefault(item => item.Game.Id == game.Id);
             await Task.WhenAll(allGames.Select(item => item.LoadCoverAsync(artworkImageLoader)));
             ClearNewGameForm();
@@ -1344,7 +1350,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var previousCard = allGames[allGamesIndex];
         var wasSelected = ReferenceEquals(SelectedGameCard, previousCard);
         game.IsHidden = previousCard.Game.IsHidden;
-        var card = new GameCardViewModel(game, dateTimeDisplayFormatter)
+        var card = new GameCardViewModel(game, dateTimeDisplayFormatter, hostSystemInfo)
         {
             IsSelected = wasSelected
         };

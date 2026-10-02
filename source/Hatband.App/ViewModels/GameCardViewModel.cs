@@ -5,7 +5,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.Core.Enums.Stores;
+using Hatband.Core.Enums;
+using Hatband.Core.Abstractions;
 using Hatband.Core.Models;
+using Hatband.Core.Services;
 
 namespace Hatband.App.ViewModels;
 
@@ -14,6 +17,7 @@ public partial class GameCardViewModel : ObservableObject
     private readonly string? coverSource;
     private readonly string? backgroundSource;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
+    private readonly HostPlatformCompatibilityStatus platformCompatibilityStatus;
 
     [ObservableProperty]
     public partial Bitmap? CoverImage { get; set; }
@@ -26,10 +30,17 @@ public partial class GameCardViewModel : ObservableObject
 
     public GameCardViewModel(
         Game game,
-        DateTimeDisplayFormatter dateTimeDisplayFormatter)
+        DateTimeDisplayFormatter dateTimeDisplayFormatter,
+        IHostSystemInfo hostSystemInfo)
     {
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(dateTimeDisplayFormatter);
+        ArgumentNullException.ThrowIfNull(hostSystemInfo);
         Game = game;
         this.dateTimeDisplayFormatter = dateTimeDisplayFormatter;
+        platformCompatibilityStatus = HostPlatformCompatibilityResolver.Resolve(
+            game.Metadata.NativePlatforms,
+            hostSystemInfo.Platform);
         coverSource = game.Metadata.Artwork.CoverImagePath;
         backgroundSource = game.Metadata.Artwork.BackgroundImagePath;
         AccentBrush = new SolidColorBrush(Color.Parse("#11161C"));
@@ -50,6 +61,42 @@ public partial class GameCardViewModel : ObservableObject
     public string? ReleaseYear => Game.Metadata.ReleaseDate?.Year.ToString();
 
     public string? ReleaseDateDisplay => Game.Metadata.ReleaseDate?.ToString("d", System.Globalization.CultureInfo.CurrentCulture);
+
+    public string? PlatformCompatibilityLabel
+    {
+        get
+        {
+            return platformCompatibilityStatus switch
+            {
+                HostPlatformCompatibilityStatus.Unknown => Resources.UnknownPlatformSupport,
+                HostPlatformCompatibilityStatus.Native => Resources.NativePlatformSupport,
+                HostPlatformCompatibilityStatus.RequiresProton => Resources.RequiresProton,
+                HostPlatformCompatibilityStatus.Unsupported => Resources.UnsupportedPlatform,
+                _ => throw new ArgumentOutOfRangeException(nameof(platformCompatibilityStatus))
+            };
+        }
+    }
+
+    public bool SupportsWindows => Game.Metadata.NativePlatforms?.HasFlag(GamePlatform.Windows) == true;
+
+    public bool SupportsMacOS => Game.Metadata.NativePlatforms?.HasFlag(GamePlatform.MacOS) == true;
+
+    public bool SupportsLinux => Game.Metadata.NativePlatforms?.HasFlag(GamePlatform.Linux) == true;
+
+    public bool HasUnknownNativePlatforms => Game.Metadata.NativePlatforms is null;
+
+    public bool HasNoNativePlatforms => Game.Metadata.NativePlatforms == GamePlatform.None;
+
+    public bool IsCompatibleWithHost
+    {
+        get
+        {
+            return platformCompatibilityStatus is
+                HostPlatformCompatibilityStatus.Unknown or
+                HostPlatformCompatibilityStatus.Native or
+                HostPlatformCompatibilityStatus.RequiresProton;
+        }
+    }
 
     public bool IsSteamSource => Game.SourceId == GameSourceId.Steam;
 

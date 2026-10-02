@@ -576,6 +576,24 @@
   <data name="Installation" xml:space="preserve">
     <value>Installation</value>
   </data>
+  <data name="PlatformCompatibility" xml:space="preserve">
+    <value>Platform compatibility</value>
+  </data>
+  <data name="NativePlatforms" xml:space="preserve">
+    <value>Native platforms</value>
+  </data>
+  <data name="NativePlatformSupport" xml:space="preserve">
+    <value>Runs natively</value>
+  </data>
+  <data name="RequiresProton" xml:space="preserve">
+    <value>Requires Proton</value>
+  </data>
+  <data name="UnsupportedPlatform" xml:space="preserve">
+    <value>Incompatible</value>
+  </data>
+  <data name="UnknownPlatformSupport" xml:space="preserve">
+    <value>Platform support unknown</value>
+  </data>
   <data name="Source" xml:space="preserve">
     <value>Source</value>
   </data>

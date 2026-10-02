@@ -1,4 +1,5 @@
 using Hatband.Core.Extensions;
+using Hatband.Core.Enums;
 
 namespace Hatband.Core.Models;
 
@@ -41,6 +42,11 @@ public sealed record GameMetadata
             return true;
         }
 
+        if (NativePlatforms is null)
+        {
+            return true;
+        }
+
         return !Overrides.ReleaseDate && (languageChanged || ReleaseDate is null);
     }
 
@@ -50,36 +56,65 @@ public sealed record GameMetadata
         ArgumentException.ThrowIfNullOrWhiteSpace(requestedLanguageTag);
 
         var languageChanged = !string.Equals(LanguageTag, requestedLanguageTag, StringComparison.OrdinalIgnoreCase);
+        var releaseDate = ReleaseDate;
+        if (!Overrides.ReleaseDate)
+        {
+            if (languageChanged)
+            {
+                releaseDate = downloaded.ReleaseDate ?? releaseDate;
+            }
+            else if (releaseDate is null)
+            {
+                releaseDate = downloaded.ReleaseDate;
+            }
+        }
+
         return this with
         {
             LanguageTag = requestedLanguageTag,
             StoreName = downloaded.StoreName.PreferNonWhiteSpace(StoreName),
-            Description = Overrides.Description
-                ? Description
-                : languageChanged
-                    ? downloaded.Description.PreferNonWhiteSpace(Description)
-                    : Description.PreferNonWhiteSpace(downloaded.Description),
-            Developer = Overrides.Developer
-                ? Developer
-                : languageChanged
-                    ? downloaded.Developer.PreferNonWhiteSpace(Developer)
-                    : Developer.PreferNonWhiteSpace(downloaded.Developer),
-            Publisher = Overrides.Publisher
-                ? Publisher
-                : languageChanged
-                    ? downloaded.Publisher.PreferNonWhiteSpace(Publisher)
-                    : Publisher.PreferNonWhiteSpace(downloaded.Publisher),
-            Genre = Overrides.Genre
-                ? Genre
-                : languageChanged
-                    ? downloaded.Genre.PreferNonWhiteSpace(Genre)
-                    : Genre.PreferNonWhiteSpace(downloaded.Genre),
-            ReleaseDate = Overrides.ReleaseDate
-                ? ReleaseDate
-                : languageChanged
-                    ? downloaded.ReleaseDate ?? ReleaseDate
-                    : ReleaseDate ?? downloaded.ReleaseDate
+            Description = MergeTextMetadataValue(
+                Description,
+                downloaded.Description,
+                Overrides.Description,
+                languageChanged),
+            Developer = MergeTextMetadataValue(
+                Developer,
+                downloaded.Developer,
+                Overrides.Developer,
+                languageChanged),
+            Publisher = MergeTextMetadataValue(
+                Publisher,
+                downloaded.Publisher,
+                Overrides.Publisher,
+                languageChanged),
+            Genre = MergeTextMetadataValue(
+                Genre,
+                downloaded.Genre,
+                Overrides.Genre,
+                languageChanged),
+            ReleaseDate = releaseDate,
+            NativePlatforms = downloaded.NativePlatforms ?? NativePlatforms
         };
+    }
+
+    private static string? MergeTextMetadataValue(
+        string? currentValue,
+        string? downloadedValue,
+        bool isOverridden,
+        bool languageChanged)
+    {
+        if (isOverridden)
+        {
+            return currentValue;
+        }
+
+        if (languageChanged)
+        {
+            return downloadedValue.PreferNonWhiteSpace(currentValue);
+        }
+
+        return currentValue.PreferNonWhiteSpace(downloadedValue);
     }
 
     public string? LanguageTag { get; init; }
@@ -98,6 +133,11 @@ public sealed record GameMetadata
     public string? Genre { get; init; }
 
     public DateOnly? ReleaseDate { get; init; }
+
+    /// <summary>
+    /// Platforms the metadata source declares as native targets. Null means the source did not provide this information.
+    /// </summary>
+    public GamePlatform? NativePlatforms { get; init; }
 
     public GameArtwork Artwork { get; init; } = new();
 

@@ -161,6 +161,10 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Metadata_LanguageTag");
 
+                            b1.Property<int?>("NativePlatforms")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("Metadata_NativePlatforms");
+
                             b1.Property<string>("Publisher")
                                 .HasColumnType("TEXT");
 

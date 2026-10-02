@@ -18,6 +18,7 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
         {
             metadata.Property(item => item.LanguageTag).HasColumnName("Metadata_LanguageTag");
             metadata.Property(item => item.StoreName).HasColumnName("Metadata_StoreName");
+            metadata.Property(item => item.NativePlatforms).HasColumnName("Metadata_NativePlatforms");
             metadata.Property(item => item.Genre).HasColumnName("Genre");
             metadata.OwnsOne(item => item.Artwork, artwork =>
             {

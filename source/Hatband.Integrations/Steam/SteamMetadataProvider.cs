@@ -3,8 +3,10 @@ using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Hatband.Core.Abstractions;
+using Hatband.Core.Enums;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models;
+using Hatband.Integrations.Steam.Models;
 
 namespace Hatband.Integrations.Steam;
 
@@ -121,21 +123,16 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
 
         var (steamLanguage, contentLanguageTag) = SteamLanguage.Resolve(languageTag);
         var dateCulture = CultureInfo.GetCultureInfo(languageTag);
-        using var document = await GetStoreDocumentAsync(appId, steamLanguage, cancellationToken);
-        if (document is null)
+        var response = await GetStoreDocumentAsync(appId, steamLanguage, cancellationToken);
+        if (response is null ||
+            !response.TryGetValue(appId.ToString(CultureInfo.InvariantCulture), out var appResult) ||
+            !appResult.Success ||
+            appResult.Data is not SteamAppDetails data)
         {
             return null;
         }
 
-        if (!document.RootElement.TryGetProperty(appId.ToString(CultureInfo.InvariantCulture), out var appResult) ||
-            !appResult.TryGetProperty("success", out var success) ||
-            !success.GetBoolean() ||
-            !appResult.TryGetProperty("data", out var data))
-        {
-            return null;
-        }
-
-        var dateText = GetNestedString(data, "release_date", "date");
+        var dateText = data.ReleaseDate?.Date;
         DateOnly? releaseDate = null;
         if (DateOnly.TryParse(dateText, dateCulture, DateTimeStyles.None, out var parsedLocalizedDate))
         {
@@ -153,16 +150,17 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         return new GameMetadata
         {
             LanguageTag = contentLanguageTag,
-            StoreName = GetString(data, "name"),
+            StoreName = NullIfWhiteSpace(data.Name),
             Description = GetDescription(data),
-            Developer = JoinArray(data, "developers"),
-            Publisher = JoinArray(data, "publishers"),
-            Genre = JoinNestedArray(data, "genres", "description"),
-            ReleaseDate = releaseDate
+            Developer = JoinArray(data.Developers),
+            Publisher = JoinArray(data.Publishers),
+            Genre = JoinGenres(data.Genres),
+            ReleaseDate = releaseDate,
+            NativePlatforms = GetNativePlatforms(data.Platforms)
         };
     }
 
-    private async Task<JsonDocument?> GetStoreDocumentAsync(
+    private async Task<Dictionary<string, SteamAppDetailsResult>?> GetStoreDocumentAsync(
         uint appId,
         string steamLanguage,
         CancellationToken cancellationToken)
@@ -188,18 +186,21 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
 
             response.EnsureSuccessStatusCode();
             await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return await JsonDocument.ParseAsync(contentStream, cancellationToken: cancellationToken);
+            return await JsonSerializer.DeserializeAsync(
+                contentStream,
+                SteamJsonSerializerContext.Default.DictionaryStringSteamAppDetailsResult,
+                cancellationToken);
         }
 
         return null;
     }
 
-    private static string? GetDescription(JsonElement data)
+    private static string? GetDescription(SteamAppDetails data)
     {
-        var html = GetString(data, "about_the_game");
+        var html = data.AboutTheGame;
         if (string.IsNullOrWhiteSpace(html))
         {
-            html = GetString(data, "short_description");
+            html = data.ShortDescription;
         }
 
         if (string.IsNullOrWhiteSpace(html))
@@ -211,48 +212,62 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         return WhitespacePattern().Replace(plainText, " ").Trim();
     }
 
-    private static string? GetString(JsonElement element, string propertyName)
+    private static GamePlatform? GetNativePlatforms(SteamPlatformSupport? platforms)
     {
-        return element.TryGetProperty(propertyName, out var value) &&
-               value.ValueKind == JsonValueKind.String
-            ? NullIfWhiteSpace(value.GetString())
-            : null;
-    }
-
-    private static string? GetNestedString(JsonElement element, string parentName, string propertyName)
-    {
-        return element.TryGetProperty(parentName, out var parent)
-            ? GetString(parent, propertyName)
-            : null;
-    }
-
-    private static string? JoinArray(JsonElement element, string propertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var values) || values.ValueKind != JsonValueKind.Array)
+        if (platforms is null)
         {
             return null;
         }
 
-        var names = values.EnumerateArray()
-            .Where(value => value.ValueKind == JsonValueKind.String)
-            .Select(value => value.GetString())
+        if (platforms.Windows is null && platforms.MacOS is null && platforms.Linux is null)
+        {
+            return null;
+        }
+
+        var nativePlatforms = GamePlatform.None;
+        if (platforms.Windows == true)
+        {
+            nativePlatforms |= GamePlatform.Windows;
+        }
+
+        if (platforms.MacOS == true)
+        {
+            nativePlatforms |= GamePlatform.MacOS;
+        }
+
+        if (platforms.Linux == true)
+        {
+            nativePlatforms |= GamePlatform.Linux;
+        }
+
+        return nativePlatforms;
+    }
+
+    private static string? JoinArray(IEnumerable<string>? values)
+    {
+        if (values is null)
+        {
+            return null;
+        }
+
+        var names = values
+            .Select(NullIfWhiteSpace)
             .OfType<string>()
-            .Select(value => value.Trim())
             .Where(value => value.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         return names.Length == 0 ? null : string.Join(", ", names);
     }
 
-    private static string? JoinNestedArray(JsonElement element, string propertyName, string valueName)
+    private static string? JoinGenres(IEnumerable<SteamGenre>? genres)
     {
-        if (!element.TryGetProperty(propertyName, out var values) || values.ValueKind != JsonValueKind.Array)
+        if (genres is null)
         {
             return null;
         }
 
-        var names = values.EnumerateArray()
-            .Select(value => GetString(value, valueName))
+        var names = genres
+            .Select(genre => NullIfWhiteSpace(genre.Description))
             .OfType<string>()
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();

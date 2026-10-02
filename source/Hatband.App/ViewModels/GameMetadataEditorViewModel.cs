@@ -9,6 +9,7 @@ using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Extensions;
 using Hatband.Core.Models;
+using Hatband.Core.Enums;
 
 namespace Hatband.App.ViewModels;
 
@@ -19,6 +20,7 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
     private readonly IReadOnlyList<IGameMetadataSearchProvider> metadataSearchProviders;
     private Game? game;
     private GameMetadata initialMetadata = new();
+    private GamePlatform? selectedNativePlatforms;
     private string initialName = string.Empty;
     private string? selectedCoverArtworkUrl;
     private string? selectedBackgroundArtworkUrl;
@@ -135,6 +137,7 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         initialName = selectedGame.Name;
         initialMetadata = selectedGame.Metadata;
+        selectedNativePlatforms = null;
 
         Name = selectedGame.Name;
         Description = selectedGame.Metadata.Description ?? string.Empty;
@@ -292,6 +295,7 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
 
     private void ApplyMetadata(string gameName, GameMetadata metadata)
     {
+        selectedNativePlatforms = metadata.NativePlatforms;
         Name = string.IsNullOrWhiteSpace(metadata.StoreName) ? gameName : metadata.StoreName;
         if (!string.IsNullOrWhiteSpace(metadata.Description))
         {
@@ -361,6 +365,7 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
                 Publisher = Normalize(Publisher),
                 Genre = Normalize(Genre),
                 ReleaseDate = parsedReleaseDate,
+                NativePlatforms = selectedNativePlatforms ?? game.Metadata.NativePlatforms,
                 Artwork = artwork,
                 Overrides = game.Metadata.Overrides with
                 {
