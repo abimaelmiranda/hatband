@@ -40,6 +40,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISettingsStore>(
             new JsonSettingsStore(appDataFileSystem));
         services.AddSingleton<IGameManagementService, GameManagementService>();
+        services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();

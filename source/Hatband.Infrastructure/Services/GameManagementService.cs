@@ -30,6 +30,19 @@ public sealed class GameManagementService : IGameManagementService
         return ExecuteAsync(game, provider => provider.LaunchAsync(game, cancellationToken));
     }
 
+    public GameProcessWatchTarget? GetProcessWatchTarget(Game game)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+
+        if (game.SourceId is not GameSourceId sourceId ||
+            !providersBySource.TryGetValue(sourceId, out var provider))
+        {
+            return null;
+        }
+
+        return provider.GetProcessWatchTarget(game);
+    }
+
     private Task<GameManagementResult> ExecuteAsync(
         Game game,
         Func<IGameManagementProvider, Task<GameManagementResult>> operation)

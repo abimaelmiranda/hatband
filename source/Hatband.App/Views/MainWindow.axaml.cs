@@ -10,6 +10,8 @@ namespace Hatband.App.Views;
 public partial class MainWindow : Window
 {
     private readonly DirectionalFocusNavigator directionalFocusNavigator;
+    private WindowState previousWindowState;
+    private bool isMinimizedForGame;
 
     public MainWindow()
     {
@@ -33,6 +35,8 @@ public partial class MainWindow : Window
         }
 
         viewModel.ExitRequested += OnExitRequested;
+        viewModel.GameSessionStarted += OnGameSessionStarted;
+        viewModel.GameSessionEnded += OnGameSessionEnded;
         viewModel.ReturnToLibraryRequested += OnReturnToLibraryRequested;
         viewModel.GameMetadataEditor.Saved += OnGameMetadataEditorSaved;
         await viewModel.LoadGamesAsync();
@@ -54,8 +58,36 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
+            viewModel.ExitRequested -= OnExitRequested;
+            viewModel.GameSessionStarted -= OnGameSessionStarted;
+            viewModel.GameSessionEnded -= OnGameSessionEnded;
             viewModel.StopPendingInstallationPolling();
+            viewModel.StopGameProcessMonitoring();
         }
+    }
+
+    private void OnGameSessionStarted(object? sender, EventArgs e)
+    {
+        if (isMinimizedForGame)
+        {
+            return;
+        }
+
+        previousWindowState = WindowState;
+        isMinimizedForGame = true;
+        WindowState = WindowState.Minimized;
+    }
+
+    private void OnGameSessionEnded(object? sender, EventArgs e)
+    {
+        if (!isMinimizedForGame)
+        {
+            return;
+        }
+
+        WindowState = previousWindowState;
+        isMinimizedForGame = false;
+        Activate();
     }
 
     private async void OnWindowKeyDown(object? sender, KeyEventArgs e)

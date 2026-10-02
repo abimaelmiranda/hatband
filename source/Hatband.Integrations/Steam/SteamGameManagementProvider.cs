@@ -33,6 +33,21 @@ public sealed class SteamGameManagementProvider : IGameManagementProvider
         return OpenSteamActionAsync(game, "run", cancellationToken);
     }
 
+    public GameProcessWatchTarget? GetProcessWatchTarget(Game game)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+
+        if (game.SourceId != GameSourceId.Steam ||
+            !game.IsInstalled ||
+            string.IsNullOrWhiteSpace(game.InstallDirectory) ||
+            !Directory.Exists(game.InstallDirectory))
+        {
+            return null;
+        }
+
+        return new GameProcessWatchTarget(game.InstallDirectory);
+    }
+
     private async Task<GameManagementResult> OpenSteamActionAsync(
         Game game,
         string action,

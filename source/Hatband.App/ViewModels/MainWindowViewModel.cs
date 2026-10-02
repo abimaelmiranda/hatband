@@ -1,20 +1,20 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using Hatband.App.Localization;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Hatband.App.Localization;
+using Hatband.App.Services;
+using Hatband.App.ViewModels.Settings;
+using Hatband.Core.Abstractions;
+using Hatband.Core.Abstractions.Authentication;
 using Hatband.Core.Enums;
 using Hatband.Core.Enums.Stores;
-using Hatband.App.Services;
-using Hatband.Core.Abstractions.Authentication;
-using Hatband.Core.Abstractions;
 using Hatband.Core.Models;
 using Hatband.Core.Models.Settings;
-using Hatband.App.ViewModels.Settings;
-using System.Windows.Input;
 
 namespace Hatband.App.ViewModels;
 
@@ -27,6 +27,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ISettingsStore settingsStore;
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly IGameManagementService gameManagementService;
+    private readonly GameProcessSessionService gameProcessSessionService;
     private readonly ArtworkImageLoader artworkImageLoader;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
     private readonly SteamConnectorLoginViewModel steamConnectorLogin;
@@ -35,6 +36,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly Stack<HatbandScreen> navigationHistory = new();
     private readonly Dictionary<Guid, bool> pendingInstallationStates = [];
     private readonly SemaphoreSlim installationStateRefreshGate = new(1, 1);
+    private readonly HashSet<Guid> activeMonitoredGames = [];
     private CancellationTokenSource? installationPollingCancellation;
     private Task? installationPollingTask;
     private bool returnToMenuOnBack;
@@ -150,11 +152,13 @@ public partial class MainWindowViewModel : ViewModelBase
         IEnumerable<IGameArtworkSearchProvider> artworkSearchProviders,
         IHostSystemInfo hostSystemInfo,
         IGameManagementService gameManagementService,
+        GameProcessSessionService gameProcessSessionService,
         IGameInstallationStateSyncService gameInstallationStateSyncService)
     {
         this.gameLibraryService = gameLibraryService;
         this.hostSystemInfo = hostSystemInfo;
         this.gameManagementService = gameManagementService;
+        this.gameProcessSessionService = gameProcessSessionService;
         this.gameInstallationStateSyncService = gameInstallationStateSyncService;
         AddGame = new AddGameViewModel(gameLibraryService);
         AddGame.PropertyChanged += OnAddGamePropertyChanged;
@@ -208,6 +212,10 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     public event EventHandler? ExitRequested;
+
+    public event EventHandler? GameSessionStarted;
+
+    public event EventHandler? GameSessionEnded;
 
     public ObservableCollection<SettingsOptionViewModel> LanguageOptions { get; }
 
@@ -954,15 +962,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task ActivatePrimaryGameActionAsync(CancellationToken cancellationToken = default)
     {
-        if (SelectedGameCard is null)
+        var gameCard = SelectedGameCard;
+        if (gameCard is null)
         {
             return;
         }
 
-        var game = SelectedGameCard.Game;
+        var game = gameCard.Game;
         var isInstall = IsPrimaryGameActionInstall;
         try
         {
+            var processWatchTarget = isInstall ? null : gameManagementService.GetProcessWatchTarget(game);
             var result = isInstall
                 ? await gameManagementService.InstallAsync(game, cancellationToken)
                 : await gameManagementService.LaunchAsync(game, cancellationToken);
@@ -972,6 +982,13 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 StartInstallationStatePolling(game.Id, isInstalled: true);
             }
+
+            if (!isInstall &&
+                processWatchTarget is not null &&
+                result is GameManagementResult.ProtocolOpened)
+            {
+                StartGameProcessMonitoring(gameCard, processWatchTarget);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -980,6 +997,48 @@ public partial class MainWindowViewModel : ViewModelBase
         catch (Exception exception)
         {
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameManagementError, exception.Message);
+        }
+    }
+
+    public void StopGameProcessMonitoring()
+    {
+        gameProcessSessionService.Stop();
+        activeMonitoredGames.Clear();
+    }
+
+    private void StartGameProcessMonitoring(GameCardViewModel gameCard, GameProcessWatchTarget target)
+    {
+        gameProcessSessionService.Watch(
+            gameCard.Game.Id,
+            target,
+            monitorEvent => ApplyGameProcessMonitorEvent(gameCard.Game.Id, monitorEvent));
+    }
+
+    private void ApplyGameProcessMonitorEvent(Guid gameId, GameProcessMonitorEvent monitorEvent)
+    {
+        switch (monitorEvent)
+        {
+            case GameProcessMonitorEvent.Started:
+                var wasAnyGameActive = activeMonitoredGames.Count > 0;
+                activeMonitoredGames.Add(gameId);
+                if (!wasAnyGameActive)
+                {
+                    GameSessionStarted?.Invoke(this, EventArgs.Empty);
+                }
+
+                break;
+            case GameProcessMonitorEvent.Stopped:
+            case GameProcessMonitorEvent.Failed:
+                if (activeMonitoredGames.Remove(gameId) && activeMonitoredGames.Count == 0)
+                {
+                    GameSessionEnded?.Invoke(this, EventArgs.Empty);
+                }
+
+                break;
+            case GameProcessMonitorEvent.StartTimedOut:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(monitorEvent), monitorEvent, null);
         }
     }
 

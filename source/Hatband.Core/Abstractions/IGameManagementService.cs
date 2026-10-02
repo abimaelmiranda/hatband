@@ -10,4 +10,6 @@ public interface IGameManagementService
     Task<GameManagementResult> UninstallAsync(Game game, CancellationToken cancellationToken = default);
 
     Task<GameManagementResult> LaunchAsync(Game game, CancellationToken cancellationToken = default);
+
+    GameProcessWatchTarget? GetProcessWatchTarget(Game game);
 }

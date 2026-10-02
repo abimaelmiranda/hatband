@@ -37,6 +37,7 @@ public partial class App : Application
             services.AddHatbandInfrastructure($"Data Source={databasePath}", appDataFileSystem);
             services.AddSingleton<ArtworkImageLoader>();
             services.AddSingleton<DateTimeDisplayFormatter>();
+            services.AddSingleton<GameProcessSessionService>();
             services.AddSingleton<MainWindowViewModel>();
 
             var serviceProvider = services.BuildServiceProvider();
