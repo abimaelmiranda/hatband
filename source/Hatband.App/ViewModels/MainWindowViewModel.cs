@@ -41,6 +41,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly SemaphoreSlim installationStateRefreshGate = new(1, 1);
     private readonly Dictionary<Guid, GameCardViewModel> activeMonitoredGames = [];
     private CancellationTokenSource? installationPollingCancellation;
+    private CancellationTokenSource? statusMessageTimeoutCancellation;
     private Task? installationPollingTask;
     private bool returnToMenuOnBack;
     private bool hasLoadedSettings;
@@ -736,6 +737,48 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnStatusMessageChanged(string? value)
     {
         OnPropertyChanged(nameof(HasStatusMessage));
+
+        statusMessageTimeoutCancellation?.Cancel();
+        statusMessageTimeoutCancellation?.Dispose();
+        statusMessageTimeoutCancellation = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        var timeoutCancellation = new CancellationTokenSource();
+        statusMessageTimeoutCancellation = timeoutCancellation;
+        _ = ClearStatusMessageAfterDelayAsync(value, timeoutCancellation);
+    }
+
+    private async Task ClearStatusMessageAfterDelayAsync(
+        string message,
+        CancellationTokenSource timeoutCancellation)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), timeoutCancellation.Token);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (ReferenceEquals(statusMessageTimeoutCancellation, timeoutCancellation) &&
+                    StatusMessage == message)
+                {
+                    StatusMessage = null;
+                }
+            });
+        }
+        catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(statusMessageTimeoutCancellation, timeoutCancellation))
+            {
+                statusMessageTimeoutCancellation.Dispose();
+                statusMessageTimeoutCancellation = null;
+            }
+        }
     }
 
     public async Task LoadGamesAsync(CancellationToken cancellationToken = default)
