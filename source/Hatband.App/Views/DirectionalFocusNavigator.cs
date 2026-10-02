@@ -7,12 +7,12 @@ namespace Hatband.App.Views;
 
 internal sealed class DirectionalFocusNavigator(Window window)
 {
-    public bool MoveFocus(Control navigationRoot, Key key)
+    public bool MoveFocus(Control navigationRoot, Key key, bool useNativeArrowBehavior = true)
     {
         var focusedControl = navigationRoot.GetVisualDescendants()
             .OfType<Control>()
             .FirstOrDefault(control => control.IsFocused);
-        if (focusedControl is null || IsNativeArrowControl(focusedControl))
+        if (focusedControl is null || (useNativeArrowBehavior && IsNativeArrowControl(focusedControl)))
         {
             return false;
         }

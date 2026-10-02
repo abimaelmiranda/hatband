@@ -99,6 +99,12 @@
   <data name="ConnectorDescription" xml:space="preserve">
     <value>Connect an account and sync its library</value>
   </data>
+  <data name="SteamSilentMode" xml:space="preserve">
+    <value>Silent mode</value>
+  </data>
+  <data name="SteamSilentModeDescription" xml:space="preserve">
+    <value>Tries to close Steam normally and run actions through its command line. If that fails, it uses the Steam protocol and returns to Hatband.</value>
+  </data>
   <data name="ChooseConnectionMethod" xml:space="preserve">
     <value>Choose how you want to connect your account.</value>
   </data>
@@ -500,6 +506,18 @@
   </data>
   <data name="UninstallGame" xml:space="preserve">
     <value>Uninstall game</value>
+  </data>
+  <data name="UninstallConfirmationTitle" xml:space="preserve">
+    <value>Uninstall this game?</value>
+  </data>
+  <data name="UninstallConfirmationMessage" xml:space="preserve">
+    <value>The game will be removed from this device. Your account ownership will not be affected.</value>
+  </data>
+  <data name="InstallLocationTitle" xml:space="preserve">
+    <value>Choose an install location</value>
+  </data>
+  <data name="InstallLocationMessage" xml:space="preserve">
+    <value>Select a Steam library for this game.</value>
   </data>
   <data name="UnhideGame" xml:space="preserve">
     <value>Unhide game</value>

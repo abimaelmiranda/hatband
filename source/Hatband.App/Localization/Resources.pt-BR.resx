@@ -99,6 +99,12 @@
   <data name="ConnectorDescription" xml:space="preserve">
     <value>Conectar conta e sincronizar biblioteca</value>
   </data>
+  <data name="SteamSilentMode" xml:space="preserve">
+    <value>Modo silencioso</value>
+  </data>
+  <data name="SteamSilentModeDescription" xml:space="preserve">
+    <value>Tenta fechar a Steam normalmente e executar ações pelo comando. Se não conseguir, usa o protocolo da Steam e retorna ao Hatband.</value>
+  </data>
   <data name="ChooseConnectionMethod" xml:space="preserve">
     <value>Escolha como deseja conectar sua conta.</value>
   </data>
@@ -500,6 +506,18 @@
   </data>
   <data name="UninstallGame" xml:space="preserve">
     <value>Desinstalar jogo</value>
+  </data>
+  <data name="UninstallConfirmationTitle" xml:space="preserve">
+    <value>Desinstalar este jogo?</value>
+  </data>
+  <data name="UninstallConfirmationMessage" xml:space="preserve">
+    <value>O jogo será removido deste dispositivo. A propriedade na sua conta não será afetada.</value>
+  </data>
+  <data name="InstallLocationTitle" xml:space="preserve">
+    <value>Onde instalar?</value>
+  </data>
+  <data name="InstallLocationMessage" xml:space="preserve">
+    <value>Escolha uma biblioteca Steam para instalar este jogo.</value>
   </data>
   <data name="UnhideGame" xml:space="preserve">
     <value>Mostrar jogo</value>

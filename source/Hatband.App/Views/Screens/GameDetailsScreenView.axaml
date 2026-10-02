@@ -62,12 +62,22 @@
                                             Content="{Binding PrimaryGameActionLabel}"
                                             Classes="console-action details-action"
                                             IsEnabled="{Binding IsPrimaryGameActionEnabled}"
+                                            IsVisible="{Binding !IsSelectedGameManagementPending}"
                                             Click="OnPlayButtonClick" />
+                                    <ProgressBar Grid.ColumnSpan="2"
+                                                 Width="152"
+                                                 Height="6"
+                                                 VerticalAlignment="Center"
+                                                 IsIndeterminate="True"
+                                                 IsVisible="{Binding IsSelectedGameManagementPending}"
+                                                 Background="#394650"
+                                                 Foreground="#91C7F2" />
                                     <Button x:Name="OptionsButton"
                                             Grid.Column="1"
                                             Content="…"
                                             Classes="subtle-action details-options-action"
                                             ToolTip.Tip="{x:Static lang:Resources.GameOptionsTooltip}"
+                                            IsVisible="{Binding !IsSelectedGameManagementPending}"
                                             Click="OnOptionsButtonClick" />
                                 </Grid>
                             </StackPanel>
@@ -263,6 +273,87 @@
                     </Grid>
 
                 </Grid>
+            </Border>
+        </Border>
+
+        <Border x:Name="UninstallConfirmationOverlay"
+                IsVisible="False"
+                Background="#B3000000">
+            <Border Width="460"
+                    Padding="24"
+                    CornerRadius="12"
+                    Background="#F21C252F"
+                    BorderBrush="#526B7884"
+                    BorderThickness="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="{x:Static lang:Resources.UninstallConfirmationTitle}"
+                               FontSize="22"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding SelectedGameCard.Name}"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="{x:Static lang:Resources.UninstallConfirmationMessage}"
+                               Foreground="#CFD7DE"
+                               FontSize="14"
+                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="10"
+                                Margin="0,8,0,0">
+                        <Button x:Name="CancelUninstallButton"
+                                Content="{x:Static lang:Resources.Cancel}"
+                                Classes="subtle-action confirmation-action"
+                                Click="OnCancelUninstallClick" />
+                        <Button x:Name="ConfirmUninstallButton"
+                                Content="{x:Static lang:Resources.UninstallGame}"
+                                Classes="danger-action confirmation-action"
+                                Click="OnConfirmUninstallClick" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <Border x:Name="InstallLocationPickerOverlay"
+                IsVisible="{Binding IsInstallLocationPickerOpen}"
+                Background="#B3000000">
+            <Border Width="560"
+                    Padding="24"
+                    CornerRadius="12"
+                    Background="#F21C252F"
+                    BorderBrush="#526B7884"
+                    BorderThickness="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="{x:Static lang:Resources.InstallLocationTitle}"
+                               FontSize="22"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{x:Static lang:Resources.InstallLocationMessage}"
+                               Foreground="#CFD7DE"
+                               FontSize="14"
+                               TextWrapping="Wrap" />
+                    <ComboBox x:Name="InstallLocationComboBox"
+                              ItemsSource="{Binding InstallLocations}"
+                              SelectedItem="{Binding SelectedInstallLocation, Mode=TwoWay}"
+                              DisplayMemberBinding="{Binding DisplayName}"
+                              Classes="settings-select" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="10"
+                                Margin="0,8,0,0">
+                        <Button x:Name="CancelInstallButton"
+                                Content="{x:Static lang:Resources.Cancel}"
+                                Classes="subtle-action confirmation-action"
+                                Click="OnCancelInstallClick" />
+                        <Button x:Name="ConfirmInstallButton"
+                                Content="{x:Static lang:Resources.Install}"
+                                Classes="console-action confirmation-action"
+                                Click="OnConfirmInstallClick" />
+                    </StackPanel>
+                </StackPanel>
             </Border>
         </Border>
     </Grid>

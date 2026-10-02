@@ -36,8 +36,13 @@ public partial class ConnectorsScreenView : UserControl
 
     public Button SteamSyncButtonControl => SteamSyncButton;
 
-    public Button GetConnectorAction(bool isConnected)
+    public Control GetConnectorAction(bool isConnected, bool isSteam)
     {
+        if (isSteam)
+        {
+            return SteamSilentModeCheckBox;
+        }
+
         if (isConnected)
         {
             return SteamSyncButton;

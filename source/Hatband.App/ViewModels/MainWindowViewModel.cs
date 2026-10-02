@@ -43,6 +43,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private CancellationTokenSource? installationPollingCancellation;
     private Task? installationPollingTask;
     private bool returnToMenuOnBack;
+    private bool hasLoadedSettings;
     private Guid? activeGameSessionId;
 
     [ObservableProperty]
@@ -50,6 +51,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial HatbandSettings Settings { get; set; } = new();
+
+    [ObservableProperty]
+    public partial bool IsSteamSilentModeEnabled { get; set; }
 
     [ObservableProperty]
     public partial SettingsOptionViewModel? SelectedLanguageOption { get; set; }
@@ -102,6 +106,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial bool IsGameOptionsOpen { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsInstallLocationPickerOpen { get; set; }
+
+    [ObservableProperty]
+    public partial ObservableCollection<GameInstallLocation> InstallLocations { get; set; } = [];
+
+    [ObservableProperty]
+    public partial GameInstallLocation? SelectedInstallLocation { get; set; }
 
     public GameMetadataEditorViewModel GameMetadataEditor { get; }
 
@@ -406,6 +419,14 @@ public partial class MainWindowViewModel : ViewModelBase
         IsInstalled: true
     };
 
+    public bool IsSelectedGameUninstallPending =>
+        SelectedGameCard is { } gameCard &&
+        pendingInstallationStates.TryGetValue(gameCard.Game.Id, out var isInstalled) &&
+        !isInstalled;
+
+    public bool IsSelectedGameManagementPending =>
+        SelectedGameCard is { } gameCard && pendingInstallationStates.ContainsKey(gameCard.Game.Id);
+
     public bool IsPrimaryGameActionEnabled => SelectedGameCard?.IsCompatibleWithHost ?? true;
 
     public string SelectedGameHiddenActionLabel => SelectedGameCard?.Game.IsHidden == true
@@ -531,6 +552,15 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnSettingsChanged(HatbandSettings value)
     {
         UpdateSelectedSettingsOptions();
+    }
+
+    partial void OnIsSteamSilentModeEnabledChanged(bool value)
+    {
+        Settings.Steam.SilentModeEnabled = value;
+        if (hasLoadedSettings)
+        {
+            _ = SaveSettingsAsync();
+        }
     }
 
     partial void OnIsShowingHiddenGamesChanged(bool value)
@@ -671,6 +701,8 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(PrimaryGameActionLabel));
         OnPropertyChanged(nameof(IsPrimaryGameActionEnabled));
         OnPropertyChanged(nameof(CanUninstallSelectedGame));
+        OnPropertyChanged(nameof(IsSelectedGameUninstallPending));
+        OnPropertyChanged(nameof(IsSelectedGameManagementPending));
         OnPropertyChanged(nameof(SelectedGameHiddenActionLabel));
 
         foreach (var game in allGames)
@@ -715,6 +747,8 @@ public partial class MainWindowViewModel : ViewModelBase
             var loadedSettings = await settingsStore.LoadAsync(cancellationToken);
             dateTimeDisplayFormatter.SetTimeZone(loadedSettings.General.TimeZoneId);
             Settings = loadedSettings;
+            IsSteamSilentModeEnabled = loadedSettings.Steam.SilentModeEnabled;
+            hasLoadedSettings = true;
         }
         catch (Exception exception)
         {
@@ -975,6 +1009,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public event EventHandler? ReturnToLibraryRequested;
 
+    public event EventHandler? GameUninstallationCompleted;
+
+    public event EventHandler? GameInstallationCompleted;
+
+    public event EventHandler? SteamFallbackRequested;
+
+    public event Action<bool>? WindowTopmostRequested;
+
     public async Task ActivatePrimaryGameActionAsync(CancellationToken cancellationToken = default)
     {
         var gameCard = SelectedGameCard;
@@ -987,19 +1029,27 @@ public partial class MainWindowViewModel : ViewModelBase
         var isInstall = IsPrimaryGameActionInstall;
         try
         {
-            var processWatchTarget = isInstall ? null : gameManagementService.GetProcessWatchTarget(game);
-            var result = isInstall
-                ? await gameManagementService.InstallAsync(game, cancellationToken)
-                : await gameManagementService.LaunchAsync(game, cancellationToken);
-            var action = isInstall ? GameManagementAction.Install : GameManagementAction.Launch;
-            StatusMessage = GetGameManagementStatus(result, action);
-            if (isInstall && result is (GameManagementResult.ProtocolOpened or GameManagementResult.StoreClientOpened))
+            if (isInstall)
             {
-                StartInstallationStatePolling(game.Id, isInstalled: true);
+                var installLocations = await gameManagementService.GetInstallLocationsAsync(game, cancellationToken);
+                if (installLocations.Count > 0)
+                {
+                    InstallLocations = new ObservableCollection<GameInstallLocation>(installLocations);
+                    SelectedInstallLocation = InstallLocations[0];
+                    IsInstallLocationPickerOpen = true;
+                    return;
+                }
+
+                await InstallGameAsync(game, location: null, cancellationToken);
+                return;
             }
 
-            if (!isInstall &&
-                processWatchTarget is not null &&
+            var processWatchTarget = gameManagementService.GetProcessWatchTarget(game);
+            var result = await gameManagementService.LaunchAsync(game, cancellationToken);
+            var action = GameManagementAction.Launch;
+            StatusMessage = GetGameManagementStatus(result, action);
+
+            if (processWatchTarget is not null &&
                 result is GameManagementResult.ProtocolOpened)
             {
                 StartGameProcessMonitoring(gameCard, processWatchTarget);
@@ -1012,6 +1062,68 @@ public partial class MainWindowViewModel : ViewModelBase
         catch (Exception exception)
         {
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameManagementError, exception.Message);
+        }
+    }
+
+    public async Task ConfirmGameInstallationAsync(CancellationToken cancellationToken = default)
+    {
+        var game = SelectedGameCard?.Game;
+        if (game is null || SelectedInstallLocation is null)
+        {
+            return;
+        }
+
+        IsInstallLocationPickerOpen = false;
+        try
+        {
+            await InstallGameAsync(game, SelectedInstallLocation, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameManagementError, exception.Message);
+        }
+    }
+
+    private async Task InstallGameAsync(Game game, GameInstallLocation? location, CancellationToken cancellationToken)
+    {
+        var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceId.Steam;
+        if (shouldRequestTopmost)
+        {
+            WindowTopmostRequested?.Invoke(true);
+        }
+
+        GameManagementResult result;
+        try
+        {
+            result = await gameManagementService.InstallAsync(game, location, cancellationToken);
+        }
+        finally
+        {
+            if (shouldRequestTopmost)
+            {
+                WindowTopmostRequested?.Invoke(false);
+            }
+        }
+
+        StatusMessage = GetGameManagementStatus(result, GameManagementAction.Install);
+        if (result is GameManagementResult.FallbackProtocolOpened or
+            GameManagementResult.FallbackStoreClientOpened or
+            GameManagementResult.FallbackUnavailable)
+        {
+            SteamFallbackRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (result is GameManagementResult.ProtocolOpened or
+            GameManagementResult.FallbackProtocolOpened or
+            GameManagementResult.FallbackStoreClientOpened or
+            GameManagementResult.SilentCommandStarted or
+            GameManagementResult.StoreClientOpened)
+        {
+            StartInstallationStatePolling(game.Id, isInstalled: true);
         }
     }
 
@@ -1108,11 +1220,41 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
-            var result = await gameManagementService.UninstallAsync(SelectedGameCard.Game, cancellationToken);
-            StatusMessage = GetGameManagementStatus(result, GameManagementAction.Uninstall);
-            if (result is GameManagementResult.ProtocolOpened or GameManagementResult.StoreClientOpened)
+            var game = SelectedGameCard.Game;
+            var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceId.Steam;
+            if (shouldRequestTopmost)
             {
-                StartInstallationStatePolling(SelectedGameCard.Game.Id, isInstalled: false);
+                WindowTopmostRequested?.Invoke(true);
+            }
+
+            GameManagementResult result;
+            try
+            {
+                result = await gameManagementService.UninstallAsync(game, cancellationToken);
+            }
+            finally
+            {
+                if (shouldRequestTopmost)
+                {
+                    WindowTopmostRequested?.Invoke(false);
+                }
+            }
+
+            StatusMessage = GetGameManagementStatus(result, GameManagementAction.Uninstall);
+            if (result is GameManagementResult.FallbackProtocolOpened or
+                GameManagementResult.FallbackStoreClientOpened or
+                GameManagementResult.FallbackUnavailable)
+            {
+                SteamFallbackRequested?.Invoke(this, EventArgs.Empty);
+            }
+
+            if (result is GameManagementResult.ProtocolOpened or
+                GameManagementResult.FallbackProtocolOpened or
+                GameManagementResult.FallbackStoreClientOpened or
+                GameManagementResult.SilentCommandStarted or
+                GameManagementResult.StoreClientOpened)
+            {
+                StartInstallationStatePolling(game.Id, isInstalled: false);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1158,6 +1300,16 @@ public partial class MainWindowViewModel : ViewModelBase
                 if (gamesById.TryGetValue(gameId, out var refreshedGame) && refreshedGame.IsInstalled == isInstalled)
                 {
                     pendingInstallationStates.Remove(gameId);
+                    OnPropertyChanged(nameof(IsSelectedGameUninstallPending));
+                    OnPropertyChanged(nameof(IsSelectedGameManagementPending));
+                    if (isInstalled)
+                    {
+                        GameInstallationCompleted?.Invoke(this, EventArgs.Empty);
+                    }
+                    else
+                    {
+                        GameUninstallationCompleted?.Invoke(this, EventArgs.Empty);
+                    }
                 }
             }
         }
@@ -1186,6 +1338,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private void StartInstallationStatePolling(Guid gameId, bool isInstalled)
     {
         pendingInstallationStates[gameId] = isInstalled;
+        OnPropertyChanged(nameof(IsSelectedGameUninstallPending));
+        OnPropertyChanged(nameof(IsSelectedGameManagementPending));
         if (installationPollingTask is { IsCompleted: false })
         {
             return;
@@ -1226,15 +1380,17 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         return result switch
         {
-            GameManagementResult.ProtocolOpened => action switch
+            GameManagementResult.ProtocolOpened or
+            GameManagementResult.FallbackProtocolOpened or
+            GameManagementResult.SilentCommandStarted => action switch
             {
                 GameManagementAction.Install => Resources.SteamInstallRequested,
                 GameManagementAction.Uninstall => Resources.SteamUninstallRequested,
                 GameManagementAction.Launch => Resources.GameLaunchRequested,
                 _ => throw new ArgumentOutOfRangeException(nameof(action))
             },
-            GameManagementResult.StoreClientOpened => Resources.StoreClientOpened,
-            GameManagementResult.Unavailable => Resources.GameManagementUnavailable,
+            GameManagementResult.StoreClientOpened or GameManagementResult.FallbackStoreClientOpened => Resources.StoreClientOpened,
+            GameManagementResult.Unavailable or GameManagementResult.FallbackUnavailable => Resources.GameManagementUnavailable,
             GameManagementResult.Unsupported => Resources.GameManagementUnsupported,
             _ => throw new ArgumentOutOfRangeException(nameof(result))
         };

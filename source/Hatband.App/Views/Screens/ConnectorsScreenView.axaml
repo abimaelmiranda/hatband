@@ -80,6 +80,18 @@
                                            FontSize="19"
                                            FontWeight="SemiBold" />
 
+                                <StackPanel IsVisible="{Binding SelectedConnector.IsSteam}" Spacing="4">
+                                    <CheckBox x:Name="SteamSilentModeCheckBox"
+                                              Content="{x:Static lang:Resources.SteamSilentMode}"
+                                              IsChecked="{Binding IsSteamSilentModeEnabled, Mode=TwoWay}"
+                                              Foreground="#F1F5F8"
+                                              FontSize="13" />
+                                    <TextBlock Text="{x:Static lang:Resources.SteamSilentModeDescription}"
+                                               Foreground="#AEBBC5"
+                                               FontSize="11"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+
                                 <StackPanel IsVisible="{Binding !IsConnectorConnected}" Spacing="10">
                                     <TextBlock Text="{x:Static lang:Resources.ChooseConnectionMethod}"
                                                Foreground="#B9C4CC"

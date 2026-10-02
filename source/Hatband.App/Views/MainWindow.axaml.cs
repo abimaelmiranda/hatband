@@ -12,6 +12,8 @@ public partial class MainWindow : Window
     private readonly DirectionalFocusNavigator directionalFocusNavigator;
     private WindowState previousWindowState;
     private bool isMinimizedForGame;
+    private bool isTemporarilyTopmost;
+    private bool wasTopmostBeforeRequest;
 
     public MainWindow()
     {
@@ -37,6 +39,10 @@ public partial class MainWindow : Window
         viewModel.ExitRequested += OnExitRequested;
         viewModel.GameSessionStarted += OnGameSessionStarted;
         viewModel.GameSessionEnded += OnGameSessionEnded;
+        viewModel.GameInstallationCompleted += OnGameInstallationCompleted;
+        viewModel.GameUninstallationCompleted += OnGameUninstallationCompleted;
+        viewModel.SteamFallbackRequested += OnSteamFallbackRequested;
+        viewModel.WindowTopmostRequested += OnWindowTopmostRequested;
         viewModel.ReturnToLibraryRequested += OnReturnToLibraryRequested;
         viewModel.GameMetadataEditor.Saved += OnGameMetadataEditorSaved;
         await viewModel.LoadGamesAsync();
@@ -61,6 +67,10 @@ public partial class MainWindow : Window
             viewModel.ExitRequested -= OnExitRequested;
             viewModel.GameSessionStarted -= OnGameSessionStarted;
             viewModel.GameSessionEnded -= OnGameSessionEnded;
+            viewModel.GameInstallationCompleted -= OnGameInstallationCompleted;
+            viewModel.GameUninstallationCompleted -= OnGameUninstallationCompleted;
+            viewModel.SteamFallbackRequested -= OnSteamFallbackRequested;
+            viewModel.WindowTopmostRequested -= OnWindowTopmostRequested;
             viewModel.StopPendingInstallationPolling();
             viewModel.StopGameProcessMonitoring();
         }
@@ -90,6 +100,50 @@ public partial class MainWindow : Window
         Activate();
     }
 
+    private void OnGameUninstallationCompleted(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(Activate);
+    }
+
+    private void OnGameInstallationCompleted(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(Activate);
+    }
+
+    private async void OnSteamFallbackRequested(object? sender, EventArgs e)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(700));
+        if (IsVisible)
+        {
+            Dispatcher.UIThread.Post(Activate);
+        }
+    }
+
+    private void OnWindowTopmostRequested(bool isTopmostRequested)
+    {
+        if (isTopmostRequested)
+        {
+            if (isTemporarilyTopmost)
+            {
+                return;
+            }
+
+            wasTopmostBeforeRequest = Topmost;
+            isTemporarilyTopmost = true;
+            Topmost = true;
+            Activate();
+            return;
+        }
+
+        if (!isTemporarilyTopmost)
+        {
+            return;
+        }
+
+        Topmost = wasTopmostBeforeRequest;
+        isTemporarilyTopmost = false;
+    }
+
     private async void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainWindowViewModel viewModel)
@@ -100,6 +154,43 @@ public partial class MainWindow : Window
         if (viewModel.IsGameSessionActive)
         {
             e.Handled = true;
+            return;
+        }
+
+        if (viewModel.IsDetailsScreen && GameDetailsScreenView.HandleUninstallConfirmationKey(e.Key))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (viewModel.IsDetailsScreen && viewModel.IsInstallLocationPickerOpen)
+        {
+            if (e.Key == Key.Enter && GameDetailsScreenView.IsInstallLocationPickerDropdownOpen)
+            {
+                return;
+            }
+
+            if (GameDetailsScreenView.HandleInstallLocationPickerKey(e.Key))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (DirectionalFocusNavigator.IsArrowKey(e.Key))
+            {
+                if (GameDetailsScreenView.IsInstallLocationPickerControlFocused &&
+                    GameDetailsScreenView.IsInstallLocationPickerDropdownOpen &&
+                    (e.Key is Key.Up or Key.Down))
+                {
+                    return;
+                }
+
+                e.Handled = directionalFocusNavigator.MoveFocus(
+                    GetNavigationRoot(viewModel),
+                    e.Key,
+                    useNativeArrowBehavior: false);
+            }
+
             return;
         }
 
@@ -364,7 +455,7 @@ public partial class MainWindow : Window
 
             if (viewModel.SelectedConnector is not null)
             {
-                FocusWhenVisible(ConnectorsScreenView.GetConnectorAction(viewModel.IsConnectorConnected));
+                FocusConnectorAction(viewModel);
             }
 
             e.Handled = true;
@@ -460,6 +551,10 @@ public partial class MainWindow : Window
                 else
                 {
                     await viewModel.ActivatePrimaryGameActionAsync();
+                    if (viewModel.IsInstallLocationPickerOpen)
+                    {
+                        GameDetailsScreenView.FocusInstallLocationPicker();
+                    }
                 }
 
                 e.Handled = true;
@@ -600,7 +695,9 @@ public partial class MainWindow : Window
     private void FocusConnectorAction(MainWindowViewModel viewModel)
     {
         FocusWhenVisible(
-            ConnectorsScreenView.GetConnectorAction(viewModel.IsConnectorConnected));
+            ConnectorsScreenView.GetConnectorAction(
+                viewModel.IsConnectorConnected,
+                viewModel.SelectedConnector?.IsSteam == true));
     }
 
     private void FocusLibraryScreenTarget(MainWindowViewModel viewModel)
@@ -704,6 +801,11 @@ public partial class MainWindow : Window
 
         if (viewModel.IsDetailsScreen)
         {
+            if (viewModel.IsInstallLocationPickerOpen)
+            {
+                return GameDetailsScreenView.InstallLocationPickerNavigationRoot;
+            }
+
             if (viewModel.IsGameOptionsOpen)
             {
                 return GameDetailsScreenView.GameOptionsNavigationRoot;
