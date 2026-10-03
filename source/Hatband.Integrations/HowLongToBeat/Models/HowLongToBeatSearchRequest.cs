@@ -24,7 +24,7 @@ internal sealed class HowLongToBeatSearchRequest
     public bool UseCache { get; init; } = true;
 
     [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Honeypot { get; init; }
+    public Dictionary<string, JsonElement>? Honeypot { get; set; }
 }
 
 internal sealed class HowLongToBeatSearchOptions
