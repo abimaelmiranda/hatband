@@ -43,15 +43,6 @@
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
                 </Border>
-                <Button Grid.Column="2"
-                        Content="{x:Static lang:Resources.KeyboardMenuButton}"
-                        Click="OnMenuButtonClick"
-                        Background="#33111A22"
-                        Foreground="#E9EFF3"
-                        Padding="18,10"
-                        CornerRadius="16"
-                        BorderThickness="1"
-                        BorderBrush="#557B8792" />
             </Grid>
 
             <ListBox x:Name="GameCarousel"

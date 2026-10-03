@@ -23,15 +23,6 @@ public partial class LibraryScreenView : UserControl
 
     public event Action? MenuOpened;
 
-    private void OnMenuButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel viewModel)
-        {
-            viewModel.ToggleMenu();
-            MenuOpened?.Invoke();
-        }
-    }
-
     private void OnEmptyPrimaryActionClick(object? sender, RoutedEventArgs e)
     {
         MenuActionRequested?.Invoke(MenuAction.Connectors);
