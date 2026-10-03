@@ -41,6 +41,7 @@ public static class InfrastructureServiceCollectionExtensions
             new JsonSettingsStore(appDataFileSystem));
         services.AddSingleton<IGameManagementService, GameManagementService>();
         services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
+        services.AddSingleton<IProtonToolManager, ProtonToolManager>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
@@ -48,6 +49,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IGameTimeToBeatSyncService, GameTimeToBeatSyncService>();
         services.AddSingleton<ISteamPlayerService, SteamPlayerService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
+        services.Scan(scan => scan
+            .FromAssemblyOf<IntegrationAssemblyMarker>()
+            .AddClasses(classes => classes.AssignableTo<IProtonReleaseProvider>())
+            .As<IProtonReleaseProvider>()
+            .WithSingletonLifetime());
         services.Scan(scan => scan
             .FromAssemblyOf<IntegrationAssemblyMarker>()
             .AddClasses(classes => classes.AssignableTo<IGameStoreIntegration>())
