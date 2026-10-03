@@ -1,41 +1,28 @@
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
 using Hatband.Integrations.Steam.Abstractions;
 using Hatband.Integrations.Steam.Models;
-using Microsoft.Win32;
 using SteamKit2;
 
 namespace Hatband.Integrations.Steam;
 
 public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
 {
-    private readonly IHostSystemInfo hostSystemInfo;
+    private readonly ISteamInstallationService steamInstallationService;
 
-    public SteamInstalledGameScanner(IHostSystemInfo hostSystemInfo)
+    public SteamInstalledGameScanner(ISteamInstallationService steamInstallationService)
     {
-        ArgumentNullException.ThrowIfNull(hostSystemInfo);
-        this.hostSystemInfo = hostSystemInfo;
+        ArgumentNullException.ThrowIfNull(steamInstallationService);
+        this.steamInstallationService = steamInstallationService;
     }
 
-    public Task<IReadOnlyList<SteamLibraryGame>> ScanAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SteamLibraryGame>> ScanAsync(CancellationToken cancellationToken = default)
     {
-        return Task.Run(() => ScanInstalledGames(cancellationToken), cancellationToken);
-    }
-
-    public Task<IReadOnlyList<SteamLibraryLocation>> GetLibraryLocationsAsync(CancellationToken cancellationToken = default)
-    {
-        return Task.Run(() => FindLibraryLocations(cancellationToken, primarySteamRootOnly: true), cancellationToken);
-    }
-
-    private IReadOnlyList<SteamLibraryGame> ScanInstalledGames(CancellationToken cancellationToken)
-    {
+        var installations = await steamInstallationService.GetInstallationsAsync(cancellationToken);
         var gamesByAppId = new Dictionary<uint, SteamLibraryGame>();
 
-        foreach (var library in FindLibraryLocations(cancellationToken, primarySteamRootOnly: false))
+        foreach (var library in installations.SelectMany(installation => installation.Libraries))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var libraryPath = library.Path;
-            var steamAppsPath = Path.Combine(libraryPath, "steamapps");
+            var steamAppsPath = Path.Combine(library.Path, "steamapps");
             if (!Directory.Exists(steamAppsPath))
             {
                 continue;
@@ -103,124 +90,6 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
             IsInstalled = true,
             InstallDirectory = installDirectory
         };
-    }
-
-    private IReadOnlyList<string> FindSteamRoots()
-    {
-        var paths = new List<string>();
-        var compatPath = Environment.GetEnvironmentVariable("STEAM_COMPAT_CLIENT_INSTALL_PATH");
-        if (!string.IsNullOrWhiteSpace(compatPath))
-        {
-            paths.Add(compatPath);
-        }
-
-        var home = hostSystemInfo.UserProfileDirectory;
-        if (!string.IsNullOrWhiteSpace(home))
-        {
-            if (hostSystemInfo.Platform == HostOperatingSystem.MacOS)
-            {
-                paths.Add(Path.Combine(home, "Library", "Application Support", "Steam"));
-            }
-            else
-            {
-                paths.Add(Path.Combine(home, ".steam", "steam"));
-                paths.Add(Path.Combine(home, ".steam", "root"));
-                paths.Add(Path.Combine(home, ".local", "share", "Steam"));
-                paths.Add(Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam"));
-            }
-        }
-
-        if (hostSystemInfo.Platform == HostOperatingSystem.Windows && OperatingSystem.IsWindows())
-        {
-            using var steamKey = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
-            var registryPath = steamKey?.GetValue("SteamPath") as string;
-            if (!string.IsNullOrWhiteSpace(registryPath))
-            {
-                paths.Add(registryPath);
-            }
-        }
-
-        return DistinctExistingDirectories(paths, hostSystemInfo.Platform == HostOperatingSystem.Windows);
-    }
-
-    private IReadOnlyList<SteamLibraryLocation> FindLibraryLocations(
-        CancellationToken cancellationToken,
-        bool primarySteamRootOnly)
-    {
-        var locations = new List<SteamLibraryLocation>();
-        var isWindows = hostSystemInfo.Platform == HostOperatingSystem.Windows;
-        var seenPaths = new HashSet<string>(isWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        foreach (var steamRoot in FindSteamRoots())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var rootLocations = new Dictionary<int, string>();
-            var libraryFolders = Path.Combine(steamRoot, "steamapps", "libraryfolders.vdf");
-            if (!File.Exists(libraryFolders))
-            {
-                rootLocations.TryAdd(0, steamRoot);
-            }
-            else
-            {
-                try
-                {
-                    using var stream = File.OpenRead(libraryFolders);
-                    var root = new KeyValue();
-                    root.ReadAsText(stream);
-                    var folders = FindChild(root, "libraryfolders") ?? root;
-                    foreach (var folder in folders.Children)
-                    {
-                        if (!int.TryParse(folder.Name, out var volumeIndex))
-                        {
-                            continue;
-                        }
-
-                        var path = GetValue(folder, "path") ?? folder.Value;
-                        if (!string.IsNullOrWhiteSpace(path))
-                        {
-                            rootLocations.TryAdd(volumeIndex, path);
-                        }
-                    }
-                }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or FormatException)
-                {
-                    // Use the default library if the additional-library index is malformed.
-                }
-            }
-
-            if (rootLocations.Count == 0)
-            {
-                rootLocations.TryAdd(0, steamRoot);
-            }
-
-            foreach (var (volumeIndex, path) in rootLocations.OrderBy(location => location.Key))
-            {
-                var fullPath = Path.GetFullPath(path);
-                if (Directory.Exists(fullPath) && seenPaths.Add(fullPath))
-                {
-                    locations.Add(new SteamLibraryLocation
-                    {
-                        VolumeIndex = volumeIndex,
-                        Path = fullPath
-                    });
-                }
-            }
-
-            if (primarySteamRootOnly && locations.Count > 0)
-            {
-                break;
-            }
-        }
-
-        return locations;
-    }
-
-    private static IReadOnlyList<string> DistinctExistingDirectories(IEnumerable<string> paths, bool isWindows)
-    {
-        return paths
-            .Where(Directory.Exists)
-            .Select(Path.GetFullPath)
-            .Distinct(isWindows ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)
-            .ToArray();
     }
 
     private static KeyValue? FindChild(KeyValue? parent, string name)

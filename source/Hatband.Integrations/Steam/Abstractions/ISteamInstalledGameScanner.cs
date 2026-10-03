@@ -7,7 +7,5 @@ namespace Hatband.Integrations.Steam.Abstractions;
 /// </summary>
 public interface ISteamInstalledGameScanner
 {
-    Task<IReadOnlyList<SteamLibraryLocation>> GetLibraryLocationsAsync(CancellationToken cancellationToken = default);
-
     Task<IReadOnlyList<SteamLibraryGame>> ScanAsync(CancellationToken cancellationToken = default);
 }

@@ -51,6 +51,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
         services.AddSingleton<IGameTimeToBeatSyncService, GameTimeToBeatSyncService>();
         services.AddSingleton<ISteamPlayerService, SteamPlayerService>();
+        services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
         services.Scan(scan => scan
             .FromAssemblyOf<IntegrationAssemblyMarker>()

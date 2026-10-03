@@ -1,6 +1,7 @@
 using Hatband.Core.Abstractions;
 using Hatband.Core.Enums;
 using Hatband.Core.Models;
+using Hatband.Integrations.Steam.Abstractions;
 
 namespace Hatband.Infrastructure.Services;
 
@@ -8,27 +9,30 @@ public sealed class ProtonToolInstallationService : IProtonToolInstallationServi
 {
     private const string HatbandRunnersDirectory = "proton/runners";
     private const string DownloadDirectory = "proton/.downloads";
-    private const string StagingDirectory = "proton/.staging";
     private const string GitHubReleaseDownloadHost = "github.com";
 
     private readonly IAppDataFileSystem appDataFileSystem;
     private readonly IArchiveExtractionService archiveExtractionService;
     private readonly IHostSystemInfo hostSystemInfo;
+    private readonly ISteamInstallationService steamInstallationService;
     private readonly HttpClient httpClient;
 
     public ProtonToolInstallationService(
         IAppDataFileSystem appDataFileSystem,
         IArchiveExtractionService archiveExtractionService,
         IHostSystemInfo hostSystemInfo,
+        ISteamInstallationService steamInstallationService,
         HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
         ArgumentNullException.ThrowIfNull(archiveExtractionService);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
+        ArgumentNullException.ThrowIfNull(steamInstallationService);
         ArgumentNullException.ThrowIfNull(httpClient);
         this.appDataFileSystem = appDataFileSystem;
         this.archiveExtractionService = archiveExtractionService;
         this.hostSystemInfo = hostSystemInfo;
+        this.steamInstallationService = steamInstallationService;
         this.httpClient = httpClient;
     }
 
@@ -39,16 +43,22 @@ public sealed class ProtonToolInstallationService : IProtonToolInstallationServi
         ValidateRelease(release);
 
         var targetName = CreateInstallationDirectoryName(release);
-        var targetPath = appDataFileSystem.GetPath(Path.Combine(HatbandRunnersDirectory, targetName));
+        var installations = await steamInstallationService.GetInstallationsAsync(cancellationToken);
+        var steamRoot = installations.FirstOrDefault()?.RootPath
+            ?? throw new DirectoryNotFoundException("Could not find a Steam installation for the current user.");
+        var steamCompatibilityToolsDirectory = Path.Combine(steamRoot, "compatibilitytools.d");
+        var targetPath = Path.Combine(steamCompatibilityToolsDirectory, targetName);
+        var trackingLinkPath = appDataFileSystem.GetPath(Path.Combine(HatbandRunnersDirectory, targetName));
         if (Directory.Exists(targetPath))
         {
             throw new InvalidOperationException($"'{release.DisplayName}' is already installed in Hatband.");
         }
 
         appDataFileSystem.CreateDirectory(DownloadDirectory);
-        appDataFileSystem.CreateDirectory(StagingDirectory);
+        appDataFileSystem.CreateDirectory(HatbandRunnersDirectory);
+        Directory.CreateDirectory(steamCompatibilityToolsDirectory);
         var archivePath = appDataFileSystem.GetPath(Path.Combine(DownloadDirectory, $"{Guid.NewGuid():N}-{release.ArchiveFileName}"));
-        var extractionPath = appDataFileSystem.GetPath(Path.Combine(StagingDirectory, Guid.NewGuid().ToString("N")));
+        var extractionPath = Path.Combine(steamRoot, ".hatband-proton-staging", Guid.NewGuid().ToString("N"));
 
         try
         {
@@ -56,8 +66,16 @@ public sealed class ProtonToolInstallationService : IProtonToolInstallationServi
             await archiveExtractionService.ExtractAsync(archivePath, extractionPath, cancellationToken);
 
             var protonDirectory = FindProtonDirectory(extractionPath);
-            appDataFileSystem.CreateDirectory(HatbandRunnersDirectory);
             Directory.Move(protonDirectory, targetPath);
+            try
+            {
+                Directory.CreateSymbolicLink(trackingLinkPath, targetPath);
+            }
+            catch
+            {
+                Directory.Move(targetPath, protonDirectory);
+                throw;
+            }
         }
         finally
         {

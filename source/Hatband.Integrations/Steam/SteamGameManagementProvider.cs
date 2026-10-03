@@ -10,19 +10,19 @@ namespace Hatband.Integrations.Steam;
 public sealed class SteamGameManagementProvider : IGameManagementProvider
 {
     private readonly IHostApplicationLauncher hostApplicationLauncher;
-    private readonly ISteamInstalledGameScanner steamInstalledGameScanner;
+    private readonly ISteamInstallationService steamInstallationService;
     private readonly ISettingsStore settingsStore;
 
     public SteamGameManagementProvider(
         IHostApplicationLauncher hostApplicationLauncher,
-        ISteamInstalledGameScanner steamInstalledGameScanner,
+        ISteamInstallationService steamInstallationService,
         ISettingsStore settingsStore)
     {
         ArgumentNullException.ThrowIfNull(hostApplicationLauncher);
-        ArgumentNullException.ThrowIfNull(steamInstalledGameScanner);
+        ArgumentNullException.ThrowIfNull(steamInstallationService);
         ArgumentNullException.ThrowIfNull(settingsStore);
         this.hostApplicationLauncher = hostApplicationLauncher;
-        this.steamInstalledGameScanner = steamInstalledGameScanner;
+        this.steamInstallationService = steamInstallationService;
         this.settingsStore = settingsStore;
     }
 
@@ -39,7 +39,13 @@ public sealed class SteamGameManagementProvider : IGameManagementProvider
             return [];
         }
 
-        var libraries = await steamInstalledGameScanner.GetLibraryLocationsAsync(cancellationToken);
+        var installations = await steamInstallationService.GetInstallationsAsync(cancellationToken);
+        if (installations.Count == 0)
+        {
+            return [];
+        }
+
+        var libraries = installations[0].Libraries;
         return libraries
             .Select(library => new GameInstallLocation(
                 library.VolumeIndex.ToString(CultureInfo.InvariantCulture),
