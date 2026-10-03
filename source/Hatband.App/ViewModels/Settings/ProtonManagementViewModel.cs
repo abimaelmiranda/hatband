@@ -11,7 +11,9 @@ namespace Hatband.App.ViewModels.Settings;
 
 public partial class ProtonManagementViewModel : ObservableObject
 {
-    private readonly IProtonToolManager protonToolManager;
+    private readonly IProtonReleaseCatalogService protonReleaseCatalogService;
+    private readonly IProtonToolDiscoveryService protonToolDiscoveryService;
+    private readonly IProtonToolInstallationService protonToolInstallationService;
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly ILogger<ProtonManagementViewModel> logger;
 
@@ -40,14 +42,20 @@ public partial class ProtonManagementViewModel : ObservableObject
     public partial string? StatusMessage { get; set; }
 
     public ProtonManagementViewModel(
-        IProtonToolManager protonToolManager,
+        IProtonReleaseCatalogService protonReleaseCatalogService,
+        IProtonToolDiscoveryService protonToolDiscoveryService,
+        IProtonToolInstallationService protonToolInstallationService,
         IHostSystemInfo hostSystemInfo,
         ILogger<ProtonManagementViewModel> logger)
     {
-        ArgumentNullException.ThrowIfNull(protonToolManager);
+        ArgumentNullException.ThrowIfNull(protonReleaseCatalogService);
+        ArgumentNullException.ThrowIfNull(protonToolDiscoveryService);
+        ArgumentNullException.ThrowIfNull(protonToolInstallationService);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentNullException.ThrowIfNull(logger);
-        this.protonToolManager = protonToolManager;
+        this.protonReleaseCatalogService = protonReleaseCatalogService;
+        this.protonToolDiscoveryService = protonToolDiscoveryService;
+        this.protonToolInstallationService = protonToolInstallationService;
         this.hostSystemInfo = hostSystemInfo;
         this.logger = logger;
     }
@@ -95,7 +103,7 @@ public partial class ProtonManagementViewModel : ObservableObject
                 await RefreshInstalledToolsAsync();
             }
 
-            var catalogs = await protonToolManager.GetCatalogsAsync();
+            var catalogs = await protonReleaseCatalogService.GetCatalogsAsync();
             Catalogs = new ObservableCollection<ProtonReleaseCatalogViewModel>(
                 catalogs.Select(catalog => new ProtonReleaseCatalogViewModel(
                     catalog,
@@ -146,7 +154,7 @@ public partial class ProtonManagementViewModel : ObservableObject
         StatusMessage = string.Format(Resources.ProtonInstalling, release.DisplayName);
         try
         {
-            await protonToolManager.InstallAsync(release);
+            await protonToolInstallationService.InstallAsync(release);
             await RefreshInstalledToolsAsync();
             StatusMessage = string.Format(Resources.ProtonInstallComplete, release.DisplayName);
         }
@@ -165,7 +173,7 @@ public partial class ProtonManagementViewModel : ObservableObject
 
     private async Task RefreshInstalledToolsAsync()
     {
-        var protonTools = await protonToolManager.DiscoverInstalledToolsAsync();
+        var protonTools = await protonToolDiscoveryService.DiscoverInstalledToolsAsync();
         InstalledTools = new ObservableCollection<ProtonToolViewModel>(
             protonTools.Select(protonTool => new ProtonToolViewModel(protonTool)));
     }

@@ -1,0 +1,151 @@
+using Hatband.Core.Abstractions;
+using Hatband.Core.Enums;
+using Hatband.Core.Models;
+
+namespace Hatband.Infrastructure.Services;
+
+public sealed class ProtonToolInstallationService : IProtonToolInstallationService
+{
+    private const string HatbandRunnersDirectory = "proton/runners";
+    private const string DownloadDirectory = "proton/.downloads";
+    private const string StagingDirectory = "proton/.staging";
+    private const string GitHubReleaseDownloadHost = "github.com";
+
+    private readonly IAppDataFileSystem appDataFileSystem;
+    private readonly IArchiveExtractionService archiveExtractionService;
+    private readonly IHostSystemInfo hostSystemInfo;
+    private readonly HttpClient httpClient;
+
+    public ProtonToolInstallationService(
+        IAppDataFileSystem appDataFileSystem,
+        IArchiveExtractionService archiveExtractionService,
+        IHostSystemInfo hostSystemInfo,
+        HttpClient httpClient)
+    {
+        ArgumentNullException.ThrowIfNull(appDataFileSystem);
+        ArgumentNullException.ThrowIfNull(archiveExtractionService);
+        ArgumentNullException.ThrowIfNull(hostSystemInfo);
+        ArgumentNullException.ThrowIfNull(httpClient);
+        this.appDataFileSystem = appDataFileSystem;
+        this.archiveExtractionService = archiveExtractionService;
+        this.hostSystemInfo = hostSystemInfo;
+        this.httpClient = httpClient;
+    }
+
+    public async Task InstallAsync(ProtonRelease release, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(release);
+        EnsureLinuxHost();
+        ValidateRelease(release);
+
+        var targetName = CreateInstallationDirectoryName(release);
+        var targetPath = appDataFileSystem.GetPath(Path.Combine(HatbandRunnersDirectory, targetName));
+        if (Directory.Exists(targetPath))
+        {
+            throw new InvalidOperationException($"'{release.DisplayName}' is already installed in Hatband.");
+        }
+
+        appDataFileSystem.CreateDirectory(DownloadDirectory);
+        appDataFileSystem.CreateDirectory(StagingDirectory);
+        var archivePath = appDataFileSystem.GetPath(Path.Combine(DownloadDirectory, $"{Guid.NewGuid():N}-{release.ArchiveFileName}"));
+        var extractionPath = appDataFileSystem.GetPath(Path.Combine(StagingDirectory, Guid.NewGuid().ToString("N")));
+
+        try
+        {
+            await DownloadArchiveAsync(release.DownloadUrl, archivePath, cancellationToken);
+            await archiveExtractionService.ExtractAsync(archivePath, extractionPath, cancellationToken);
+
+            var protonDirectory = FindProtonDirectory(extractionPath);
+            appDataFileSystem.CreateDirectory(HatbandRunnersDirectory);
+            Directory.Move(protonDirectory, targetPath);
+        }
+        finally
+        {
+            if (File.Exists(archivePath))
+            {
+                File.Delete(archivePath);
+            }
+
+            if (Directory.Exists(extractionPath))
+            {
+                Directory.Delete(extractionPath, recursive: true);
+            }
+        }
+    }
+
+    private void EnsureLinuxHost()
+    {
+        if (hostSystemInfo.Platform != HostOperatingSystem.Linux)
+        {
+            throw new PlatformNotSupportedException("Proton tools can only be installed on Linux.");
+        }
+    }
+
+    private void ValidateRelease(ProtonRelease release)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(release.Id);
+        ArgumentException.ThrowIfNullOrWhiteSpace(release.ProviderId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(release.Version);
+        ArgumentException.ThrowIfNullOrWhiteSpace(release.ArchiveFileName);
+        archiveExtractionService.ValidateArchiveFileName(release.ArchiveFileName);
+
+        if (!Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out var downloadUri) ||
+            downloadUri.Scheme != Uri.UriSchemeHttps ||
+            !string.Equals(downloadUri.Host, GitHubReleaseDownloadHost, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Proton release archives must be downloaded from GitHub over HTTPS.", nameof(release));
+        }
+    }
+
+    private static string CreateInstallationDirectoryName(ProtonRelease release)
+    {
+        var providerId = SanitizePathSegment(release.ProviderId);
+        var version = SanitizePathSegment(release.Version);
+        var variant = SanitizePathSegment(release.Variant);
+        return $"{providerId}-{version}-{variant}";
+    }
+
+    private static string SanitizePathSegment(string value)
+    {
+        return string.Concat(value.Select(character =>
+            char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-'
+                ? character
+                : '-'));
+    }
+
+    private async Task DownloadArchiveAsync(
+        string downloadUrl,
+        string archivePath,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync(
+            downloadUrl,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var archiveStream = new FileStream(
+            archivePath,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize: 128 * 1024,
+            useAsync: true);
+        await responseStream.CopyToAsync(archiveStream, cancellationToken);
+    }
+
+    private static string FindProtonDirectory(string extractionPath)
+    {
+        var directories = Directory.EnumerateDirectories(extractionPath).ToArray();
+        var protonDirectory = directories.Length == 1 && File.Exists(Path.Combine(directories[0], "proton"))
+            ? directories[0]
+            : extractionPath;
+        if (!File.Exists(Path.Combine(protonDirectory, "proton")))
+        {
+            throw new InvalidDataException("The downloaded archive does not contain a Proton compatibility tool.");
+        }
+
+        return protonDirectory;
+    }
+}

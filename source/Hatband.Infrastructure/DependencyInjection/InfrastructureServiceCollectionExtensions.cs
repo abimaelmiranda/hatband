@@ -39,9 +39,12 @@ public static class InfrastructureServiceCollectionExtensions
             new FileSystemGameArtworkStorage(appDataFileSystem));
         services.AddSingleton<ISettingsStore>(
             new JsonSettingsStore(appDataFileSystem));
+        services.AddSingleton<IArchiveExtractionService, SharpCompressArchiveExtractionService>();
+        services.AddSingleton<IProtonReleaseCatalogService, ProtonReleaseCatalogService>();
+        services.AddSingleton<IProtonToolDiscoveryService, ProtonToolDiscoveryService>();
+        services.AddSingleton<IProtonToolInstallationService, ProtonToolInstallationService>();
         services.AddSingleton<IGameManagementService, GameManagementService>();
         services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
-        services.AddSingleton<IProtonToolManager, ProtonToolManager>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
