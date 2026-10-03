@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Hatband.Core.Abstractions;
 using Hatband.Core.Enums;
 
@@ -7,13 +8,17 @@ namespace Hatband.Infrastructure.Host;
 public sealed class HostSystemInfo : IHostSystemInfo
 {
     private readonly HostOperatingSystem _platform;
+    private readonly Architecture _operatingSystemArchitecture;
 
     public HostSystemInfo()
     {
         _platform = DetectPlatform();
+        _operatingSystemArchitecture = RuntimeInformation.OSArchitecture;
     }
 
     public HostOperatingSystem Platform => _platform;
+
+    public Architecture OperatingSystemArchitecture => _operatingSystemArchitecture;
 
     public string UserProfileDirectory => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 

@@ -8,11 +8,14 @@ public sealed class ProtonGeReleaseProvider : IProtonReleaseProvider
 {
     private static readonly Uri ReleasesUri = new("https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases?per_page=20");
     private readonly GitHubReleaseClient releaseClient;
+    private readonly IHostSystemInfo hostSystemInfo;
 
-    public ProtonGeReleaseProvider(HttpClient httpClient)
+    public ProtonGeReleaseProvider(HttpClient httpClient, IHostSystemInfo hostSystemInfo)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(hostSystemInfo);
         releaseClient = new GitHubReleaseClient(httpClient);
+        this.hostSystemInfo = hostSystemInfo;
     }
 
     public string Id => "proton-ge";
@@ -22,12 +25,13 @@ public sealed class ProtonGeReleaseProvider : IProtonReleaseProvider
     public async Task<IReadOnlyList<ProtonRelease>> GetLatestReleasesAsync(
         CancellationToken cancellationToken = default)
     {
+        var architectureName = ProtonArchitecture.GetAssetArchitectureName(hostSystemInfo.OperatingSystemArchitecture);
         var releases = await releaseClient.GetLatestReleasesAsync(ReleasesUri, cancellationToken);
 
         var protonReleases = new List<ProtonRelease>(releases.Count);
         foreach (var release in releases)
         {
-            var protonRelease = ToProtonRelease(release);
+            var protonRelease = ToProtonRelease(release, architectureName);
             if (protonRelease is not null)
             {
                 protonReleases.Add(protonRelease);
@@ -37,10 +41,16 @@ public sealed class ProtonGeReleaseProvider : IProtonReleaseProvider
         return protonReleases;
     }
 
-    private static ProtonRelease? ToProtonRelease(GitHubRelease release)
+    private static ProtonRelease? ToProtonRelease(GitHubRelease release, string architectureName)
     {
         var archive = release.Assets.FirstOrDefault(asset =>
-            asset.Name.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase));
+            asset.Name.EndsWith($"-{architectureName}.tar.gz", StringComparison.OrdinalIgnoreCase));
+        if (archive is null && architectureName == "x86_64")
+        {
+            archive = release.Assets.FirstOrDefault(asset =>
+                string.Equals(asset.Name, $"{release.TagName}.tar.gz", StringComparison.OrdinalIgnoreCase));
+        }
+
         if (archive is null)
         {
             return null;
@@ -52,7 +62,7 @@ public sealed class ProtonGeReleaseProvider : IProtonReleaseProvider
             "GE-Proton",
             release.TagName,
             string.IsNullOrWhiteSpace(release.Name) ? release.TagName : release.Name,
-            "x86_64",
+            architectureName,
             release.PublishedAt,
             archive.DownloadUrl,
             archive.Name);
