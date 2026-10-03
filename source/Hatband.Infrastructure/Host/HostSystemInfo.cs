@@ -6,30 +6,36 @@ namespace Hatband.Infrastructure.Host;
 
 public sealed class HostSystemInfo : IHostSystemInfo
 {
-    public HostOperatingSystem Platform
+    private readonly HostOperatingSystem _platform;
+
+    public HostSystemInfo()
     {
-        get
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                return HostOperatingSystem.Windows;
-            }
-
-            if (OperatingSystem.IsMacOS())
-            {
-                return HostOperatingSystem.MacOS;
-            }
-
-            if (OperatingSystem.IsLinux())
-            {
-                return HostOperatingSystem.Linux;
-            }
-
-            return HostOperatingSystem.Unknown;
-        }
+        _platform = DetectPlatform();
     }
+
+    public HostOperatingSystem Platform => _platform;
 
     public string UserProfileDirectory => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
     public string LocalApplicationDataDirectory => Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+    private static HostOperatingSystem DetectPlatform()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return HostOperatingSystem.Windows;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return HostOperatingSystem.MacOS;
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return HostOperatingSystem.Linux;
+        }
+
+        return HostOperatingSystem.Unknown;
+    }
 }
