@@ -50,7 +50,7 @@ public partial class AddGameScreenView : UserControl
             }
 
             viewModel.PrepareGameFromExecutable(executablePath);
-            GameNameBox.Focus();
+            DirectionalFocusNavigator.Focus(GameNameBox);
         }
         catch (Exception exception)
         {

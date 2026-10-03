@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using System.Globalization;
 using Hatband.App.Services;
 using Hatband.App.ViewModels;
+using Hatband.App.ViewModels.Settings;
 using Hatband.App.Views;
 using Hatband.Core.Abstractions;
 using Hatband.Infrastructure.DependencyInjection;
@@ -38,6 +39,8 @@ public partial class App : Application
             services.AddSingleton<ArtworkImageLoader>();
             services.AddSingleton<DateTimeDisplayFormatter>();
             services.AddSingleton<GameProcessSessionService>();
+            services.AddSingleton<ProtonManagementViewModel>();
+            services.AddSingleton<SettingsScreenViewModel>();
             services.AddSingleton<MainWindowViewModel>();
 
             var serviceProvider = services.BuildServiceProvider();

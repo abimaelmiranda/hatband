@@ -237,6 +237,51 @@
   <data name="Compatibility" xml:space="preserve">
     <value>Compatibility</value>
   </data>
+  <data name="ProtonToolsHeading" xml:space="preserve">
+    <value>Installed Proton tools</value>
+  </data>
+  <data name="AvailableProtonVersionsHeading" xml:space="preserve">
+    <value>Available versions</value>
+  </data>
+  <data name="RefreshProtonCatalog" xml:space="preserve">
+    <value>Refresh catalog</value>
+  </data>
+  <data name="NoProtonToolsInstalled" xml:space="preserve">
+    <value>No Proton tools were found.</value>
+  </data>
+  <data name="NoProtonVersionsAvailable" xml:space="preserve">
+    <value>No compatible releases were found for this provider.</value>
+  </data>
+  <data name="ProtonLinuxOnly" xml:space="preserve">
+    <value>Proton management is available on Linux.</value>
+  </data>
+  <data name="NoProtonCatalogsLoaded" xml:space="preserve">
+    <value>No release catalogs are available. Select Refresh to try again.</value>
+  </data>
+  <data name="ProtonRefreshError" xml:space="preserve">
+    <value>Could not refresh Proton tools: {0}</value>
+  </data>
+  <data name="ProtonInstallError" xml:space="preserve">
+    <value>Could not install {0}: {1}</value>
+  </data>
+  <data name="ProtonInstalling" xml:space="preserve">
+    <value>Installing {0}…</value>
+  </data>
+  <data name="ProtonInstallComplete" xml:space="preserve">
+    <value>Installed {0}.</value>
+  </data>
+  <data name="ProtonCatalogLoadError" xml:space="preserve">
+    <value>Could not load this catalog: {0}</value>
+  </data>
+  <data name="ProtonManagedSource" xml:space="preserve">
+    <value>Hatband</value>
+  </data>
+  <data name="ProtonVariantLabel" xml:space="preserve">
+    <value>Variant: {0}</value>
+  </data>
+  <data name="ProtonPublishedLabel" xml:space="preserve">
+    <value>Published: {0:d}</value>
+  </data>
   <data name="ProtonOptionsPlaceholder" xml:space="preserve">
     <value>Per-game options, such as Proton settings, will appear here.</value>
   </data>

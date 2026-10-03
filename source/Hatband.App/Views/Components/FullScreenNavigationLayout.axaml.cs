@@ -1,10 +1,13 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 
 namespace Hatband.App.Views.Components;
 
 public partial class FullScreenNavigationLayout : UserControl
 {
+    private readonly Dictionary<Control, (bool Focusable, bool IsTabStop)> navigationFocusStates = [];
+
     public static readonly StyledProperty<object?> NavigationContentProperty =
         AvaloniaProperty.Register<FullScreenNavigationLayout, object?>(nameof(NavigationContent));
 
@@ -14,9 +17,15 @@ public partial class FullScreenNavigationLayout : UserControl
     public static readonly StyledProperty<object?> FooterContentProperty =
         AvaloniaProperty.Register<FullScreenNavigationLayout, object?>(nameof(FooterContent));
 
+    public static readonly StyledProperty<bool> IsMainContentActiveProperty =
+        AvaloniaProperty.Register<FullScreenNavigationLayout, bool>(nameof(IsMainContentActive));
+
     public FullScreenNavigationLayout()
     {
         InitializeComponent();
+        PropertyChanged += OnLayoutPropertyChanged;
+        NavigationContentPresenter.PropertyChanged += OnNavigationPresenterPropertyChanged;
+        UpdateNavigationFocusability();
     }
 
     public object? NavigationContent
@@ -35,5 +44,57 @@ public partial class FullScreenNavigationLayout : UserControl
     {
         get => GetValue(FooterContentProperty);
         set => SetValue(FooterContentProperty, value);
+    }
+
+    public bool IsMainContentActive
+    {
+        get => GetValue(IsMainContentActiveProperty);
+        set => SetValue(IsMainContentActiveProperty, value);
+    }
+
+    public Control? NavigationContentRoot => NavigationContentPresenter.Content as Control;
+
+    public Control? MainContentRoot => MainContentPresenter.Content as Control;
+
+    public void ActivateMainContent() => IsMainContentActive = true;
+
+    public void DeactivateMainContent() => IsMainContentActive = false;
+
+    private void OnLayoutPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == IsMainContentActiveProperty)
+        {
+            UpdateNavigationFocusability();
+        }
+    }
+
+    private void OnNavigationPresenterPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (IsMainContentActive && e.Property == ContentControl.ContentProperty)
+        {
+            UpdateNavigationFocusability();
+        }
+    }
+
+    private void UpdateNavigationFocusability()
+    {
+        foreach (var (control, focusState) in navigationFocusStates)
+        {
+            control.Focusable = focusState.Focusable;
+            control.IsTabStop = focusState.IsTabStop;
+        }
+
+        navigationFocusStates.Clear();
+        if (!IsMainContentActive)
+        {
+            return;
+        }
+
+        foreach (var control in NavigationContentPresenter.GetVisualDescendants().OfType<Control>())
+        {
+            navigationFocusStates.Add(control, (control.Focusable, control.IsTabStop));
+            control.Focusable = false;
+            control.IsTabStop = false;
+        }
     }
 }

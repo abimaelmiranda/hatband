@@ -12,6 +12,7 @@
             Padding="10,6"
             CornerRadius="6"
             HorizontalContentAlignment="Stretch"
+            GotFocus="OnNavigationButtonGotFocus"
             Click="OnButtonClick">
         <Grid ColumnDefinitions="30,*" ColumnSpacing="8">
             <TextBlock Text="{Binding Symbol, RelativeSource={RelativeSource AncestorType=components:ConsoleNavigationItemView}}"

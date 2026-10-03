@@ -20,6 +20,7 @@ public partial class ConnectorsScreenView : UserControl
 
     public void FocusSelectedConnector()
     {
+        NavigationLayout.DeactivateMainContent();
         if (DataContext is not MainWindowViewModel viewModel || viewModel.Connectors.Count == 0)
         {
             return;
@@ -29,12 +30,17 @@ public partial class ConnectorsScreenView : UserControl
             .OfType<Button>()
             .FirstOrDefault(button => button.DataContext is ConnectorViewModel connector &&
                                       ReferenceEquals(connector, viewModel.Connectors[viewModel.SelectedConnectorIndex]));
-        connectorButton?.Focus();
+        if (connectorButton is not null)
+        {
+            DirectionalFocusNavigator.Focus(connectorButton);
+        }
     }
 
     public Button SteamConnectButtonControl => SteamConnectButton;
 
     public Button SteamSyncButtonControl => SteamSyncButton;
+
+    public void ActivateConnectorContent() => NavigationLayout.ActivateMainContent();
 
     public Control GetConnectorAction(bool isConnected, bool isSteam)
     {
@@ -61,7 +67,18 @@ public partial class ConnectorsScreenView : UserControl
             return;
         }
 
+        ActivateConnectorContent();
         viewModel.OpenConnector(connector);
         ConnectorOpened?.Invoke(connector);
+    }
+
+    private void OnConnectorFocusEntered(object? sender, RoutedEventArgs e)
+    {
+        NavigationLayout.DeactivateMainContent();
+        if (DataContext is MainWindowViewModel viewModel &&
+            sender is Button { DataContext: ConnectorViewModel connector })
+        {
+            viewModel.SelectConnector(connector);
+        }
     }
 }

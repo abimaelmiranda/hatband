@@ -59,9 +59,11 @@ public partial class ConsoleNavigationItemView : UserControl
 
     public event EventHandler? Activated;
 
+    public event EventHandler? FocusEntered;
+
     public void FocusItem()
     {
-        NavigationButton.Focus();
+        DirectionalFocusNavigator.Focus(NavigationButton);
     }
 
     public bool HasKeyboardFocus => NavigationButton.IsFocused;
@@ -79,5 +81,10 @@ public partial class ConsoleNavigationItemView : UserControl
     private void OnButtonClick(object? sender, RoutedEventArgs e)
     {
         Activated?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnNavigationButtonGotFocus(object? sender, RoutedEventArgs e)
+    {
+        FocusEntered?.Invoke(this, EventArgs.Empty);
     }
 }

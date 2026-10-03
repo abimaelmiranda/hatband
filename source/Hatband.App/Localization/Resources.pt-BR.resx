@@ -237,6 +237,51 @@
   <data name="Compatibility" xml:space="preserve">
     <value>Compatibilidade</value>
   </data>
+  <data name="ProtonToolsHeading" xml:space="preserve">
+    <value>Protons instalados</value>
+  </data>
+  <data name="AvailableProtonVersionsHeading" xml:space="preserve">
+    <value>Versões disponíveis</value>
+  </data>
+  <data name="RefreshProtonCatalog" xml:space="preserve">
+    <value>Atualizar catálogo</value>
+  </data>
+  <data name="NoProtonToolsInstalled" xml:space="preserve">
+    <value>Nenhuma ferramenta Proton foi encontrada.</value>
+  </data>
+  <data name="NoProtonVersionsAvailable" xml:space="preserve">
+    <value>Nenhuma versão compatível foi encontrada neste catálogo.</value>
+  </data>
+  <data name="ProtonLinuxOnly" xml:space="preserve">
+    <value>O gerenciamento do Proton está disponível no Linux.</value>
+  </data>
+  <data name="NoProtonCatalogsLoaded" xml:space="preserve">
+    <value>Nenhum catálogo de versões disponível. Selecione Atualizar para tentar novamente.</value>
+  </data>
+  <data name="ProtonRefreshError" xml:space="preserve">
+    <value>Não foi possível atualizar as ferramentas Proton: {0}</value>
+  </data>
+  <data name="ProtonInstallError" xml:space="preserve">
+    <value>Não foi possível instalar {0}: {1}</value>
+  </data>
+  <data name="ProtonInstalling" xml:space="preserve">
+    <value>Instalando {0}…</value>
+  </data>
+  <data name="ProtonInstallComplete" xml:space="preserve">
+    <value>{0} instalado.</value>
+  </data>
+  <data name="ProtonCatalogLoadError" xml:space="preserve">
+    <value>Não foi possível carregar este catálogo: {0}</value>
+  </data>
+  <data name="ProtonManagedSource" xml:space="preserve">
+    <value>Hatband</value>
+  </data>
+  <data name="ProtonVariantLabel" xml:space="preserve">
+    <value>Variante: {0}</value>
+  </data>
+  <data name="ProtonPublishedLabel" xml:space="preserve">
+    <value>Publicado em: {0:d}</value>
+  </data>
   <data name="ProtonOptionsPlaceholder" xml:space="preserve">
     <value>As opções específicas, como a configuração do Proton, aparecerão aqui.</value>
   </data>

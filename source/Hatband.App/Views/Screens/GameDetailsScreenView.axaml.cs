@@ -54,11 +54,11 @@ public partial class GameDetailsScreenView : UserControl
             case Key.Left or Key.Right:
                 if (CancelUninstallButton.IsFocused)
                 {
-                    ConfirmUninstallButton.Focus();
+                    DirectionalFocusNavigator.Focus(ConfirmUninstallButton);
                 }
                 else
                 {
-                    CancelUninstallButton.Focus();
+                    DirectionalFocusNavigator.Focus(CancelUninstallButton);
                 }
 
                 return true;
@@ -140,7 +140,7 @@ public partial class GameDetailsScreenView : UserControl
         {
             if (IsInstallLocationPickerOpen)
             {
-                InstallLocationComboBox.Focus();
+                DirectionalFocusNavigator.Focus(InstallLocationComboBox);
             }
         }, DispatcherPriority.Input);
     }
@@ -175,10 +175,10 @@ public partial class GameDetailsScreenView : UserControl
         switch (nextIndex)
         {
             case 0:
-                PlayButton.Focus();
+                DirectionalFocusNavigator.Focus(PlayButton);
                 break;
             case 1:
-                OptionsButton.Focus();
+                DirectionalFocusNavigator.Focus(OptionsButton);
                 break;
         }
     }
@@ -238,7 +238,7 @@ public partial class GameDetailsScreenView : UserControl
                 {
                     uninstallViewModel.IsGameOptionsOpen = false;
                     UninstallConfirmationOverlay.IsVisible = true;
-                    Dispatcher.UIThread.Post(() => CancelUninstallButton.Focus());
+                    Dispatcher.UIThread.Post(() => DirectionalFocusNavigator.Focus(CancelUninstallButton));
                 }
                 break;
         }
@@ -311,7 +311,7 @@ public partial class GameDetailsScreenView : UserControl
             viewModel.IsInstallLocationPickerOpen = false;
         }
 
-        PlayButton.Focus();
+        DirectionalFocusNavigator.Focus(PlayButton);
     }
 
     private async Task ConfirmInstallAsync()
@@ -322,7 +322,7 @@ public partial class GameDetailsScreenView : UserControl
         }
 
         await viewModel.ConfirmGameInstallationAsync();
-        PlayButton.Focus();
+        DirectionalFocusNavigator.Focus(PlayButton);
     }
 
     private async void OnConfirmUninstallClick(object? sender, RoutedEventArgs e)
@@ -333,13 +333,13 @@ public partial class GameDetailsScreenView : UserControl
     private void CloseUninstallConfirmation()
     {
         UninstallConfirmationOverlay.IsVisible = false;
-        OptionsButton.Focus();
+        DirectionalFocusNavigator.Focus(OptionsButton);
     }
 
     private async Task ConfirmUninstallAsync()
     {
         UninstallConfirmationOverlay.IsVisible = false;
-        OptionsButton.Focus();
+        DirectionalFocusNavigator.Focus(OptionsButton);
         if (DataContext is MainWindowViewModel viewModel)
         {
             await viewModel.UninstallSelectedGameAsync();

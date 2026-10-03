@@ -49,11 +49,11 @@ public partial class LibraryScreenView : UserControl
             viewModel.ShowAllGames();
             if (viewModel.IsLibraryEmpty)
             {
-                EmptyConnectButton.Focus();
+                DirectionalFocusNavigator.Focus(EmptyConnectButton);
             }
             else
             {
-                GameCarousel.Focus();
+                DirectionalFocusNavigator.Focus(GameCarousel);
             }
         }
     }

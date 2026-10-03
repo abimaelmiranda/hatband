@@ -218,6 +218,15 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (viewModel.IsGameEditorScreen &&
+                !viewModel.GameMetadataEditor.IsArtworkPickerOpen &&
+                !GameMetadataEditorScreenView.IsEditorSectionFocused)
+            {
+                GameMetadataEditorScreenView.FocusSelectedEditorSection();
+                e.Handled = true;
+                return;
+            }
+
             var menuWasOpen = viewModel.IsMenuOpen;
             var gameEditorWasOpen = viewModel.IsGameEditorScreen;
             var gameOptionsWereOpen = viewModel.IsDetailsScreen && viewModel.IsGameOptionsOpen;
@@ -286,7 +295,7 @@ public partial class MainWindow : Window
                 if (e.Key is Key.Left or Key.Up or Key.Right or Key.Down ||
                     e.Key == Key.Enter && !LibraryScreenView.EmptyShowAllButtonControl.IsFocused)
                 {
-                    LibraryScreenView.EmptyShowAllButtonControl.Focus();
+                    DirectionalFocusNavigator.Focus(LibraryScreenView.EmptyShowAllButtonControl);
                     e.Handled = true;
                     return;
                 }
@@ -299,14 +308,14 @@ public partial class MainWindow : Window
 
             if (e.Key is Key.Left or Key.Up)
             {
-                LibraryScreenView.EmptyConnectButtonControl.Focus();
+                DirectionalFocusNavigator.Focus(LibraryScreenView.EmptyConnectButtonControl);
                 e.Handled = true;
                 return;
             }
 
             if (e.Key is Key.Right or Key.Down)
             {
-                LibraryScreenView.EmptyAddButtonControl.Focus();
+                DirectionalFocusNavigator.Focus(LibraryScreenView.EmptyAddButtonControl);
                 e.Handled = true;
                 return;
             }
@@ -315,7 +324,7 @@ public partial class MainWindow : Window
                 !LibraryScreenView.EmptyConnectButtonControl.IsFocused &&
                 !LibraryScreenView.EmptyAddButtonControl.IsFocused)
             {
-                LibraryScreenView.EmptyConnectButtonControl.Focus();
+                DirectionalFocusNavigator.Focus(LibraryScreenView.EmptyConnectButtonControl);
                 e.Handled = true;
                 return;
             }
@@ -344,53 +353,14 @@ public partial class MainWindow : Window
                     break;
             }
 
-            if (!e.Handled && DirectionalFocusNavigator.IsArrowKey(e.Key))
-            {
-                e.Handled = directionalFocusNavigator.MoveFocus(GetNavigationRoot(viewModel), e.Key);
-            }
-
-            return;
-        }
-
-        if (viewModel.IsSettingsScreen && e.Key is Key.Up or Key.Down)
-        {
-            if (SettingsScreenView.HasOpenComboBox())
-            {
-                return;
-            }
-
-            var direction = e.Key == Key.Up ? -1 : 1;
-            if (viewModel.IsSettingsContentActive)
-            {
-                viewModel.MoveSettingsFieldSelection(direction);
-                SettingsScreenView.FocusSelectedSettingField();
-            }
-            else
-            {
-                viewModel.MoveSettingsSectionSelection(direction);
-                SettingsScreenView.FocusSelectedSection();
-            }
-
-            e.Handled = true;
-            return;
-        }
-
-        if (viewModel.IsSettingsScreen && e.Key == Key.Left && viewModel.IsSettingsContentActive)
-        {
-            if (SettingsScreenView.HasOpenComboBox())
-            {
-                return;
-            }
-
-            viewModel.DeactivateSettingsContent();
-            SettingsScreenView.FocusSelectedSection();
-            e.Handled = true;
             return;
         }
 
         if (viewModel.IsSettingsScreen && e.Key == Key.Enter)
         {
-            if (viewModel.IsSettingsContentActive && !SettingsScreenView.HasOpenComboBox())
+            if (viewModel.IsSettingsContentActive &&
+                viewModel.IsGeneralSettingsSection &&
+                !SettingsScreenView.HasOpenComboBox())
             {
                 SettingsScreenView.OpenSelectedComboBox();
                 e.Handled = true;
@@ -402,7 +372,13 @@ public partial class MainWindow : Window
                 viewModel.ActivateSettingsSection();
                 if (viewModel.IsGeneralSettingsSection)
                 {
-                    SettingsScreenView.FocusSelectedSettingField();
+                    FocusWhenVisible(SettingsScreenView, SettingsScreenView.FocusSelectedSettingField);
+                }
+                else if (viewModel.IsCompatibilitySettingsSection)
+                {
+                    FocusWhenVisible(
+                        SettingsScreenView,
+                        SettingsScreenView.FocusCompatibilityRefreshButton);
                 }
 
                 e.Handled = true;
@@ -412,25 +388,11 @@ public partial class MainWindow : Window
 
         if (viewModel.IsConnectorsScreen &&
             (viewModel.SelectedConnector is null || ConnectorsScreenView.IsConnectorListItemFocused) &&
-            e.Key is Key.Up or Key.Down)
-        {
-            viewModel.MoveConnectorSelection(e.Key == Key.Up ? -1 : 1);
-            if (viewModel.SelectedConnector is not null)
-            {
-                viewModel.OpenConnector(viewModel.Connectors[viewModel.SelectedConnectorIndex]);
-            }
-
-            ConnectorsScreenView.FocusSelectedConnector();
-            e.Handled = true;
-            return;
-        }
-
-        if (viewModel.IsConnectorsScreen &&
-            (viewModel.SelectedConnector is null || ConnectorsScreenView.IsConnectorListItemFocused) &&
             e.Key == Key.Enter)
         {
             if (viewModel.Connectors.Count > 0)
             {
+                ConnectorsScreenView.ActivateConnectorContent();
                 viewModel.OpenConnector(viewModel.Connectors[viewModel.SelectedConnectorIndex]);
                 FocusConnectorAction(viewModel);
             }
@@ -439,15 +401,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (viewModel.IsConnectorsScreen && e.Key == Key.Left && viewModel.SelectedConnector is not null)
-        {
-            ConnectorsScreenView.FocusSelectedConnector();
-            e.Handled = true;
-            return;
-        }
-
         if (viewModel.IsConnectorsScreen && e.Key == Key.Right && ConnectorsScreenView.IsConnectorListItemFocused)
         {
+            ConnectorsScreenView.ActivateConnectorContent();
             if (viewModel.SelectedConnector is null && viewModel.Connectors.Count > 0)
             {
                 viewModel.OpenConnector(viewModel.Connectors[viewModel.SelectedConnectorIndex]);
@@ -464,16 +420,12 @@ public partial class MainWindow : Window
 
         if (viewModel.IsGameEditorScreen && !viewModel.GameMetadataEditor.IsArtworkPickerOpen)
         {
-            if (GameMetadataEditorScreenView.IsEditorSectionFocused && (e.Key is Key.Up or Key.Down))
-            {
-                GameMetadataEditorScreenView.MoveEditorSectionSelection(e.Key == Key.Up ? -1 : 1);
-                e.Handled = true;
-                return;
-            }
-
             if (GameMetadataEditorScreenView.IsEditorSectionFocused && (e.Key is Key.Enter or Key.Right))
             {
-                GameMetadataEditorScreenView.FocusEditorSectionContent();
+                GameMetadataEditorScreenView.ActivateSectionContent();
+                FocusWhenVisible(
+                    GameMetadataEditorScreenView,
+                    GameMetadataEditorScreenView.FocusEditorSectionContent);
                 if (e.Key == Key.Enter)
                 {
                     GameMetadataEditorScreenView.SearchSelectedMetadataSource();
@@ -483,12 +435,6 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (!GameMetadataEditorScreenView.IsEditorSectionFocused && e.Key == Key.Left)
-            {
-                GameMetadataEditorScreenView.FocusSelectedEditorSection();
-                e.Handled = true;
-                return;
-            }
         }
 
         if (viewModel.IsDetailsScreen && viewModel.IsGameOptionsOpen)
@@ -561,10 +507,6 @@ public partial class MainWindow : Window
                 break;
         }
 
-        if (!e.Handled && DirectionalFocusNavigator.IsArrowKey(e.Key))
-        {
-            e.Handled = directionalFocusNavigator.MoveFocus(GetNavigationRoot(viewModel), e.Key);
-        }
     }
 
     private void OnExitRequested(object? sender, EventArgs e)
@@ -657,7 +599,7 @@ public partial class MainWindow : Window
         viewModel.ActivateMenuOption(action);
         if (action == MenuAction.AddGame)
         {
-            AddGameScreenView.GameNameInput.Focus();
+            DirectionalFocusNavigator.Focus(AddGameScreenView.GameNameInput);
         }
         else if (action == MenuAction.Connectors)
         {
@@ -724,7 +666,7 @@ public partial class MainWindow : Window
             }
 
             LayoutUpdated -= onLayoutUpdated;
-            control.Focus();
+            DirectionalFocusNavigator.Focus(control);
         };
 
         LayoutUpdated += onLayoutUpdated;
@@ -736,7 +678,7 @@ public partial class MainWindow : Window
             }
 
             LayoutUpdated -= onLayoutUpdated;
-            control.Focus();
+            DirectionalFocusNavigator.Focus(control);
         }, DispatcherPriority.Background);
     }
 

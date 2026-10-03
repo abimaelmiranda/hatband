@@ -11,6 +11,7 @@
         d:DesignHeight="800"
         x:Class="Hatband.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
+        XYFocus.NavigationModes="Keyboard"
         Icon="/Assets/hatband-icon.png"
         Title="Hatband"
         Width="1280"
@@ -50,6 +51,14 @@
         </Style>
         <Style Selector="Button">
             <Setter Property="FocusAdorner" Value="{x:Null}" />
+        </Style>
+        <Style Selector="Button:focus">
+            <Setter Property="BorderBrush" Value="#72D9FF" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="Border:focus">
+            <Setter Property="BorderBrush" Value="#72D9FF" />
+            <Setter Property="BorderThickness" Value="2" />
         </Style>
         <Style Selector="Button.console-action">
             <Setter Property="Background" Value="#D9E8F1" />

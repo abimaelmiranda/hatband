@@ -21,7 +21,21 @@ public partial class SettingsNavigationViewModel : ObservableObject
 
     public bool IsGeneralSection => SelectedSection.Section == SettingsSection.General;
 
-    public bool IsSectionPlaceholderVisible => !IsGeneralSection;
+    public bool IsCompatibilitySection => SelectedSection.Section == SettingsSection.Compatibility;
+
+    public bool IsSectionPlaceholderVisible => !IsGeneralSection && !IsCompatibilitySection;
+
+    private int compatibilityFieldCount = 1;
+
+    public void SetCompatibilityFieldCount(int fieldCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(fieldCount);
+        compatibilityFieldCount = Math.Max(fieldCount, 1);
+        if (IsCompatibilitySection && SelectedFieldIndex >= compatibilityFieldCount)
+        {
+            SelectedFieldIndex = compatibilityFieldCount - 1;
+        }
+    }
 
     public SettingsSectionOptionViewModel SelectedSection => Sections[SelectedSectionIndex];
 
@@ -33,22 +47,9 @@ public partial class SettingsNavigationViewModel : ObservableObject
 
     public IBrush TimeZoneFieldBorderBrush => GetFieldBorderBrush(IsTimeZoneFieldSelected);
 
-    public void MoveSectionSelection(int direction)
-    {
-        if (Sections.Count == 0 || direction == 0)
-        {
-            return;
-        }
-
-        SelectedSectionIndex = Math.Clamp(
-            SelectedSectionIndex + Math.Sign(direction),
-            0,
-            Sections.Count - 1);
-    }
-
     public void ActivateSection()
     {
-        IsContentActive = IsGeneralSection;
+        IsContentActive = true;
         SelectedFieldIndex = 0;
     }
 
@@ -57,19 +58,9 @@ public partial class SettingsNavigationViewModel : ObservableObject
         IsContentActive = false;
     }
 
-    public void MoveFieldSelection(int direction)
-    {
-        if (!IsContentActive || !IsGeneralSection || direction == 0)
-        {
-            return;
-        }
-
-        SelectedFieldIndex = Math.Clamp(SelectedFieldIndex + Math.Sign(direction), 0, 1);
-    }
-
     public void SelectField(int index)
     {
-        if (index is < 0 or > 1)
+        if (index < 0 || index >= GetFieldCount())
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }
@@ -101,6 +92,7 @@ public partial class SettingsNavigationViewModel : ObservableObject
 
         OnPropertyChanged(nameof(SelectedSection));
         OnPropertyChanged(nameof(IsGeneralSection));
+        OnPropertyChanged(nameof(IsCompatibilitySection));
         OnPropertyChanged(nameof(IsSectionPlaceholderVisible));
         NotifyFieldSelectionChanged();
     }
@@ -123,11 +115,27 @@ public partial class SettingsNavigationViewModel : ObservableObject
         OnPropertyChanged(nameof(TimeZoneFieldBorderBrush));
     }
 
+    private int GetFieldCount()
+    {
+        if (IsGeneralSection)
+        {
+            return 2;
+        }
+
+        if (IsCompatibilitySection)
+        {
+            return compatibilityFieldCount;
+        }
+
+        return 0;
+    }
+
     private static ObservableCollection<SettingsSectionOptionViewModel> CreateSections()
     {
         var sections = new ObservableCollection<SettingsSectionOptionViewModel>
         {
             new(SettingsSection.General, Resources.General, "◉"),
+            new(SettingsSection.Compatibility, Resources.Compatibility, "⌁"),
             new(SettingsSection.Appearance, Resources.Appearance, "◐"),
             new(SettingsSection.Controls, Resources.Controls, "⌘"),
             new(SettingsSection.Library, Resources.Library, "▦")

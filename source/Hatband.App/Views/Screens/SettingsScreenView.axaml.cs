@@ -31,11 +31,39 @@ public partial class SettingsScreenView : UserControl
 
         if (viewModel.SelectedSettingsFieldIndex == 0)
         {
-            LanguageComboBox.Focus();
+            if (viewModel.IsGeneralSettingsSection)
+            {
+                DirectionalFocusNavigator.Focus(LanguageComboBox);
+            }
+            else
+            {
+                FocusSelectedCompatibilityField(viewModel.SelectedSettingsFieldIndex);
+            }
+
             return;
         }
 
-        TimeZoneComboBox.Focus();
+        if (viewModel.IsGeneralSettingsSection)
+        {
+            DirectionalFocusNavigator.Focus(TimeZoneComboBox);
+            return;
+        }
+
+        FocusSelectedCompatibilityField(viewModel.SelectedSettingsFieldIndex);
+    }
+
+    public void FocusCompatibilityRefreshButton()
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+        var refreshButtonIndex = protonManagement.Catalogs.Count +
+            (protonManagement.SelectedCatalog?.Releases.Count ?? 0);
+        viewModel.SelectSettingsField(refreshButtonIndex);
+        FocusSelectedCompatibilityField(refreshButtonIndex);
     }
 
     public void OpenSelectedComboBox()
@@ -47,11 +75,18 @@ public partial class SettingsScreenView : UserControl
 
         if (viewModel.SelectedSettingsFieldIndex == 0)
         {
-            LanguageComboBox.IsDropDownOpen = true;
+            if (viewModel.IsGeneralSettingsSection)
+            {
+                LanguageComboBox.IsDropDownOpen = true;
+            }
+
             return;
         }
 
-        TimeZoneComboBox.IsDropDownOpen = true;
+        if (viewModel.IsGeneralSettingsSection)
+        {
+            TimeZoneComboBox.IsDropDownOpen = true;
+        }
     }
 
     public void FocusSelectedSection()
@@ -78,6 +113,15 @@ public partial class SettingsScreenView : UserControl
         viewModel.SelectSettingsSection(section);
     }
 
+    private void OnSettingsSectionFocusEntered(object? sender, EventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel &&
+            sender is ConsoleNavigationItemView { DataContext: SettingsSectionOptionViewModel section })
+        {
+            viewModel.SelectSettingsSection(section);
+        }
+    }
+
     private void OnLanguageSettingsGotFocus(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel viewModel)
@@ -93,6 +137,115 @@ public partial class SettingsScreenView : UserControl
             viewModel.SelectSettingsField(1);
         }
     }
+
+    private void OnProtonRefreshGotFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel && viewModel.IsCompatibilitySettingsSection)
+        {
+            var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+            viewModel.SelectSettingsField(
+                protonManagement.Catalogs.Count + (protonManagement.SelectedCatalog?.Releases.Count ?? 0));
+        }
+    }
+
+    private void OnProtonCatalogGotFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel ||
+            sender is not Button { DataContext: ProtonReleaseCatalogViewModel catalog })
+        {
+            return;
+        }
+
+        var catalogIndex = viewModel.SettingsScreen.ProtonManagement.Catalogs.IndexOf(catalog);
+        if (catalogIndex < 0)
+        {
+            return;
+        }
+
+        viewModel.SelectSettingsField(catalogIndex);
+        catalog.SelectCommand.Execute(null);
+    }
+
+    private void OnProtonReleaseGotFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel ||
+            sender is not Control { DataContext: ProtonReleaseOptionViewModel release })
+        {
+            return;
+        }
+
+        var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+        var releaseIndex = protonManagement.SelectedCatalog?.Releases.IndexOf(release) ?? -1;
+        if (releaseIndex < 0)
+        {
+            return;
+        }
+
+        viewModel.SelectSettingsField(protonManagement.Catalogs.Count + releaseIndex);
+    }
+
+    private void FocusSelectedCompatibilityField(int fieldIndex)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+        var controls = ProtonManagementPanel.GetVisualDescendants().OfType<Control>();
+        var catalogButtons = new Dictionary<ProtonReleaseCatalogViewModel, Button>();
+        var releaseControls = new Dictionary<ProtonReleaseOptionViewModel, Control>();
+
+        foreach (var control in controls)
+        {
+            if (control is Button button &&
+                button.DataContext is ProtonReleaseCatalogViewModel catalog &&
+                IsFocusable(button))
+            {
+                catalogButtons.TryAdd(catalog, button);
+            }
+
+            if (control.DataContext is ProtonReleaseOptionViewModel release && IsFocusable(control))
+            {
+                releaseControls.TryAdd(release, control);
+            }
+        }
+
+        var focusableControls = new List<Control>();
+        foreach (var catalog in protonManagement.Catalogs)
+        {
+            if (catalogButtons.TryGetValue(catalog, out var catalogButton))
+            {
+                focusableControls.Add(catalogButton);
+            }
+        }
+
+        if (protonManagement.SelectedCatalog is { } selectedCatalog)
+        {
+            foreach (var release in selectedCatalog.Releases)
+            {
+                if (releaseControls.TryGetValue(release, out var releaseControl))
+                {
+                    focusableControls.Add(releaseControl);
+                }
+            }
+        }
+
+        if (IsFocusable(ProtonRefreshButton))
+        {
+            focusableControls.Add(ProtonRefreshButton);
+        }
+
+        if ((uint)fieldIndex >= (uint)focusableControls.Count)
+        {
+            return;
+        }
+
+        DirectionalFocusNavigator.Focus(focusableControls[fieldIndex]);
+    }
+
+    private static bool IsFocusable(Control control) =>
+        control.IsVisible && control.IsEnabled && control.Focusable && control.IsTabStop;
 
     public bool CloseOpenComboBox()
     {

@@ -1,7 +1,7 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Hatband.App.Views.Components;
 
 namespace Hatband.App.Views;
 
@@ -17,52 +17,41 @@ internal sealed class DirectionalFocusNavigator(Window window)
             return false;
         }
 
+        var resolvedNavigationRoot = ResolveNavigationScope(navigationRoot, focusedControl);
+        var isInsideNavigationScope = !ReferenceEquals(navigationRoot, resolvedNavigationRoot);
+        navigationRoot = resolvedNavigationRoot;
+
         var direction = GetArrowDirection(key);
         if (direction is null)
         {
             return false;
         }
 
-        var currentCenter = GetCenter(focusedControl);
-        if (currentCenter is null)
+        var focusManager = TopLevel.GetTopLevel(window)?.FocusManager;
+        if (focusManager is null)
         {
             return false;
         }
 
-        var currentPoint = currentCenter.Value;
-        Control? nextControl = null;
-        var shortestDistance = double.MaxValue;
-        foreach (var candidate in navigationRoot.GetVisualDescendants().OfType<Control>())
+        var nextElement = focusManager.FindNextElement(
+            direction.Value,
+            new FindNextElementOptions
+            {
+                FocusedElement = focusedControl,
+                SearchRoot = navigationRoot,
+                NavigationStrategyOverride = XYFocusNavigationStrategy.Projection
+            });
+
+        if (nextElement is null)
         {
-            if (!IsNavigationTarget(candidate))
-            {
-                continue;
-            }
-
-            var candidateCenter = GetCenter(candidate);
-            if (candidateCenter is null || !IsInDirection(currentPoint, candidateCenter.Value, direction.Value))
-            {
-                continue;
-            }
-
-            var distance = GetDirectionalDistance(currentPoint, candidateCenter.Value, direction.Value);
-            if (distance >= shortestDistance)
-            {
-                continue;
-            }
-
-            shortestDistance = distance;
-            nextControl = candidate;
+            return isInsideNavigationScope;
         }
 
-        if (nextControl is null)
-        {
-            return false;
-        }
-
-        nextControl.Focus(NavigationMethod.Directional);
-        return true;
+        return focusManager.Focus(nextElement, NavigationMethod.Directional, KeyModifiers.None) ||
+               isInsideNavigationScope;
     }
+
+    public static bool Focus(Control control) => control.Focus(NavigationMethod.Directional);
 
     public static bool IsTextInput(object? source, Key key)
     {
@@ -81,71 +70,54 @@ internal sealed class DirectionalFocusNavigator(Window window)
 
     public static bool IsArrowKey(Key key) => key is Key.Up or Key.Down or Key.Left or Key.Right;
 
-    private Point? GetCenter(Control control)
+    private static Control ResolveNavigationScope(Control navigationRoot, Control focusedControl)
     {
-        return control.TranslatePoint(
-            new Point(control.Bounds.Width / 2, control.Bounds.Height / 2),
-            window);
+        var layout = focusedControl.GetVisualAncestors()
+            .OfType<FullScreenNavigationLayout>()
+            .FirstOrDefault();
+        if (layout is null)
+        {
+            return navigationRoot;
+        }
+
+        if (layout.NavigationContentRoot is { } navigationContentRoot &&
+            IsWithin(focusedControl, navigationContentRoot))
+        {
+            return navigationContentRoot;
+        }
+
+        if (layout.MainContentRoot is { } mainContentRoot && IsWithin(focusedControl, mainContentRoot))
+        {
+            return mainContentRoot;
+        }
+
+        return navigationRoot;
     }
 
-    private bool IsNavigationTarget(Control control)
+    private static bool IsWithin(Control control, Control? root)
     {
-        return control != window &&
-               control.Focusable &&
-               control.IsTabStop &&
-               control.IsEffectivelyVisible &&
-               control.IsHitTestVisible &&
-               control.Bounds.Width > 0 &&
-               control.Bounds.Height > 0 &&
-               GetCenter(control) is not null;
+        return root is not null &&
+               (ReferenceEquals(control, root) || control.GetVisualAncestors().Contains(root));
     }
 
     private static bool IsNativeArrowControl(Control control)
     {
-        return control is ComboBox || control.GetVisualAncestors().OfType<ComboBox>().Any();
-    }
-
-    private static Direction? GetArrowDirection(Key key)
-    {
-        return key switch
+        if (control is ComboBox comboBox)
         {
-            Key.Up => Direction.Up,
-            Key.Down => Direction.Down,
-            Key.Left => Direction.Left,
-            Key.Right => Direction.Right,
-            _ => null
-        };
+            return comboBox.IsDropDownOpen;
+        }
+
+        var parentComboBox = control.GetVisualAncestors().OfType<ComboBox>().FirstOrDefault();
+        return parentComboBox?.IsDropDownOpen == true;
     }
 
-    private static bool IsInDirection(Point current, Point candidate, Direction direction)
+    private static NavigationDirection? GetArrowDirection(Key key) => key switch
     {
-        return direction switch
-        {
-            Direction.Up => candidate.Y < current.Y,
-            Direction.Down => candidate.Y > current.Y,
-            Direction.Left => candidate.X < current.X,
-            Direction.Right => candidate.X > current.X,
-            _ => false
-        };
-    }
+        Key.Up => NavigationDirection.Up,
+        Key.Down => NavigationDirection.Down,
+        Key.Left => NavigationDirection.Left,
+        Key.Right => NavigationDirection.Right,
+        _ => null
+    };
 
-    private static double GetDirectionalDistance(Point current, Point candidate, Direction direction)
-    {
-        var primaryDistance = direction is Direction.Up or Direction.Down
-            ? Math.Abs(current.Y - candidate.Y)
-            : Math.Abs(current.X - candidate.X);
-        var secondaryDistance = direction is Direction.Up or Direction.Down
-            ? Math.Abs(current.X - candidate.X)
-            : Math.Abs(current.Y - candidate.Y);
-
-        return primaryDistance + secondaryDistance * 2;
-    }
-
-    private enum Direction
-    {
-        Up,
-        Down,
-        Left,
-        Right
-    }
 }

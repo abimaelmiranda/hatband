@@ -5,7 +5,7 @@
              xmlns:components="using:Hatband.App.Views.Components"
              x:Class="Hatband.App.Views.Screens.ConnectorsScreenView"
              x:DataType="vm:MainWindowViewModel">
-    <components:FullScreenNavigationLayout>
+    <components:FullScreenNavigationLayout x:Name="NavigationLayout">
         <components:FullScreenNavigationLayout.NavigationContent>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
@@ -25,6 +25,7 @@
                                             Padding="0"
                                             BorderThickness="0"
                                             HorizontalContentAlignment="Stretch"
+                                            GotFocus="OnConnectorFocusEntered"
                                             Click="OnConnectorClick">
                                         <Border Padding="6,4"
                                                 CornerRadius="6"

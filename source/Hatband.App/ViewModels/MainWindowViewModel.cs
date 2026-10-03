@@ -33,6 +33,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ILogger<MainWindowViewModel> logger;
     private readonly ArtworkImageLoader artworkImageLoader;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
+    private readonly SettingsScreenViewModel settingsScreen;
     private readonly SteamConnectorLoginViewModel steamConnectorLogin;
     private readonly LibrarySyncProgressViewModel librarySyncProgress;
     private List<GameCardViewModel> allGames = [];
@@ -119,6 +120,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public GameMetadataEditorViewModel GameMetadataEditor { get; }
 
+    public SettingsScreenViewModel SettingsScreen => settingsScreen;
+
     public AddGameViewModel AddGame { get; }
 
     public string NewGameName
@@ -179,6 +182,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IEnumerable<IGameArtworkSearchProvider> artworkSearchProviders,
         IHostSystemInfo hostSystemInfo,
         IGameManagementService gameManagementService,
+        SettingsScreenViewModel settingsScreen,
         GameProcessSessionService gameProcessSessionService,
         IGameInstallationStateSyncService gameInstallationStateSyncService,
         ILogger<MainWindowViewModel> logger)
@@ -186,6 +190,7 @@ public partial class MainWindowViewModel : ViewModelBase
         this.gameLibraryService = gameLibraryService;
         this.hostSystemInfo = hostSystemInfo;
         this.gameManagementService = gameManagementService;
+        this.settingsScreen = settingsScreen;
         this.gameProcessSessionService = gameProcessSessionService;
         this.logger = logger;
         this.gameInstallationStateSyncService = gameInstallationStateSyncService;
@@ -250,7 +255,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<SettingsOptionViewModel> TimeZoneOptions { get; }
 
-    public SettingsNavigationViewModel SettingsNavigation { get; } = new();
+    public SettingsNavigationViewModel SettingsNavigation => settingsScreen.Navigation;
 
     public ObservableCollection<SettingsSectionOptionViewModel> SettingsSections => SettingsNavigation.Sections;
 
@@ -261,6 +266,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public int SelectedSettingsFieldIndex => SettingsNavigation.SelectedFieldIndex;
 
     public bool IsGeneralSettingsSection => SettingsNavigation.IsGeneralSection;
+
+    public bool IsCompatibilitySettingsSection => SettingsNavigation.IsCompatibilitySection;
 
     public bool IsSettingsSectionPlaceholderVisible => SettingsNavigation.IsSectionPlaceholderVisible;
 
@@ -325,6 +332,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public int MenuOverlayZIndex => 3;
 
     private bool IsDialogScreen => IsGameEditorScreen || IsAddGameScreen || IsSettingsScreen || IsConnectorsScreen;
+
+    private bool IsFullScreenNavigationScreen => IsGameEditorScreen || IsSettingsScreen || IsConnectorsScreen;
 
     public bool IsConnectorLoginScreen => IsConnectorsScreen && SelectedConnector is not null;
 
@@ -492,23 +501,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
 
-    public void MoveSettingsSectionSelection(int direction)
-    {
-        if (IsSettingsScreen)
-        {
-            SettingsNavigation.MoveSectionSelection(direction);
-        }
-    }
-
-    public void ActivateSettingsSection() => SettingsNavigation.ActivateSection();
+    public void ActivateSettingsSection() => settingsScreen.ActivateSection();
 
     public void DeactivateSettingsContent() => SettingsNavigation.DeactivateContent();
 
-    public void MoveSettingsFieldSelection(int direction) => SettingsNavigation.MoveFieldSelection(direction);
-
     public void SelectSettingsField(int index) => SettingsNavigation.SelectField(index);
 
-    public void SelectSettingsSection(SettingsSectionOptionViewModel section) => SettingsNavigation.SelectSection(section);
+    public void SelectSettingsSection(SettingsSectionOptionViewModel section) => settingsScreen.SelectSection(section);
 
     private void OnSettingsNavigationPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
@@ -528,6 +527,9 @@ public partial class MainWindowViewModel : ViewModelBase
                 break;
             case nameof(SettingsNavigationViewModel.IsGeneralSection):
                 OnPropertyChanged(nameof(IsGeneralSettingsSection));
+                break;
+            case nameof(SettingsNavigationViewModel.IsCompatibilitySection):
+                OnPropertyChanged(nameof(IsCompatibilitySettingsSection));
                 break;
             case nameof(SettingsNavigationViewModel.IsSectionPlaceholderVisible):
                 OnPropertyChanged(nameof(IsSettingsSectionPlaceholderVisible));
@@ -1602,30 +1604,27 @@ public partial class MainWindowViewModel : ViewModelBase
             return IsDialogScreen ? 2 : 0;
         }
 
-        return IsDialogScreen && IsPreviousScreen(screen) ? 1 : -1;
-    }
-
-    public void MoveConnectorSelection(int direction)
-    {
-        if (!IsConnectorsScreen || Connectors.Count == 0 || direction == 0)
-        {
-            return;
-        }
-
-        SelectedConnectorIndex = Math.Clamp(
-            SelectedConnectorIndex + Math.Sign(direction),
-            0,
-            Connectors.Count - 1);
-        UpdateConnectorSelection();
+        return IsDialogScreen && !IsFullScreenNavigationScreen && IsPreviousScreen(screen) ? 1 : -1;
     }
 
     public void OpenConnector(ConnectorViewModel connector)
     {
-        ArgumentNullException.ThrowIfNull(connector);
-        SelectedConnectorIndex = Connectors.IndexOf(connector);
-        UpdateConnectorSelection();
+        SelectConnector(connector);
         SelectedConnector = connector;
         steamConnectorLogin.RefreshConnectionStatus();
+    }
+
+    public void SelectConnector(ConnectorViewModel connector)
+    {
+        ArgumentNullException.ThrowIfNull(connector);
+        var connectorIndex = Connectors.IndexOf(connector);
+        if (connectorIndex < 0)
+        {
+            throw new ArgumentException("The connector does not belong to this view model.", nameof(connector));
+        }
+
+        SelectedConnectorIndex = connectorIndex;
+        UpdateConnectorSelection();
     }
 
     private void UpdateConnectorSelection()

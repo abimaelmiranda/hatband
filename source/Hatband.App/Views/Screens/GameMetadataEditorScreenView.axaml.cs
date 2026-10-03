@@ -12,6 +12,7 @@ public partial class GameMetadataEditorScreenView : UserControl
 {
     private readonly ConsoleNavigationItemView[] sectionItems;
     private int selectedSectionIndex;
+    private bool isSectionContentActive;
 
     public GameMetadataEditorScreenView()
     {
@@ -31,19 +32,15 @@ public partial class GameMetadataEditorScreenView : UserControl
 
     public void FocusSelectedEditorSection()
     {
+        DeactivateSectionContent();
         sectionItems[selectedSectionIndex].FocusItem();
     }
 
-    public void MoveEditorSectionSelection(int direction)
+    public void ActivateSectionContent()
     {
-        if (direction == 0)
-        {
-            return;
-        }
-
-        selectedSectionIndex = Math.Clamp(selectedSectionIndex + Math.Sign(direction), 0, sectionItems.Length - 1);
+        isSectionContentActive = true;
+        NavigationLayout.ActivateMainContent();
         UpdateSectionSelection();
-        FocusSelectedEditorSection();
     }
 
     public void FocusEditorSectionContent()
@@ -56,12 +53,15 @@ public partial class GameMetadataEditorScreenView : UserControl
                                        control.IsEffectivelyVisible &&
                                        control.Bounds.Width > 0 &&
                                        control.Bounds.Height > 0);
-        target?.Focus();
+        if (target is not null)
+        {
+            DirectionalFocusNavigator.Focus(target);
+        }
     }
 
     public void SearchSelectedMetadataSource()
     {
-        if (selectedSectionIndex == 2 && DataContext is MainWindowViewModel viewModel)
+        if (isSectionContentActive && selectedSectionIndex == 2 && DataContext is MainWindowViewModel viewModel)
         {
             _ = viewModel.GameMetadataEditor.SearchMetadataSourcesAsync();
         }
@@ -75,7 +75,7 @@ public partial class GameMetadataEditorScreenView : UserControl
             return;
         }
 
-        activeList.Focus();
+        DirectionalFocusNavigator.Focus(activeList);
         Dispatcher.UIThread.Post(() =>
         {
             if (activeList.SelectedItem is not GameArtworkSourceOption selectedOption)
@@ -86,7 +86,10 @@ public partial class GameMetadataEditorScreenView : UserControl
             var selectedItem = activeList.GetVisualDescendants()
                 .OfType<ListBoxItem>()
                 .FirstOrDefault(item => ReferenceEquals(item.DataContext, selectedOption));
-            selectedItem?.Focus();
+            if (selectedItem is not null)
+            {
+                DirectionalFocusNavigator.Focus(selectedItem);
+            }
         }, DispatcherPriority.Background);
     }
 
@@ -113,10 +116,14 @@ public partial class GameMetadataEditorScreenView : UserControl
         ActivateSection(0);
     }
 
+    private void OnMetadataSectionFocusEntered(object? sender, EventArgs e) => SelectSection(0);
+
     private void OnArtworkSectionActivated(object? sender, EventArgs e)
     {
         ActivateSection(1);
     }
+
+    private void OnArtworkSectionFocusEntered(object? sender, EventArgs e) => SelectSection(1);
 
     private async void OnSourcesSectionActivated(object? sender, EventArgs e)
     {
@@ -127,9 +134,11 @@ public partial class GameMetadataEditorScreenView : UserControl
         }
     }
 
+    private void OnSourcesSectionFocusEntered(object? sender, EventArgs e) => SelectSection(2);
+
     private async void OnMetadataSourceSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (selectedSectionIndex != 2 || DataContext is not MainWindowViewModel viewModel)
+        if (!isSectionContentActive || selectedSectionIndex != 2 || DataContext is not MainWindowViewModel viewModel)
         {
             return;
         }
@@ -140,8 +149,23 @@ public partial class GameMetadataEditorScreenView : UserControl
     private void ActivateSection(int sectionIndex)
     {
         selectedSectionIndex = sectionIndex;
+        isSectionContentActive = true;
+        NavigationLayout.ActivateMainContent();
         UpdateSectionSelection();
-        FocusEditorSectionContent();
+        Dispatcher.UIThread.Post(FocusEditorSectionContent, DispatcherPriority.Background);
+    }
+
+    private void SelectSection(int sectionIndex)
+    {
+        selectedSectionIndex = sectionIndex;
+        DeactivateSectionContent();
+    }
+
+    private void DeactivateSectionContent()
+    {
+        isSectionContentActive = false;
+        NavigationLayout.DeactivateMainContent();
+        UpdateSectionSelection();
     }
 
     private Control GetSelectedSectionContent()
@@ -162,9 +186,9 @@ public partial class GameMetadataEditorScreenView : UserControl
             sectionItems[index].SetSelected(index == selectedSectionIndex);
         }
 
-        MetadataSectionContent.IsVisible = selectedSectionIndex == 0;
-        ArtworkSectionContent.IsVisible = selectedSectionIndex == 1;
-        SourcesSectionContent.IsVisible = selectedSectionIndex == 2;
+        MetadataSectionContent.IsVisible = isSectionContentActive && selectedSectionIndex == 0;
+        ArtworkSectionContent.IsVisible = isSectionContentActive && selectedSectionIndex == 1;
+        SourcesSectionContent.IsVisible = isSectionContentActive && selectedSectionIndex == 2;
     }
 
     private async void OnSearchArtworkClick(object? sender, RoutedEventArgs e)
@@ -236,7 +260,7 @@ public partial class GameMetadataEditorScreenView : UserControl
         var button = slot == GameArtworkSlot.Cover
             ? SearchCoverArtworkButton
             : SearchBackgroundArtworkButton;
-        button.Focus();
+        DirectionalFocusNavigator.Focus(button);
     }
 
     private void OnRestoreArtworkClick(object? sender, RoutedEventArgs e)

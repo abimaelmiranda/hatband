@@ -47,20 +47,23 @@
         </DataTemplate>
     </UserControl.Resources>
     <Grid Background="Transparent">
-    <components:FullScreenNavigationLayout>
+    <components:FullScreenNavigationLayout x:Name="NavigationLayout">
         <components:FullScreenNavigationLayout.NavigationContent>
                     <StackPanel x:Name="EditorSectionList" Spacing="4">
                         <components:ConsoleNavigationItemView x:Name="MetadataSectionItem"
                                                               Symbol="▤"
                                                               Title="{x:Static lang:Resources.MetadataTab}"
+                                                              FocusEntered="OnMetadataSectionFocusEntered"
                                                               Activated="OnMetadataSectionActivated" />
                         <components:ConsoleNavigationItemView x:Name="ArtworkSectionItem"
                                                               Symbol="▧"
                                                               Title="{x:Static lang:Resources.ArtworkTab}"
+                                                              FocusEntered="OnArtworkSectionFocusEntered"
                                                               Activated="OnArtworkSectionActivated" />
                         <components:ConsoleNavigationItemView x:Name="SourcesSectionItem"
                                                               Symbol="↔"
                                                               Title="{x:Static lang:Resources.MetadataSourcesTab}"
+                                                              FocusEntered="OnSourcesSectionFocusEntered"
                                                               Activated="OnSourcesSectionActivated" />
                     </StackPanel>
         </components:FullScreenNavigationLayout.NavigationContent>

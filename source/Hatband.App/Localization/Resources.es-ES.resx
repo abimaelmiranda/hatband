@@ -237,6 +237,51 @@
   <data name="Compatibility" xml:space="preserve">
     <value>Compatibilidad</value>
   </data>
+  <data name="ProtonToolsHeading" xml:space="preserve">
+    <value>Proton instalados</value>
+  </data>
+  <data name="AvailableProtonVersionsHeading" xml:space="preserve">
+    <value>Versiones disponibles</value>
+  </data>
+  <data name="RefreshProtonCatalog" xml:space="preserve">
+    <value>Actualizar catálogo</value>
+  </data>
+  <data name="NoProtonToolsInstalled" xml:space="preserve">
+    <value>No se encontraron herramientas Proton.</value>
+  </data>
+  <data name="NoProtonVersionsAvailable" xml:space="preserve">
+    <value>No se encontraron versiones compatibles en este catálogo.</value>
+  </data>
+  <data name="ProtonLinuxOnly" xml:space="preserve">
+    <value>La gestión de Proton está disponible en Linux.</value>
+  </data>
+  <data name="NoProtonCatalogsLoaded" xml:space="preserve">
+    <value>No hay catálogos de versiones disponibles. Selecciona Actualizar para volver a intentarlo.</value>
+  </data>
+  <data name="ProtonRefreshError" xml:space="preserve">
+    <value>No se pudieron actualizar las herramientas Proton: {0}</value>
+  </data>
+  <data name="ProtonInstallError" xml:space="preserve">
+    <value>No se pudo instalar {0}: {1}</value>
+  </data>
+  <data name="ProtonInstalling" xml:space="preserve">
+    <value>Instalando {0}…</value>
+  </data>
+  <data name="ProtonInstallComplete" xml:space="preserve">
+    <value>{0} instalado.</value>
+  </data>
+  <data name="ProtonCatalogLoadError" xml:space="preserve">
+    <value>No se pudo cargar este catálogo: {0}</value>
+  </data>
+  <data name="ProtonManagedSource" xml:space="preserve">
+    <value>Hatband</value>
+  </data>
+  <data name="ProtonVariantLabel" xml:space="preserve">
+    <value>Variante: {0}</value>
+  </data>
+  <data name="ProtonPublishedLabel" xml:space="preserve">
+    <value>Publicado: {0:d}</value>
+  </data>
   <data name="ProtonOptionsPlaceholder" xml:space="preserve">
     <value>Aquí aparecerán opciones específicas, como la configuración de Proton.</value>
   </data>

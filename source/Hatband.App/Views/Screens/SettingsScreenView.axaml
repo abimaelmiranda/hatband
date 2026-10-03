@@ -6,7 +6,7 @@
              xmlns:components="using:Hatband.App.Views.Components"
              x:Class="Hatband.App.Views.Screens.SettingsScreenView"
              x:DataType="vm:MainWindowViewModel">
-    <components:FullScreenNavigationLayout>
+    <components:FullScreenNavigationLayout IsMainContentActive="{Binding IsSettingsContentActive}">
         <components:FullScreenNavigationLayout.NavigationContent>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
@@ -26,6 +26,7 @@
                                                                           Title="{Binding Title}"
                                                                           ItemBackground="{Binding Background}"
                                                                           ItemBorderBrush="{Binding SelectionBorderBrush}"
+                                                                          FocusEntered="OnSettingsSectionFocusEntered"
                                                                           Activated="OnSettingsSectionClick" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -93,6 +94,166 @@
                                     </Border>
                                 </Grid>
                             </StackPanel>
+
+                            <ScrollViewer IsVisible="{Binding IsCompatibilitySettingsSection}"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto">
+                             <StackPanel x:Name="ProtonManagementPanel"
+                                            IsEnabled="{Binding SettingsScreen.ProtonManagement.CanInteract}"
+                                            Spacing="14">
+                                    <TextBlock Text="{x:Static lang:Resources.Compatibility}"
+                                               FontSize="19"
+                                               FontWeight="SemiBold" />
+                                    <Border Height="1" Background="#39454F" />
+                                    <TextBlock Text="{Binding SettingsScreen.ProtonManagement.UnsupportedMessage}"
+                                               IsVisible="{Binding SettingsScreen.ProtonManagement.IsCatalogBrowsingUnsupported}"
+                                               Foreground="#AEBBC5"
+                                               FontSize="13" />
+                                    <StackPanel IsVisible="{Binding SettingsScreen.ProtonManagement.CanBrowseCatalogs}"
+                                                Spacing="16">
+                                        <StackPanel Spacing="8"
+                                                    IsVisible="{Binding SettingsScreen.ProtonManagement.IsLinuxSupported}">
+                                            <TextBlock Text="{x:Static lang:Resources.ProtonToolsHeading}"
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold" />
+                                            <ItemsControl ItemsSource="{Binding SettingsScreen.ProtonManagement.InstalledTools}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Spacing="5" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="settings:ProtonToolViewModel">
+                                                        <Border Padding="9,6" Background="#151C21">
+                                                            <Grid ColumnDefinitions="*,Auto">
+                                                                <TextBlock Text="{Binding Name}"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding SourceName}"
+                                                                           Foreground="#AEBBC5"
+                                                                           VerticalAlignment="Center" />
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="{x:Static lang:Resources.NoProtonToolsInstalled}"
+                                                       IsVisible="{Binding SettingsScreen.ProtonManagement.HasNoInstalledTools}"
+                                                       Foreground="#AEBBC5"
+                                                       FontSize="12" />
+                                        </StackPanel>
+
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="{x:Static lang:Resources.AvailableProtonVersionsHeading}"
+                                                       FontSize="15"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                            <Button x:Name="ProtonRefreshButton"
+                                                    Grid.Column="1"
+                                                    Content="{x:Static lang:Resources.RefreshProtonCatalog}"
+                                                    Command="{Binding SettingsScreen.ProtonManagement.RefreshCommand}"
+                                                    GotFocus="OnProtonRefreshGotFocus"
+                                                    Margin="0,0,16,0"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
+                                                    MinHeight="34" />
+                                        </Grid>
+                                        <ProgressBar IsVisible="{Binding SettingsScreen.ProtonManagement.IsLoading}"
+                                                     IsIndeterminate="True"
+                                                     MinHeight="4" />
+                                        <TextBlock Text="{Binding SettingsScreen.ProtonManagement.ErrorMessage}"
+                                                   IsVisible="{Binding SettingsScreen.ProtonManagement.HasErrorMessage}"
+                                                   Foreground="#FF9D8F"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SettingsScreen.ProtonManagement.StatusMessage}"
+                                                   IsVisible="{Binding SettingsScreen.ProtonManagement.HasStatusMessage}"
+                                                   Foreground="#AEBBC5"
+                                                   FontSize="12" />
+                                        <ItemsControl ItemsSource="{Binding SettingsScreen.ProtonManagement.Catalogs}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="settings:ProtonReleaseCatalogViewModel">
+                                                    <Button Content="{Binding DisplayName}"
+                                                            Command="{Binding SelectCommand}"
+                                                            GotFocus="OnProtonCatalogGotFocus"
+                                                            Background="{Binding SelectionBackground}"
+                                                            BorderBrush="{Binding SelectionBorder}"
+                                                            BorderThickness="1"
+                                                            Padding="12,7"
+                                                            Margin="0,0,8,0" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding SettingsScreen.ProtonManagement.Catalogs}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Spacing="7" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="settings:ProtonReleaseCatalogViewModel">
+                                                    <StackPanel IsVisible="{Binding IsSelected}"
+                                                                Spacing="7">
+                                                        <TextBlock Text="{Binding ErrorLabel}"
+                                                                   IsVisible="{Binding HasError}"
+                                                                   Foreground="#FF9D8F"
+                                                                   FontSize="12"
+                                                                   TextWrapping="Wrap" />
+                                                        <ItemsControl ItemsSource="{Binding Releases}"
+                                                                      IsVisible="{Binding HasNoError}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <StackPanel Spacing="4" />
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="settings:ProtonReleaseOptionViewModel">
+                                                                    <Border Padding="8,5"
+                                                                            Background="#151C21"
+                                                                            Focusable="{Binding IsInstallationUnavailable}"
+                                                                            IsTabStop="{Binding IsInstallationUnavailable}"
+                                                                            GotFocus="OnProtonReleaseGotFocus">
+                                                                        <Grid ColumnDefinitions="*,Auto"
+                                                                              ColumnSpacing="12">
+                                                                            <StackPanel Spacing="1"
+                                                                                        VerticalAlignment="Center">
+                                                                                <TextBlock Text="{Binding DisplayName}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <TextBlock Text="{Binding Summary}"
+                                                                                           Foreground="#AEBBC5"
+                                                                                           FontSize="11" />
+                                                                            </StackPanel>
+                                                                            <Button Grid.Column="1"
+                                                                                    Content="{x:Static lang:Resources.Install}"
+                                                                                    Command="{Binding InstallCommand}"
+                                                                                    VerticalAlignment="Center"
+                                                                                    MinHeight="30"
+                                                                                    Padding="12,4" />
+                                                                        </Grid>
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <TextBlock Text="{x:Static lang:Resources.NoProtonVersionsAvailable}"
+                                                                   IsVisible="{Binding HasNoReleases}"
+                                                                   Foreground="#AEBBC5"
+                                                                   FontSize="12" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="{x:Static lang:Resources.NoProtonCatalogsLoaded}"
+                                                   IsVisible="{Binding SettingsScreen.ProtonManagement.HasNoCatalogs}"
+                                                   Foreground="#AEBBC5"
+                                                   FontSize="12" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
 
                             <StackPanel IsVisible="{Binding IsSettingsSectionPlaceholderVisible}"
                                         VerticalAlignment="Center"
