@@ -1,5 +1,6 @@
 using Hatband.Core.Extensions;
 using Hatband.Core.Models;
+using Hatband.Core.Models.Games;
 
 namespace Hatband.Core.Services;
 
