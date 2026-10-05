@@ -12,25 +12,25 @@ public sealed class CompatibilityToolInstallationService : ICompatibilityToolIns
     private readonly IArchiveExtractionService archiveExtractionService;
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly ISteamInstallationService steamInstallationService;
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
 
     public CompatibilityToolInstallationService(
         IAppDataFileSystem appDataFileSystem,
         IArchiveExtractionService archiveExtractionService,
         IHostSystemInfo hostSystemInfo,
         ISteamInstallationService steamInstallationService,
-        HttpClient httpClient)
+        IHttpClientFactory httpClientFactory)
     {
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
         ArgumentNullException.ThrowIfNull(archiveExtractionService);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentNullException.ThrowIfNull(steamInstallationService);
-        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         this.appDataFileSystem = appDataFileSystem;
         this.archiveExtractionService = archiveExtractionService;
         this.hostSystemInfo = hostSystemInfo;
         this.steamInstallationService = steamInstallationService;
-        this.httpClient = httpClient;
+        this.httpClientFactory = httpClientFactory;
     }
 
     public async Task InstallAsync(CompatibilityToolRelease release, CancellationToken cancellationToken = default)
@@ -133,6 +133,7 @@ public sealed class CompatibilityToolInstallationService : ICompatibilityToolIns
         string archivePath,
         CancellationToken cancellationToken)
     {
+        using var httpClient = httpClientFactory.CreateClient();
         using var response = await httpClient.GetAsync(
             downloadUrl,
             HttpCompletionOption.ResponseHeadersRead,

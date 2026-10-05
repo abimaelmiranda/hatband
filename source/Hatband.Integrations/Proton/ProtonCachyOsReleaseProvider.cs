@@ -12,11 +12,11 @@ public sealed class ProtonCachyOsReleaseProvider : ICompatibilityToolReleaseProv
     private readonly GitHubReleaseClient releaseClient;
     private readonly IHostSystemInfo hostSystemInfo;
 
-    public ProtonCachyOsReleaseProvider(HttpClient httpClient, IHostSystemInfo hostSystemInfo)
+    public ProtonCachyOsReleaseProvider(IHttpClientFactory httpClientFactory, IHostSystemInfo hostSystemInfo)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
-        releaseClient = new GitHubReleaseClient(httpClient);
+        releaseClient = new GitHubReleaseClient(httpClientFactory);
         this.hostSystemInfo = hostSystemInfo;
     }
 

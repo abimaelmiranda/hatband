@@ -15,9 +15,10 @@ public sealed class IgnMetadataProvider : IGameMetadataProvider
 
     private readonly IgnGraphQlClient client;
 
-    public IgnMetadataProvider(HttpClient httpClient)
+    public IgnMetadataProvider(IHttpClientFactory httpClientFactory)
     {
-        client = new IgnGraphQlClient(httpClient);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        client = new IgnGraphQlClient(httpClientFactory);
     }
 
     public string ProviderId => "ign";

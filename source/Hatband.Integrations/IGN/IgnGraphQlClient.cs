@@ -43,12 +43,12 @@ internal sealed class IgnGraphQlClient
     private const string ImagesOperation = "ObjectImageGallery";
     private const string ImagesHash = "06204b0f0871f8382e3adab7d1c59399e6c17ac94bff575c20a12ebf9d880b86";
     private static readonly Uri IgnReferer = new("https://www.ign.com/reviews/games");
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
 
-    public IgnGraphQlClient(HttpClient httpClient)
+    public IgnGraphQlClient(IHttpClientFactory httpClientFactory)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
-        this.httpClient = httpClient;
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        this.httpClientFactory = httpClientFactory;
     }
 
     public async Task<IgnGraphQlResult<IReadOnlyList<IgnGameSearchEntry>>> SearchGamesAsync(
@@ -157,6 +157,7 @@ internal sealed class IgnGraphQlClient
 
         try
         {
+            using var httpClient = httpClientFactory.CreateClient();
             using var response = await httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,

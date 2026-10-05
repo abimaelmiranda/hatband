@@ -6,17 +6,15 @@ namespace Hatband.App.Services;
 
 public sealed class ArtworkImageLoader
 {
-    private static readonly HttpClient RemoteHttpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(20)
-    };
-
     private readonly IAppDataFileSystem appDataFileSystem;
+    private readonly IHttpClientFactory httpClientFactory;
 
-    public ArtworkImageLoader(IAppDataFileSystem appDataFileSystem)
+    public ArtworkImageLoader(IAppDataFileSystem appDataFileSystem, IHttpClientFactory httpClientFactory)
     {
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         this.appDataFileSystem = appDataFileSystem;
+        this.httpClientFactory = httpClientFactory;
     }
 
     public async Task<Bitmap?> LoadAsync(string? source)
@@ -73,7 +71,8 @@ public sealed class ArtworkImageLoader
 
         try
         {
-            var bytes = await RemoteHttpClient.GetByteArrayAsync(uri, cancellationToken);
+            using var httpClient = httpClientFactory.CreateClient("Artwork");
+            var bytes = await httpClient.GetByteArrayAsync(uri, cancellationToken);
             if (bytes.Length == 0)
             {
                 return null;

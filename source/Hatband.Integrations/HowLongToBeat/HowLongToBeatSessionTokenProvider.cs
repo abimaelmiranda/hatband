@@ -7,16 +7,16 @@ internal sealed class HowLongToBeatSessionTokenProvider
 {
     private static readonly TimeSpan SessionTokenLifetime = TimeSpan.FromMinutes(10);
 
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
     private readonly TimeProvider timeProvider;
     private readonly SemaphoreSlim tokenLock = new(1, 1);
     private HowLongToBeatSearchSessionToken? sessionToken;
 
-    public HowLongToBeatSessionTokenProvider(HttpClient httpClient, TimeProvider timeProvider)
+    public HowLongToBeatSessionTokenProvider(IHttpClientFactory httpClientFactory, TimeProvider timeProvider)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(timeProvider);
-        this.httpClient = httpClient;
+        this.httpClientFactory = httpClientFactory;
         this.timeProvider = timeProvider;
     }
 
@@ -63,6 +63,7 @@ internal sealed class HowLongToBeatSessionTokenProvider
         request.Headers.UserAgent.ParseAdd(HowLongToBeatProtocol.UserAgent);
         request.Headers.Referrer = HowLongToBeatProtocol.SiteBaseUri;
 
+        using var httpClient = httpClientFactory.CreateClient();
         using var response = await httpClient.SendAsync(request, cancellationToken);
         HowLongToBeatResponseStatus.EnsureSuccess(response, tokenUri, apiPath);
         await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);

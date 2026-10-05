@@ -12,14 +12,14 @@ internal sealed partial class HowLongToBeatEndpointDiscoverer
         RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex SearchEndpointPattern();
 
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
     private readonly SemaphoreSlim endpointLock = new(1, 1);
     private string? searchPath;
 
-    public HowLongToBeatEndpointDiscoverer(HttpClient httpClient)
+    public HowLongToBeatEndpointDiscoverer(IHttpClientFactory httpClientFactory)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
-        this.httpClient = httpClient;
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        this.httpClientFactory = httpClientFactory;
     }
 
     public async Task<string> GetSearchPathAsync(
@@ -50,6 +50,7 @@ internal sealed partial class HowLongToBeatEndpointDiscoverer
 
     private async Task<string> DiscoverSearchPathAsync(CancellationToken cancellationToken)
     {
+        using var httpClient = httpClientFactory.CreateClient();
         using var homepageRequest = new HttpRequestMessage(HttpMethod.Get, HowLongToBeatProtocol.SiteBaseUri);
         homepageRequest.Headers.UserAgent.ParseAdd(HowLongToBeatProtocol.UserAgent);
         homepageRequest.Headers.Referrer = HowLongToBeatProtocol.SiteBaseUri;

@@ -10,15 +10,17 @@ namespace Hatband.Integrations.Steam;
 
 public sealed class SteamPlayerService : ISteamPlayerService
 {
-    private static readonly HttpClient HttpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
-
+    private readonly IHttpClientFactory httpClientFactory;
     private readonly Lock authenticationLock = new();
     private string? steamId64;
     private string? accessToken;
     private ConnectorAccount? currentAccount;
+
+    public SteamPlayerService(IHttpClientFactory httpClientFactory)
+    {
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        this.httpClientFactory = httpClientFactory;
+    }
 
     public ConnectorAccount? CurrentAccount
     {
@@ -63,7 +65,9 @@ public sealed class SteamPlayerService : ISteamPlayerService
             activeAccessToken = accessToken ?? throw new InvalidOperationException("Steam authentication did not provide an access token.");
         }
 
+        using var httpClient = httpClientFactory.CreateClient("SteamPlayer");
         using var response = await GetOwnedGamesResponseAsync(
+            httpClient,
             activeSteamId,
             activeAccessToken,
             cancellationToken);
@@ -118,6 +122,7 @@ public sealed class SteamPlayerService : ISteamPlayerService
     }
 
     private static async Task<HttpResponseMessage> GetOwnedGamesResponseAsync(
+        HttpClient httpClient,
         string steamId,
         string accessToken,
         CancellationToken cancellationToken)
@@ -139,7 +144,7 @@ public sealed class SteamPlayerService : ISteamPlayerService
 
         for (var attempt = 1; attempt <= 4; attempt++)
         {
-            var response = await HttpClient.GetAsync(
+            var response = await httpClient.GetAsync(
                 requestUri,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);

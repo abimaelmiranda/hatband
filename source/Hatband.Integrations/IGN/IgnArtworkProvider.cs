@@ -10,14 +10,14 @@ namespace Hatband.Integrations.IGN;
 /// </summary>
 public sealed class IgnArtworkProvider : IGameArtworkProvider
 {
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
     private readonly IgnGraphQlClient client;
 
-    public IgnArtworkProvider(HttpClient httpClient)
+    public IgnArtworkProvider(IHttpClientFactory httpClientFactory)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
-        this.httpClient = httpClient;
-        client = new IgnGraphQlClient(httpClient);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        this.httpClientFactory = httpClientFactory;
+        client = new IgnGraphQlClient(httpClientFactory);
     }
 
     public GameSourceId? SourceId => null;
@@ -69,6 +69,7 @@ public sealed class IgnArtworkProvider : IGameArtworkProvider
             ?? throw new InvalidOperationException("IGN returned a successful artwork response without data.");
         var sources = IgnGraphQlParser.ReadArtwork(document.RootElement, selectedGame.PrimaryImageUrl);
         var images = new List<GameArtworkImage>(sources.Count);
+        using var httpClient = httpClientFactory.CreateClient();
         foreach (var (url, slot) in sources)
         {
             cancellationToken.ThrowIfCancellationRequested();

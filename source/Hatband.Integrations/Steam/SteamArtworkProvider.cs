@@ -16,12 +16,12 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
     private const string LegacyArtworkBaseUri = "https://steamcdn-a.akamaihd.net/steam/apps/";
     private const string AssetStoreBaseUri = "https://shared.akamai.steamstatic.com/store_item_assets/";
 
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
 
-    public SteamArtworkProvider(HttpClient httpClient)
+    public SteamArtworkProvider(IHttpClientFactory httpClientFactory)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
-        this.httpClient = httpClient;
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        this.httpClientFactory = httpClientFactory;
     }
 
     public GameSourceId? SourceId => GameSourceId.Steam;
@@ -33,12 +33,13 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
         string languageTag,
         CancellationToken cancellationToken = default)
     {
-        var sources = await GetArtworkSourcesAsync(game, languageTag, cancellationToken);
+        using var httpClient = httpClientFactory.CreateClient();
+        var sources = await GetArtworkSourcesAsync(httpClient, game, languageTag, cancellationToken);
         var defaultSources = sources
             .GroupBy(source => source.Slot)
             .Select(group => group.First())
             .ToArray();
-        return await DownloadArtworksAsync(defaultSources, cancellationToken);
+        return await DownloadArtworksAsync(httpClient, defaultSources, cancellationToken);
     }
 
     public async Task<IReadOnlyList<GameArtworkImage>> GetArtworksAsync(
@@ -46,11 +47,13 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
         string languageTag,
         CancellationToken cancellationToken = default)
     {
-        var sources = await GetArtworkSourcesAsync(game, languageTag, cancellationToken);
-        return await DownloadArtworksAsync(sources, cancellationToken);
+        using var httpClient = httpClientFactory.CreateClient();
+        var sources = await GetArtworkSourcesAsync(httpClient, game, languageTag, cancellationToken);
+        return await DownloadArtworksAsync(httpClient, sources, cancellationToken);
     }
 
     private async Task<IReadOnlyList<(string Url, GameArtworkSlot Slot)>> GetArtworkSourcesAsync(
+        HttpClient httpClient,
         Game game,
         string languageTag,
         CancellationToken cancellationToken = default)
@@ -65,11 +68,12 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
 
         var (steamLanguage, _) = SteamLanguage.Resolve(languageTag);
         cancellationToken.ThrowIfCancellationRequested();
-        var storeAssets = await TryGetStoreAssetsAsync(appId, steamLanguage, cancellationToken);
+        var storeAssets = await TryGetStoreAssetsAsync(httpClient, appId, steamLanguage, cancellationToken);
         return CreateArtworkSources(appId, storeAssets);
     }
 
     private async Task<IReadOnlyList<GameArtworkImage>> DownloadArtworksAsync(
+        HttpClient httpClient,
         IReadOnlyList<(string Url, GameArtworkSlot Slot)> sources,
         CancellationToken cancellationToken)
     {
@@ -121,6 +125,7 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
     }
 
     private async Task<JsonElement?> TryGetStoreAssetsAsync(
+        HttpClient httpClient,
         uint appId,
         string steamLanguage,
         CancellationToken cancellationToken)

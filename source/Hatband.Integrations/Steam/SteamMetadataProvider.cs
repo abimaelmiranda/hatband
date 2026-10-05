@@ -15,7 +15,7 @@ namespace Hatband.Integrations.Steam;
 /// </summary>
 public sealed partial class SteamMetadataProvider : IGameMetadataProvider
 {
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
 
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex HtmlTagPattern();
@@ -23,10 +23,10 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider
     [GeneratedRegex("\\s+")]
     private static partial Regex WhitespacePattern();
 
-    public SteamMetadataProvider(HttpClient httpClient)
+    public SteamMetadataProvider(IHttpClientFactory httpClientFactory)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
-        this.httpClient = httpClient;
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
+        this.httpClientFactory = httpClientFactory;
     }
 
     public GameSourceId? SourceId => GameSourceId.Steam;
@@ -88,7 +88,8 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider
 
         var (steamLanguage, contentLanguageTag) = SteamLanguage.Resolve(languageTag);
         var dateCulture = CultureInfo.GetCultureInfo(languageTag);
-        var response = await GetStoreDocumentAsync(appId, steamLanguage, cancellationToken);
+        using var httpClient = httpClientFactory.CreateClient();
+        var response = await GetStoreDocumentAsync(httpClient, appId, steamLanguage, cancellationToken);
         if (response is null ||
             !response.TryGetValue(appId.ToString(CultureInfo.InvariantCulture), out var appResult) ||
             !appResult.Success ||
@@ -126,6 +127,7 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider
     }
 
     private async Task<Dictionary<string, SteamAppDetailsResult>?> GetStoreDocumentAsync(
+        HttpClient httpClient,
         uint appId,
         string steamLanguage,
         CancellationToken cancellationToken)

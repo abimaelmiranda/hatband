@@ -33,7 +33,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddLogging();
         services.AddDbContextFactory<HatbandDbContext>(options => options.UseSqlite(connectionString));
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(25) });
+        services.AddHttpClient(string.Empty, client => client.Timeout = TimeSpan.FromSeconds(25));
+        services.AddHttpClient("Artwork", client => client.Timeout = TimeSpan.FromSeconds(20));
+        services.AddHttpClient("SteamPlayer", client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton(appDataFileSystem);
         services.TryAddSingleton<IHostSystemInfo, HostSystemInfo>();
         services.AddSingleton<DatabaseInitializer>();

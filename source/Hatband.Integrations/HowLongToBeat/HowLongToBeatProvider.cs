@@ -12,17 +12,17 @@ namespace Hatband.Integrations.HowLongToBeat;
 /// </summary>
 public sealed class HowLongToBeatProvider : IHowLongToBeatProvider
 {
-    private readonly HttpClient httpClient;
+    private readonly IHttpClientFactory httpClientFactory;
     private readonly HowLongToBeatEndpointDiscoverer endpointDiscoverer;
     private readonly HowLongToBeatSessionTokenProvider sessionTokenProvider;
 
-    public HowLongToBeatProvider(HttpClient httpClient, TimeProvider timeProvider)
+    public HowLongToBeatProvider(IHttpClientFactory httpClientFactory, TimeProvider timeProvider)
     {
-        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(timeProvider);
-        this.httpClient = httpClient;
-        endpointDiscoverer = new HowLongToBeatEndpointDiscoverer(httpClient);
-        sessionTokenProvider = new HowLongToBeatSessionTokenProvider(httpClient, timeProvider);
+        this.httpClientFactory = httpClientFactory;
+        endpointDiscoverer = new HowLongToBeatEndpointDiscoverer(httpClientFactory);
+        sessionTokenProvider = new HowLongToBeatSessionTokenProvider(httpClientFactory, timeProvider);
     }
 
     public async Task<IReadOnlyList<HowLongToBeatGame>> SearchAsync(
@@ -60,6 +60,7 @@ public sealed class HowLongToBeatProvider : IHowLongToBeatProvider
     {
         var currentSession = await sessionTokenProvider.GetAsync(apiPath, cancellationToken);
         var searchUri = new Uri(HowLongToBeatProtocol.SiteBaseUri, apiPath);
+        using var httpClient = httpClientFactory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, searchUri);
         request.Headers.UserAgent.ParseAdd(HowLongToBeatProtocol.UserAgent);
         request.Headers.Referrer = HowLongToBeatProtocol.SiteBaseUri;
