@@ -10,9 +10,7 @@ public partial class SettingsNavigationViewModel : ObservableObject
     public SettingsNavigationViewModel(IEnumerable<ISettingsSection> sections)
     {
         ArgumentNullException.ThrowIfNull(sections);
-        var discoveredSections = sections
-            .OrderBy(section => section.DisplayName, StringComparer.CurrentCultureIgnoreCase)
-            .Select(section => new SettingsSectionOptionViewModel(section));
+        var discoveredSections = sections.Select(section => new SettingsSectionOptionViewModel(section));
         Sections = new ObservableCollection<SettingsSectionOptionViewModel>(discoveredSections)
         {
             SettingsSectionOptionViewModel.CreateCompatibilitySection()
@@ -22,8 +20,8 @@ public partial class SettingsNavigationViewModel : ObservableObject
             throw new InvalidOperationException("At least one settings section must be available.");
         }
 
-        var initialSection = Sections.FirstOrDefault(section => section.Id == SettingsSectionOptionViewModel.GeneralSectionId) ?? Sections[0];
-        SelectedSectionIndex = Sections.IndexOf(initialSection);
+        SelectedSectionIndex = 0;
+        SelectedSection.IsSelected = true;
     }
 
     [ObservableProperty]

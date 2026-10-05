@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Hatband.Core.Abstractions.Settings;
+using Hatband.Core.Models.Settings;
 using Hatband.Integrations.Settings;
 
 namespace Hatband.Infrastructure.Settings;
@@ -19,7 +20,7 @@ public sealed class JsonSettingsApi : ISettingsApi
         ArgumentNullException.ThrowIfNull(sections);
 
         this.fileSystem = fileSystem;
-        this.sections = sections.OrderBy(section => section.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToArray();
+        this.sections = sections.ToArray();
         sectionsByType = this.sections.ToDictionary(section => section.SettingsType);
 
         if (this.sections.Select(section => section.Id).Distinct(StringComparer.Ordinal).Count() != this.sections.Count)
@@ -46,9 +47,12 @@ public sealed class JsonSettingsApi : ISettingsApi
         var root = await ReadDocumentAsync(cancellationToken);
 
         var sectionData = FindSectionData(root, section);
-        if (sectionData is null)
+        if (sectionData is null ||
+            section.SettingsType == typeof(GeneralSettings) && sectionData.Version == 0)
         {
-            return section.CreateDefaultSettings();
+            var defaultSettings = section.CreateDefaultSettings();
+            await SaveSectionAsync(section, defaultSettings, cancellationToken);
+            return defaultSettings;
         }
 
         using var document = JsonDocument.Parse(sectionData.Settings.ToJsonString());
