@@ -1,7 +1,6 @@
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
+using Hatband.Core.Enums.Host;
 
-namespace Hatband.Infrastructure.Persistence;
+namespace Hatband.Infrastructure.FileSystem;
 
 public sealed class AppDataFileSystem : IAppDataFileSystem
 {

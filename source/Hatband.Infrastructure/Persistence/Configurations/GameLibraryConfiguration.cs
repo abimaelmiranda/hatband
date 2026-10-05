@@ -1,4 +1,4 @@
-using Hatband.Core.Models;
+using Hatband.Core.Models.Libraries;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

@@ -1,4 +1,5 @@
-using Hatband.Core.Models;
+using Hatband.Core.Models.Games;
+using Hatband.Core.Models.Libraries;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hatband.Infrastructure.Persistence;

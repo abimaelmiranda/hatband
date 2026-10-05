@@ -1,4 +1,4 @@
-using Hatband.Core.Models;
+using Hatband.Core.Models.Games;
 using Hatband.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -10,59 +10,53 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
     protected override void ConfigureEntity(EntityTypeBuilder<Game> builder)
     {
         builder.ToTable("Games");
-        builder.Property(item => item.Name).IsRequired();
-        builder.Property(item => item.IsNameCustomized).HasDefaultValue(false);
-        builder.Property(item => item.SourceId).HasConversion<GameSourceIdConverter>();
-        builder.HasIndex(item => new { item.SourceId, item.SourceGameId }).IsUnique();
-        builder.OwnsOne(item => item.Metadata, metadata =>
+        builder.Property(game => game.Name).IsRequired();
+        builder.Property(game => game.SourceId).HasConversion<GameSourceIdConverter>();
+        builder.HasIndex(game => new { game.SourceId, game.SourceGameId }).IsUnique();
+
+        builder.OwnsOne(game => game.Metadata, metadata =>
         {
-            metadata.Property(item => item.LanguageTag).HasColumnName("Metadata_LanguageTag");
-            metadata.Property(item => item.StoreName).HasColumnName("Metadata_StoreName");
-            metadata.Property(item => item.NativePlatforms).HasColumnName("Metadata_NativePlatforms");
-            metadata.Property(item => item.Genre).HasColumnName("Genre");
-            metadata.OwnsOne(item => item.Artwork, artwork =>
-            {
-                artwork.Property(item => item.IsCoverCustomized)
-                    .HasColumnName("Metadata_Artwork_IsCoverCustomized")
-                    .HasDefaultValue(false);
-                artwork.Property(item => item.IsBackgroundCustomized)
-                    .HasColumnName("Metadata_Artwork_IsBackgroundCustomized")
-                    .HasDefaultValue(false);
-                artwork.Property(item => item.IsIconCustomized)
-                    .HasColumnName("Metadata_Artwork_IsIconCustomized")
-                    .HasDefaultValue(false);
-            });
-            metadata.OwnsOne(item => item.Overrides, overrides =>
-            {
-                overrides.Property(item => item.Description)
-                    .HasColumnName("Metadata_Overrides_Description")
-                    .HasDefaultValue(false);
-                overrides.Property(item => item.Developer)
-                    .HasColumnName("Metadata_Overrides_Developer")
-                    .HasDefaultValue(false);
-                overrides.Property(item => item.Publisher)
-                    .HasColumnName("Metadata_Overrides_Publisher")
-                    .HasDefaultValue(false);
-                overrides.Property(item => item.Genre)
-                    .HasColumnName("Metadata_Overrides_Genre")
-                    .HasDefaultValue(false);
-                overrides.Property(item => item.ReleaseDate)
-                    .HasColumnName("Metadata_Overrides_ReleaseDate")
-                    .HasDefaultValue(false);
-            });
+            metadata.Property(value => value.LanguageTag).HasColumnName("Metadata_LanguageTag");
+            metadata.Property(value => value.StoreName).HasColumnName("Metadata_StoreName");
+            metadata.Property(value => value.Description).HasColumnName("Metadata_Description");
+            metadata.Property(value => value.Developer).HasColumnName("Metadata_Developer");
+            metadata.Property(value => value.Publisher).HasColumnName("Metadata_Publisher");
+            metadata.Property(value => value.Genre).HasColumnName("Metadata_Genre");
+            metadata.Property(value => value.ReleaseDate).HasColumnName("Metadata_ReleaseDate");
+            metadata.Property(value => value.NativePlatforms).HasColumnName("Metadata_NativePlatforms");
         });
-        builder.OwnsOne(item => item.TimeToBeat, timeToBeat =>
+
+        builder.OwnsOne(game => game.Artwork, artwork =>
         {
-            timeToBeat.Property(item => item.HowLongToBeatGameId).HasColumnName("TimeToBeat_GameId");
-            timeToBeat.Property(item => item.HowLongToBeatName).HasColumnName("TimeToBeat_GameName");
-            timeToBeat.Property(item => item.MainStorySeconds).HasColumnName("TimeToBeat_MainStorySeconds");
-            timeToBeat.Property(item => item.MainStoryPlusExtrasSeconds).HasColumnName("TimeToBeat_MainStoryPlusExtrasSeconds");
-            timeToBeat.Property(item => item.CompletionistSeconds).HasColumnName("TimeToBeat_CompletionistSeconds");
-            timeToBeat.Property(item => item.LastSearchedAtUtc).HasColumnName("TimeToBeat_LastSearchedAtUtc");
+            artwork.Property(value => value.CoverImagePath).HasColumnName("Artwork_CoverImagePath");
+            artwork.Property(value => value.BackgroundImagePath).HasColumnName("Artwork_BackgroundImagePath");
+            artwork.Property(value => value.IconPath).HasColumnName("Artwork_IconPath");
         });
-        builder.Navigation(item => item.TimeToBeat).IsRequired(false);
-        builder.HasMany(item => item.LaunchActions)
-            .WithOne()
-            .OnDelete(DeleteBehavior.Cascade);
+        builder.OwnsOne(game => game.DefaultArtwork, artwork =>
+        {
+            artwork.Property(value => value.CoverImagePath).HasColumnName("DefaultArtwork_CoverImagePath");
+            artwork.Property(value => value.BackgroundImagePath).HasColumnName("DefaultArtwork_BackgroundImagePath");
+            artwork.Property(value => value.IconPath).HasColumnName("DefaultArtwork_IconPath");
+        }).Navigation(game => game.DefaultArtwork).IsRequired(false);
+        builder.OwnsOne(game => game.CompatibilityTool, tool =>
+        {
+            tool.Property(value => value.Name).HasColumnName("CompatibilityTool_Name");
+            tool.Property(value => value.Version).HasColumnName("CompatibilityTool_Version");
+            tool.Property(value => value.InstallationPath).HasColumnName("CompatibilityTool_InstallationPath");
+            tool.Property(value => value.Source).HasColumnName("CompatibilityTool_Source");
+        }).Navigation(game => game.CompatibilityTool).IsRequired(false);
+        builder.OwnsOne(game => game.InstallationInfo, installation =>
+        {
+            installation.Property(value => value.InstallDirectory).HasColumnName("InstallationInfo_InstallDirectory");
+        }).Navigation(game => game.InstallationInfo).IsRequired(false);
+        builder.OwnsOne(game => game.TimeToBeat, timeToBeat =>
+        {
+            timeToBeat.Property(value => value.HowLongToBeatGameId).HasColumnName("TimeToBeat_GameId");
+            timeToBeat.Property(value => value.HowLongToBeatName).HasColumnName("TimeToBeat_GameName");
+            timeToBeat.Property(value => value.MainStorySeconds).HasColumnName("TimeToBeat_MainStorySeconds");
+            timeToBeat.Property(value => value.MainStoryPlusExtrasSeconds).HasColumnName("TimeToBeat_MainStoryPlusExtrasSeconds");
+            timeToBeat.Property(value => value.CompletionistSeconds).HasColumnName("TimeToBeat_CompletionistSeconds");
+        }).Navigation(game => game.TimeToBeat).IsRequired(false);
+        builder.HasMany(game => game.GameActions).WithOne().OnDelete(DeleteBehavior.Cascade);
     }
 }
