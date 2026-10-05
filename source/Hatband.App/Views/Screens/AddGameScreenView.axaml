@@ -2,50 +2,451 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Hatband.App.ViewModels"
              xmlns:lang="using:Hatband.App.Localization"
-             xmlns:models="using:Hatband.App.ViewModels"
+             xmlns:core="using:Hatband.Core.Models.Games"
+             xmlns:components="using:Hatband.App.Views.Components"
              x:Class="Hatband.App.Views.Screens.AddGameScreenView"
              x:DataType="vm:MainWindowViewModel">
+    <UserControl.Resources>
+        <DataTemplate x:Key="CoverArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
+            <StackPanel Width="150" Spacing="6" Margin="5">
+                <Border Height="190" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}" Foreground="#AFC0CC" FontSize="12" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPreviewUnavailable}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding DisplayName}" FontSize="12" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="BackgroundArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
+            <StackPanel Width="250" Spacing="6" Margin="5">
+                <Border Height="150" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}" Foreground="#AFC0CC" FontSize="12" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPreviewUnavailable}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding DisplayName}" FontSize="12" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
     <Grid Background="Transparent">
-            <Border Width="620"
-                    Height="620"
-                    MaxWidth="660"
-                    MaxHeight="660"
-                    Padding="36"
+        <components:FullScreenNavigationLayout x:Name="AddGameNavigationLayout"
+                                               IsEnabled="{Binding !AddGame.IsMetadataSearchOpen}"
+                                               IsMainContentActive="{Binding AddGame.IsContentActive}">
+            <components:FullScreenNavigationLayout.NavigationContent>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="AddGameSectionList"
+                                  ItemsSource="{Binding AddGame.Sections}"
+                                  HorizontalAlignment="Stretch">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="3" HorizontalAlignment="Stretch" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AddGameSectionViewModel">
+                                <components:ConsoleNavigationItemView Margin="2,1"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      Symbol="{Binding Symbol}"
+                                                                      Title="{Binding Title}"
+                                                                      ItemBackground="{Binding Background}"
+                                                                      ItemBorderBrush="{Binding SelectionBorderBrush}"
+                                                                      FocusEntered="OnSectionFocusEntered"
+                                                                      Activated="OnSectionActivated" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </components:FullScreenNavigationLayout.NavigationContent>
+
+            <components:FullScreenNavigationLayout.MainContent>
+                <Grid RowDefinitions="*,Auto">
+                    <ScrollViewer Grid.Row="0"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <Grid x:Name="EditorPanel" GotFocus="OnEditorFieldGotFocus">
+                            <StackPanel x:Name="GamePanel"
+                                        IsVisible="{Binding AddGame.IsGameSectionSelected}"
+                                        Spacing="16">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{x:Static lang:Resources.ManualGameSection}"
+                                               FontSize="22"
+                                               FontWeight="SemiBold" />
+                                    <Border Height="1" Background="#39454F" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="{x:Static lang:Resources.Name}" Foreground="#D9E0E5" />
+                                    <TextBox Text="{Binding AddGame.Name}"
+                                             PlaceholderText="{x:Static lang:Resources.GameNamePlaceholder}" />
+                                </StackPanel>
+                                <Button x:Name="OpenMetadataSearchButton"
+                                        Content="{x:Static lang:Resources.OpenMetadataSearch}"
+                                        Classes="subtle-action"
+                                        HorizontalAlignment="Left"
+                                        Click="OnOpenMetadataSearchClick"
+                                        IsEnabled="{Binding AddGame.CanOpenMetadataSearch}" />
+                                <TextBlock Text="{x:Static lang:Resources.NoMetadataSourcesAvailable}"
+                                           Foreground="#AFC0CC"
+                                           IsVisible="{Binding AddGame.HasNoMetadataSources}" />
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="{x:Static lang:Resources.InstallFolder}" Foreground="#D9E0E5" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <TextBox Text="{Binding AddGame.InstallDirectory}"
+                                                 PlaceholderText="{x:Static lang:Resources.OptionalFolder}" />
+                                        <Button Grid.Column="1"
+                                                Content="{x:Static lang:Resources.ChooseFolder}"
+                                                Classes="subtle-action"
+                                                Click="OnChooseFolderClick" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Spacing="12">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{x:Static lang:Resources.ManualGameMetadataSection}"
+                                                   FontSize="22"
+                                                   FontWeight="SemiBold" />
+                                        <Border Height="1" Background="#39454F" />
+                                    </StackPanel>
+                                    <TextBlock Text="{x:Static lang:Resources.Description}" Foreground="#D9E0E5" />
+                                    <TextBox Text="{Binding AddGame.Description}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="100"
+                                             MaxHeight="150"
+                                             VerticalContentAlignment="Top" />
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="{x:Static lang:Resources.Developer}" Foreground="#D9E0E5" />
+                                            <TextBox Text="{Binding AddGame.Developer}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="6">
+                                            <TextBlock Text="{x:Static lang:Resources.Publisher}" Foreground="#D9E0E5" />
+                                            <TextBox Text="{Binding AddGame.Publisher}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="{x:Static lang:Resources.Genre}" Foreground="#D9E0E5" />
+                                            <TextBox Text="{Binding AddGame.Genre}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Spacing="6">
+                                            <TextBlock Text="{x:Static lang:Resources.ReleaseDate}" Foreground="#D9E0E5" />
+                                            <TextBox Text="{Binding AddGame.ReleaseDate}"
+                                                     PlaceholderText="{x:Static lang:Resources.ReleaseDateFormat}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel x:Name="ActionsPanel"
+                                        IsVisible="{Binding AddGame.IsActionsSectionSelected}"
+                                        Spacing="14">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{x:Static lang:Resources.GameActionsSection}"
+                                               FontSize="22"
+                                               FontWeight="SemiBold" />
+                                    <Border Height="1" Background="#39454F" />
+                                </StackPanel>
+
+                                <ItemsControl ItemsSource="{Binding AddGame.Actions}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Spacing="12" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AddGameActionViewModel">
+                                            <Border Padding="14"
+                                                    CornerRadius="8"
+                                                    Background="#151C21"
+                                                    BorderBrush="#39454F"
+                                                    BorderThickness="1">
+                                                <StackPanel Spacing="12">
+                                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                        <TextBox Text="{Binding Name}"
+                                                                 PlaceholderText="{x:Static lang:Resources.ActionName}"
+                                                                 VerticalAlignment="Center" />
+                                                        <Button Grid.Column="1"
+                                                                Content="{Binding PrimaryActionLabel}"
+                                                                Command="{Binding MakePrimaryCommand}"
+                                                                IsEnabled="{Binding !IsPrimary}"
+                                                                Classes="subtle-action"
+                                                                Padding="12,8"
+                                                                MinHeight="38" />
+                                                        <Button Grid.Column="2"
+                                                                Content="{x:Static lang:Resources.RemoveAction}"
+                                                                Command="{Binding RemoveCommand}"
+                                                                Classes="subtle-action"
+                                                                Padding="12,8"
+                                                                MinHeight="38" />
+                                                    </Grid>
+
+                                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                                        <Button Content="{x:Static lang:Resources.Executable}"
+                                                                Command="{Binding SetExecutableTypeCommand}"
+                                                                Classes="subtle-action"
+                                                                Background="{Binding ExecutableTypeBackground}"
+                                                                Padding="14,7"
+                                                                MinHeight="36" />
+                                                        <Button Content="{x:Static lang:Resources.Link}"
+                                                                Command="{Binding SetUriTypeCommand}"
+                                                                Classes="subtle-action"
+                                                                Background="{Binding UriTypeBackground}"
+                                                                Padding="14,7"
+                                                                MinHeight="36" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Spacing="6" IsVisible="{Binding IsExecutable}">
+                                                        <TextBlock Text="{x:Static lang:Resources.ExecutableOrLauncher}" Foreground="#D9E0E5" />
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                            <TextBox Text="{Binding Target}"
+                                                                     PlaceholderText="{x:Static lang:Resources.OptionalPath}" />
+                                                            <Button Grid.Column="1"
+                                                                    Content="{x:Static lang:Resources.ChooseFile}"
+                                                                    Classes="subtle-action"
+                                                                    Click="OnChooseExecutableClick"
+                                                                    Padding="12,8"
+                                                                    MinHeight="38" />
+                                                        </Grid>
+                                                    </StackPanel>
+
+                                                    <StackPanel Spacing="6" IsVisible="{Binding IsUri}">
+                                                        <TextBlock Text="{x:Static lang:Resources.GameLink}" Foreground="#D9E0E5" />
+                                                        <TextBox Text="{Binding Target}"
+                                                                 PlaceholderText="{x:Static lang:Resources.GameLinkPlaceholder}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Spacing="6">
+                                                        <TextBlock Text="{x:Static lang:Resources.Arguments}" Foreground="#D9E0E5" />
+                                                        <TextBox Text="{Binding Arguments}"
+                                                                 PlaceholderText="{x:Static lang:Resources.OptionalArguments}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Spacing="6">
+                                                        <TextBlock Text="{x:Static lang:Resources.WorkingDirectory}" Foreground="#D9E0E5" />
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                            <TextBox Text="{Binding WorkingDirectory}"
+                                                                     PlaceholderText="{x:Static lang:Resources.OptionalFolder}" />
+                                                            <Button Grid.Column="1"
+                                                                    Content="{x:Static lang:Resources.ChooseFolder}"
+                                                                    Classes="subtle-action"
+                                                                    Click="OnChooseFolderClick"
+                                                                    Padding="12,8"
+                                                                    MinHeight="38" />
+                                                        </Grid>
+                                                        <TextBlock Text="{x:Static lang:Resources.WorkingDirectoryHelp}"
+                                                                   Foreground="#AEBBC5"
+                                                                   FontSize="11"
+                                                                   TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Button Content="{x:Static lang:Resources.AddAction}"
+                                        Classes="subtle-action"
+                                        HorizontalAlignment="Left"
+                                        Click="OnAddActionClick" />
+                            </StackPanel>
+
+                            <StackPanel x:Name="ImagesPanel"
+                                        IsVisible="{Binding AddGame.IsImagesSectionSelected}"
+                                        Spacing="14">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{x:Static lang:Resources.ManualGameImagesSection}" FontSize="22" FontWeight="SemiBold" />
+                                    <Border Height="1" Background="#39454F" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding AddGame.SteamArtworkAssociationStatus}"
+                                           Foreground="#AFC0CC"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding AddGame.ArtworkPicker.ArtworkSourcesStatus}" Foreground="#AFC0CC" TextWrapping="Wrap" IsVisible="{Binding AddGame.ArtworkPicker.HasArtworkSourcesStatus}" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <StackPanel Spacing="3"><TextBlock Text="{x:Static lang:Resources.Cover}" Foreground="#D9E0E5" /><TextBlock Text="{Binding AddGame.CoverArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" /></StackPanel>
+                                    <Button x:Name="SearchCoverArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Cover" Click="OnSearchArtworkClick" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <StackPanel Spacing="3"><TextBlock Text="{x:Static lang:Resources.Background}" Foreground="#D9E0E5" /><TextBlock Text="{Binding AddGame.BackgroundArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" /></StackPanel>
+                                    <Button x:Name="SearchBackgroundArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Background" Click="OnSearchArtworkClick" />
+                                </Grid>
+                                <ListBox x:Name="CoverArtworkOptions"
+                                         ItemsSource="{Binding AddGame.ArtworkPicker.ActiveArtworkOptions}"
+                                         SelectedItem="{Binding AddGame.ArtworkPicker.SelectedActiveArtworkOption}"
+                                         ItemTemplate="{StaticResource CoverArtworkPreviewTemplate}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         IsVisible="{Binding AddGame.ArtworkPicker.IsCoverPickerActive}"
+                                         MaxHeight="250">
+                                    <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                </ListBox>
+                                <ListBox x:Name="BackgroundArtworkOptions"
+                                         ItemsSource="{Binding AddGame.ArtworkPicker.ActiveArtworkOptions}"
+                                         SelectedItem="{Binding AddGame.ArtworkPicker.SelectedActiveArtworkOption}"
+                                         ItemTemplate="{StaticResource BackgroundArtworkPreviewTemplate}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         IsVisible="{Binding AddGame.ArtworkPicker.IsBackgroundPickerActive}"
+                                         MaxHeight="210">
+                                    <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                </ListBox>
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding AddGame.ArtworkPicker.IsArtworkPickerOpen}">
+                                    <Button Content="{x:Static lang:Resources.UseArtwork}" Classes="subtle-action standard-action" Click="OnUseSelectedArtworkClick" IsEnabled="{Binding AddGame.ArtworkPicker.CanApplyActiveArtwork}" />
+                                    <Button Content="{x:Static lang:Resources.Cancel}" Classes="subtle-action standard-action" Click="OnCloseArtworkPickerClick" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </components:FullScreenNavigationLayout.MainContent>
+
+            <components:FullScreenNavigationLayout.FooterContent>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,0,16,0">
+                    <Button Content="{x:Static lang:Resources.Cancel}"
+                            Classes="subtle-action standard-action"
+                            Command="{Binding CancelNewGameCommand}" />
+                    <Button Content="{x:Static lang:Resources.Save}"
+                            Classes="console-action standard-action"
+                            Command="{Binding AddGame.SaveGameCommand}"
+                            IsDefault="{Binding !AddGame.IsMetadataSearchOpen}" />
+                </StackPanel>
+            </components:FullScreenNavigationLayout.FooterContent>
+        </components:FullScreenNavigationLayout>
+        <Border x:Name="MetadataSearchOverlay"
+                IsVisible="{Binding AddGame.IsMetadataSearchOpen}"
+                Background="#B3000000">
+            <Border Margin="24"
+                    MaxWidth="1080"
+                    MaxHeight="740"
+                    Padding="22"
                     CornerRadius="14"
                     Background="#202932"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="{x:Static lang:Resources.AddGameTitle}"
-                               FontSize="12"
-                               Foreground="#BFCBD4" />
-                    <TextBlock Text="{x:Static lang:Resources.AddGameSubtitle}"
-                               FontSize="26"
-                               FontWeight="Bold"
-                               TextWrapping="Wrap"
-                               Margin="0,0,0,12" />
-                    <TextBlock Text="{x:Static lang:Resources.Name}" Foreground="#D9E0E5" />
-                    <TextBox x:Name="GameNameBox" Text="{Binding NewGameName}" PlaceholderText="{x:Static lang:Resources.GameNamePlaceholder}" />
-                    <TextBlock Text="{x:Static lang:Resources.ExecutableOrLauncher}" Foreground="#D9E0E5" />
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBox Text="{Binding NewGameLaunchTarget}" PlaceholderText="{x:Static lang:Resources.OptionalPath}" />
-                        <Button Grid.Column="1"
-                                Content="{x:Static lang:Resources.ChooseFile}"
+                    BorderBrush="#46535D"
+                    BorderThickness="1"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch">
+                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{x:Static lang:Resources.MetadataSearchTitle}"
+                                       FontSize="24"
+                                       FontWeight="Bold" />
+                            <TextBlock Text="{x:Static lang:Resources.MetadataSearchPrompt}"
+                                       Foreground="#AFC0CC"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="CloseMetadataSearchButton"
+                                Grid.Column="1"
+                                Content="✕"
+                                FocusAdorner="{x:Null}"
                                 Classes="subtle-action"
-                                Click="OnImportExecutableClick" />
+                                Click="OnCloseMetadataSearchClick" />
                     </Grid>
-                    <TextBlock Text="{x:Static lang:Resources.InstallFolder}" Foreground="#D9E0E5" />
-                    <TextBox Text="{Binding NewGameInstallDirectory}" PlaceholderText="{x:Static lang:Resources.OptionalFolder}" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
-                        <Button Content="{x:Static lang:Resources.Cancel}"
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <TextBox x:Name="MetadataSearchQueryBox"
+                                 Text="{Binding AddGame.MetadataSearchQuery}"
+                                 PlaceholderText="{x:Static lang:Resources.MetadataSearchQueryPlaceholder}" />
+                        <Button x:Name="MetadataSearchRunButton"
+                                Grid.Column="1"
+                                Content="{x:Static lang:Resources.MetadataSearchRunButton}"
+                                Classes="subtle-action"
+                                Command="{Binding AddGame.SearchMetadataCommand}"
+                                IsEnabled="{Binding AddGame.CanSearchMetadata}" />
+                    </Grid>
+
+                    <TabControl x:Name="MetadataSearchSourceTabs"
+                                Grid.Row="2"
+                                ItemsSource="{Binding AddGame.MetadataSources}"
+                                SelectedIndex="{Binding AddGame.SelectedMetadataSourceIndex, Mode=TwoWay}">
+                        <TabControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GameMetadataSourceViewModel">
+                                <TextBlock Text="{Binding DisplayName}" />
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                        <TabControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:GameMetadataSourceViewModel">
+                                <Grid ColumnDefinitions="330,*" ColumnSpacing="24" Margin="4,18,4,4">
+                                    <Grid Grid.Column="0"
+                                          RowDefinitions="Auto,Auto,*"
+                                          RowSpacing="10">
+                                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                                    IsVisible="{Binding IsSearching}">
+                                            <ProgressBar IsIndeterminate="True" Width="64" Height="6" />
+                                            <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearching}"
+                                                       Foreground="#AFC0CC" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding StatusMessage}"
+                                                   Grid.Row="1"
+                                                   Foreground="#AFC0CC"
+                                                   TextWrapping="Wrap"
+                                                   IsVisible="{Binding HasStatusMessage}" />
+                                        <ListBox ItemsSource="{Binding SearchResults}"
+                                                 Grid.Row="2"
+                                                 SelectedItem="{Binding SelectedSearchResult}"
+                                                 IsEnabled="{Binding !IsSearching}"
+                                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate x:DataType="core:GameMetadata">
+                                                    <TextBlock Text="{Binding StoreName}"
+                                                               Margin="8,7"
+                                                               TextWrapping="Wrap" />
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Grid>
+
+                                    <ScrollViewer Grid.Column="1"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  IsVisible="{Binding HasLookup}">
+                                        <StackPanel Spacing="12">
+                                            <TextBlock Text="{Binding SelectedSearchResult.StoreName}"
+                                                       FontSize="22"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding SelectedSearchResult.Description}"
+                                                       TextWrapping="Wrap" />
+                                            <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                                                  ColumnSpacing="12" RowSpacing="8">
+                                                <TextBlock Text="{x:Static lang:Resources.Developer}" Foreground="#AFC0CC" />
+                                                <TextBlock Grid.Column="1" Text="{Binding SelectedSearchResult.Developer}" TextWrapping="Wrap" />
+                                                <TextBlock Grid.Row="1" Text="{x:Static lang:Resources.Publisher}" Foreground="#AFC0CC" />
+                                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedSearchResult.Publisher}" TextWrapping="Wrap" />
+                                                <TextBlock Grid.Row="2" Text="{x:Static lang:Resources.Genre}" Foreground="#AFC0CC" />
+                                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedSearchResult.Genre}" TextWrapping="Wrap" />
+                                                <TextBlock Grid.Row="3" Text="{x:Static lang:Resources.ReleaseDate}" Foreground="#AFC0CC" />
+                                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedSearchResult.ReleaseDate}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Grid>
+                            </DataTemplate>
+                        </TabControl.ContentTemplate>
+                    </TabControl>
+
+                    <StackPanel Grid.Row="3"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Spacing="10">
+                        <Button x:Name="CancelMetadataSearchButton"
+                                Content="{x:Static lang:Resources.Cancel}"
+                                FocusAdorner="{x:Null}"
                                 Classes="subtle-action standard-action"
-                                Command="{Binding CancelNewGameCommand}" />
-                        <Button Content="{x:Static lang:Resources.Save}"
+                                Click="OnCloseMetadataSearchClick" />
+                        <Button x:Name="ApplyMetadataSearchButton"
+                                Content="{x:Static lang:Resources.MetadataSourceApply}"
+                                FocusAdorner="{x:Null}"
+                                Width="260"
                                 Classes="console-action standard-action"
-                                Command="{Binding SaveNewGameCommand}"
-                                IsDefault="True" />
+                                IsEnabled="{Binding AddGame.CanApplySelectedMetadata}"
+                                Click="OnApplySelectedMetadataClick" />
                     </StackPanel>
-                </StackPanel>
+                </Grid>
             </Border>
-        </Grid>
+        </Border>
+    </Grid>
 </UserControl>

@@ -307,7 +307,7 @@
     <value>Caminho opcional</value>
   </data>
   <data name="ChooseFile" xml:space="preserve">
-    <value>ESCOLHER ARQUIVO</value>
+    <value>Escolher arquivo</value>
   </data>
   <data name="InstallFolder" xml:space="preserve">
     <value>Pasta de instalação</value>
@@ -315,11 +315,89 @@
   <data name="OptionalFolder" xml:space="preserve">
     <value>Pasta opcional</value>
   </data>
+  <data name="ManualGameSection" xml:space="preserve">
+    <value>Jogo</value>
+  </data>
+  <data name="ManualGameMetadataSection" xml:space="preserve">
+    <value>Metadados</value>
+  </data>
+  <data name="ManualGameImagesSection" xml:space="preserve">
+    <value>Imagens</value>
+  </data>
+  <data name="OpenMetadataSearch" xml:space="preserve">
+    <value>Buscar metadados...</value>
+  </data>
+  <data name="MetadataSearchTitle" xml:space="preserve">
+    <value>Buscar metadados</value>
+  </data>
+  <data name="MetadataSearchPrompt" xml:space="preserve">
+    <value>Pesquise pelo título e confira os resultados de cada fonte. Escolha um resultado para preencher os campos do jogo.</value>
+  </data>
+  <data name="MetadataSearchQueryPlaceholder" xml:space="preserve">
+    <value>Nome do jogo</value>
+  </data>
+  <data name="MetadataSearchRunButton" xml:space="preserve">
+    <value>Buscar</value>
+  </data>
+  <data name="SteamArtworkNeedsMetadata" xml:space="preserve">
+    <value>Para buscar imagens da Steam, busque metadados na seção Jogo e aplique um resultado da Steam.</value>
+  </data>
+  <data name="SteamArtworkLinked" xml:space="preserve">
+    <value>Jogo da Steam associado: {0} (App ID {1}). As buscas de imagens usarão este jogo.</value>
+  </data>
+  <data name="GameActionsSection" xml:space="preserve">
+    <value>Ações</value>
+  </data>
+  <data name="GameActionDefaultName" xml:space="preserve">
+    <value>Ação</value>
+  </data>
+  <data name="ActionName" xml:space="preserve">
+    <value>Nome da ação</value>
+  </data>
+  <data name="Executable" xml:space="preserve">
+    <value>Programa</value>
+  </data>
+  <data name="GameLink" xml:space="preserve">
+    <value>Link ou URI</value>
+  </data>
+  <data name="GameLinkPlaceholder" xml:space="preserve">
+    <value>https://… ou URI de protocolo</value>
+  </data>
+  <data name="Link" xml:space="preserve">
+    <value>Link</value>
+  </data>
+  <data name="Arguments" xml:space="preserve">
+    <value>Argumentos</value>
+  </data>
+  <data name="OptionalArguments" xml:space="preserve">
+    <value>Argumentos opcionais</value>
+  </data>
+  <data name="WorkingDirectory" xml:space="preserve">
+    <value>Diretório de trabalho</value>
+  </data>
+  <data name="WorkingDirectoryHelp" xml:space="preserve">
+    <value>Pasta a partir da qual o jogo inicia. Ela pode ser diferente da pasta de instalação.</value>
+  </data>
+  <data name="PrimaryAction" xml:space="preserve">
+    <value>Ação de jogar</value>
+  </data>
+  <data name="SetPrimaryAction" xml:space="preserve">
+    <value>Definir como ação de jogar</value>
+  </data>
+  <data name="AddAction" xml:space="preserve">
+    <value>Adicionar ação</value>
+  </data>
+  <data name="RemoveAction" xml:space="preserve">
+    <value>Remover</value>
+  </data>
+  <data name="ChooseFolder" xml:space="preserve">
+    <value>Escolher pasta</value>
+  </data>
   <data name="GameLaunchStarted" xml:space="preserve">
     <value>Inicialização do jogo iniciada.</value>
   </data>
   <data name="KeyboardAddGame" xml:space="preserve">
-    <value>TAB   PRÓXIMO       ENTER   ATIVAR</value>
+    <value>↑  ↓  NAVEGAR       ENTER  ABRIR       ESC  VOLTAR</value>
   </data>
   <data name="Cancel" xml:space="preserve">
     <value>CANCELAR</value>
@@ -512,6 +590,12 @@
   </data>
   <data name="ChooseLocalFile" xml:space="preserve">
     <value>Selecione um arquivo local.</value>
+  </data>
+  <data name="ChooseLocalFolder" xml:space="preserve">
+    <value>Selecione uma pasta local.</value>
+  </data>
+  <data name="SelectFolderError" xml:space="preserve">
+    <value>Não foi possível selecionar a pasta: {0}</value>
   </data>
   <data name="SelectExecutableError" xml:space="preserve">
     <value>Não foi possível selecionar o executável: {0}</value>

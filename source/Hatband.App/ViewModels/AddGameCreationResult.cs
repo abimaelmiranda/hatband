@@ -10,5 +10,7 @@ public abstract record AddGameCreationResult
 
     public sealed record InvalidName : AddGameCreationResult;
 
+    public sealed record InvalidReleaseDate : AddGameCreationResult;
+
     public sealed record Failed(Exception Exception) : AddGameCreationResult;
 }

@@ -193,12 +193,26 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (viewModel.IsAddGameScreen &&
+            await AddGameScreenView.HandleMetadataSearchKeyAsync(e, directionalFocusNavigator))
+        {
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
             if (viewModel.IsGameEditorScreen && viewModel.GameMetadataEditor.IsArtworkPickerOpen)
             {
                 viewModel.GameMetadataEditor.CloseArtworkPicker();
                 FocusWhenVisible(GameMetadataEditorScreenView, GameMetadataEditorScreenView.FocusActiveArtworkSearchButton);
+                e.Handled = true;
+                return;
+            }
+
+            if (viewModel.IsAddGameScreen && viewModel.AddGame.ArtworkPicker.IsArtworkPickerOpen)
+            {
+                viewModel.AddGame.CloseArtworkSearch();
+                FocusWhenVisible(AddGameScreenView, AddGameScreenView.FocusActiveArtworkSearchButton);
                 e.Handled = true;
                 return;
             }
@@ -213,6 +227,14 @@ public partial class MainWindow : Window
             {
                 viewModel.DeactivateSettingsContent();
                 SettingsScreenView.FocusSelectedSection();
+                e.Handled = true;
+                return;
+            }
+
+            if (viewModel.IsAddGameScreen && viewModel.AddGame.IsContentActive)
+            {
+                viewModel.AddGame.DeactivateContent();
+                AddGameScreenView.FocusSelectedSection();
                 e.Handled = true;
                 return;
             }
@@ -270,7 +292,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.Key == Key.M)
+        if (viewModel.IsAddGameScreen &&
+            viewModel.AddGame.ArtworkPicker.IsArtworkPickerOpen &&
+            e.Key == Key.Enter &&
+            AddGameScreenView.IsArtworkOptionFocused)
+        {
+            AddGameScreenView.UseFocusedArtworkOption();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.M && e.Source is not TextBox)
         {
             viewModel.ToggleMenu();
             if (viewModel.IsMenuOpen)
@@ -378,6 +410,17 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+        }
+
+        if (viewModel.IsAddGameScreen &&
+            (e.Key is Key.Enter or Key.Right) &&
+            !viewModel.AddGame.IsContentActive &&
+            AddGameScreenView.IsSectionNavigationFocused)
+        {
+            viewModel.AddGame.ActivateContent();
+            AddGameScreenView.FocusSelectedField();
+            e.Handled = true;
+            return;
         }
 
         if (viewModel.IsGameEditorScreen && !viewModel.GameMetadataEditor.IsArtworkPickerOpen)
@@ -540,7 +583,14 @@ public partial class MainWindow : Window
 
         if (viewModel.IsAddGameScreen)
         {
-            FocusWhenVisible(AddGameScreenView.GameNameInput);
+            if (viewModel.AddGame.IsContentActive)
+            {
+                AddGameScreenView.FocusSelectedField();
+            }
+            else
+            {
+                FocusWhenVisible(AddGameScreenView, AddGameScreenView.FocusSelectedSection);
+            }
         }
     }
 
@@ -549,7 +599,7 @@ public partial class MainWindow : Window
         viewModel.ActivateMenuOption(action);
         if (action == MenuAction.AddGame)
         {
-            DirectionalFocusNavigator.Focus(AddGameScreenView.GameNameInput);
+            FocusWhenVisible(AddGameScreenView, AddGameScreenView.FocusSelectedSection);
         }
         else if (action == MenuAction.OpenConnectorSettings)
         {
@@ -660,6 +710,16 @@ public partial class MainWindow : Window
 
         if (viewModel.IsAddGameScreen)
         {
+            if (viewModel.AddGame.IsMetadataSearchOpen)
+            {
+                return AddGameScreenView.MetadataSearchNavigationRoot;
+            }
+
+            if (viewModel.AddGame.ArtworkPicker.IsArtworkPickerOpen)
+            {
+                return AddGameScreenView.ArtworkPickerNavigationRoot;
+            }
+
             return AddGameScreenView;
         }
 

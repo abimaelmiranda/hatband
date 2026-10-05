@@ -307,7 +307,7 @@
     <value>Optional path</value>
   </data>
   <data name="ChooseFile" xml:space="preserve">
-    <value>CHOOSE FILE</value>
+    <value>Choose file</value>
   </data>
   <data name="InstallFolder" xml:space="preserve">
     <value>Install folder</value>
@@ -315,11 +315,89 @@
   <data name="OptionalFolder" xml:space="preserve">
     <value>Optional folder</value>
   </data>
+  <data name="ManualGameSection" xml:space="preserve">
+    <value>Game</value>
+  </data>
+  <data name="ManualGameMetadataSection" xml:space="preserve">
+    <value>Metadata</value>
+  </data>
+  <data name="ManualGameImagesSection" xml:space="preserve">
+    <value>Images</value>
+  </data>
+  <data name="OpenMetadataSearch" xml:space="preserve">
+    <value>Search metadata...</value>
+  </data>
+  <data name="MetadataSearchTitle" xml:space="preserve">
+    <value>Search metadata</value>
+  </data>
+  <data name="MetadataSearchPrompt" xml:space="preserve">
+    <value>Search by title and review the results from each source. Choose a result to fill in the game fields.</value>
+  </data>
+  <data name="MetadataSearchQueryPlaceholder" xml:space="preserve">
+    <value>Game title</value>
+  </data>
+  <data name="MetadataSearchRunButton" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="SteamArtworkNeedsMetadata" xml:space="preserve">
+    <value>To find Steam artwork, search metadata in the Game section and apply a Steam result.</value>
+  </data>
+  <data name="SteamArtworkLinked" xml:space="preserve">
+    <value>Steam game linked: {0} (App ID {1}). Artwork searches will use this game.</value>
+  </data>
+  <data name="GameActionsSection" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="GameActionDefaultName" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="ActionName" xml:space="preserve">
+    <value>Action name</value>
+  </data>
+  <data name="Executable" xml:space="preserve">
+    <value>Program</value>
+  </data>
+  <data name="GameLink" xml:space="preserve">
+    <value>Link or URI</value>
+  </data>
+  <data name="GameLinkPlaceholder" xml:space="preserve">
+    <value>https://… or protocol URI</value>
+  </data>
+  <data name="Link" xml:space="preserve">
+    <value>Link</value>
+  </data>
+  <data name="Arguments" xml:space="preserve">
+    <value>Arguments</value>
+  </data>
+  <data name="OptionalArguments" xml:space="preserve">
+    <value>Optional arguments</value>
+  </data>
+  <data name="WorkingDirectory" xml:space="preserve">
+    <value>Working directory</value>
+  </data>
+  <data name="WorkingDirectoryHelp" xml:space="preserve">
+    <value>Folder where the game starts. It can differ from the installation folder.</value>
+  </data>
+  <data name="PrimaryAction" xml:space="preserve">
+    <value>Play action</value>
+  </data>
+  <data name="SetPrimaryAction" xml:space="preserve">
+    <value>Set as play action</value>
+  </data>
+  <data name="AddAction" xml:space="preserve">
+    <value>Add action</value>
+  </data>
+  <data name="RemoveAction" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="ChooseFolder" xml:space="preserve">
+    <value>Choose folder</value>
+  </data>
   <data name="GameLaunchStarted" xml:space="preserve">
     <value>Game launch started.</value>
   </data>
   <data name="KeyboardAddGame" xml:space="preserve">
-    <value>TAB   NEXT       ENTER   ACTIVATE</value>
+    <value>↑  ↓  NAVIGATE       ENTER  OPEN       ESC  BACK</value>
   </data>
   <data name="Cancel" xml:space="preserve">
     <value>CANCEL</value>
@@ -512,6 +590,12 @@
   </data>
   <data name="ChooseLocalFile" xml:space="preserve">
     <value>Choose a local file.</value>
+  </data>
+  <data name="ChooseLocalFolder" xml:space="preserve">
+    <value>Choose a local folder.</value>
+  </data>
+  <data name="SelectFolderError" xml:space="preserve">
+    <value>Could not select the folder: {0}</value>
   </data>
   <data name="SelectExecutableError" xml:space="preserve">
     <value>Could not select the executable: {0}</value>

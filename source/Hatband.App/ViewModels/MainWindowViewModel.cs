@@ -110,26 +110,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public AddGameViewModel AddGame { get; }
 
-    public string NewGameName
-    {
-        get => AddGame.Name;
-        set => AddGame.Name = value;
-    }
-
-    public string? NewGameInstallDirectory
-    {
-        get => AddGame.InstallDirectory;
-        set => AddGame.InstallDirectory = value;
-    }
-
-    public string? NewGameLaunchTarget
-    {
-        get => AddGame.LaunchTarget;
-        set => AddGame.LaunchTarget = value;
-    }
-
-    public ICommand SaveNewGameCommand => AddGame.SaveGameCommand;
-
     [ObservableProperty]
     public partial bool IsShowingHiddenGames { get; set; }
 
@@ -185,9 +165,21 @@ public partial class MainWindowViewModel : ViewModelBase
         this.gameProcessSessionService = gameProcessSessionService;
         this.logger = logger;
         this.gameInstallationStateSyncService = gameInstallationStateSyncService;
-        AddGame = new AddGameViewModel(gameRepository, libraryRepository);
-        AddGame.PropertyChanged += OnAddGamePropertyChanged;
+        AddGame = new AddGameViewModel(
+            gameRepository,
+            libraryRepository,
+            artworkStorage,
+            metadataProviders,
+            artworkProviders,
+            artworkImageLoader);
         AddGame.CreationCompleted += OnAddGameCreationCompleted;
+        AddGame.ArtworkPicker.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(AddGame.ArtworkPicker.IsArtworkPickerOpen))
+            {
+                OnPropertyChanged(nameof(KeyboardHelpText));
+            }
+        };
         GameMetadataEditor = new GameMetadataEditorViewModel(
             gameRepository,
             artworkStorage,
@@ -305,7 +297,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private bool IsDialogScreen => IsGameEditorScreen || IsAddGameScreen || IsSettingsScreen;
 
-    private bool IsFullScreenNavigationScreen => IsGameEditorScreen || IsSettingsScreen;
+    private bool IsFullScreenNavigationScreen => IsGameEditorScreen || IsAddGameScreen || IsSettingsScreen;
 
     public bool IsConnectorConnected => ActiveConnectorAccountName is not null;
 
@@ -349,6 +341,11 @@ public partial class MainWindowViewModel : ViewModelBase
             }
 
             if (GameMetadataEditor.IsArtworkPickerOpen)
+            {
+                return Resources.KeyboardArtworkHelp;
+            }
+
+            if (AddGame.ArtworkPicker.IsArtworkPickerOpen)
             {
                 return Resources.KeyboardArtworkHelp;
             }
@@ -1613,7 +1610,7 @@ public partial class MainWindowViewModel : ViewModelBase
         NotifyBackgroundScreensChanged();
     }
 
-    private void ReturnToPreviousScreen()
+    private void ReturnToPreviousScreen(bool reopenMenu = true)
     {
         if (navigationHistory.TryPop(out var previousScreen))
         {
@@ -1628,7 +1625,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (returnToMenuOnBack)
         {
             returnToMenuOnBack = false;
-            IsMenuOpen = true;
+            IsMenuOpen = reopenMenu;
         }
     }
 
@@ -1688,6 +1685,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsShowingHiddenGames = false;
         ClearNewGameForm();
+        AddGame.InitializeSearch(GetSettings<GeneralSettings>().LanguageTag);
         NavigateTo(HatbandScreen.AddGame);
     }
 
@@ -1700,6 +1698,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public void PrepareGameFromExecutable(string executablePath)
     {
+        ClearNewGameForm();
+        AddGame.InitializeSearch(GetSettings<GeneralSettings>().LanguageTag);
         AddGame.PrepareFromExecutable(executablePath);
         NavigateTo(HatbandScreen.AddGame);
         StatusMessage = null;
@@ -1750,22 +1750,6 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = null;
     }
 
-    private void OnAddGamePropertyChanged(object? sender, PropertyChangedEventArgs args)
-    {
-        var propertyName = args.PropertyName switch
-        {
-            nameof(AddGameViewModel.Name) => nameof(NewGameName),
-            nameof(AddGameViewModel.InstallDirectory) => nameof(NewGameInstallDirectory),
-            nameof(AddGameViewModel.LaunchTarget) => nameof(NewGameLaunchTarget),
-            _ => null
-        };
-
-        if (propertyName is not null)
-        {
-            OnPropertyChanged(propertyName);
-        }
-    }
-
     private void OnAddGameCreationCompleted(AddGameCreationResult result)
     {
         _ = HandleAddGameCreationResultAsync(result);
@@ -1777,6 +1761,9 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             case AddGameCreationResult.InvalidName:
                 StatusMessage = Resources.EnterGameName;
+                return;
+            case AddGameCreationResult.InvalidReleaseDate:
+                StatusMessage = Resources.InvalidReleaseDate;
                 return;
             case AddGameCreationResult.Failed failed:
                 StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.SaveGameError, failed.Exception.Message);
@@ -1798,7 +1785,7 @@ public partial class MainWindowViewModel : ViewModelBase
             SelectedGameCard = Games.FirstOrDefault(item => item.Game.Id == game.Id);
             await Task.WhenAll(allGames.Select(item => item.LoadCoverAsync(artworkImageLoader)));
             ClearNewGameForm();
-            ReturnToPreviousScreen();
+            ReturnToPreviousScreen(reopenMenu: false);
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameAdded, game.Name);
         }
         catch (Exception exception)
