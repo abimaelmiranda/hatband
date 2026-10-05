@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using Hatband.App.ViewModels;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.ViewModels.Settings.Fields;
 using Hatband.Core.Models.Settings;
@@ -38,16 +37,21 @@ public partial class SettingsSectionEditorView : UserControl
 
     private readonly List<PanelEditorState> panelStates = [];
     private SettingsSectionOptionViewModel? observedSection;
-    private MainWindowViewModel? observedViewModel;
+    private SettingsScreenViewModel? observedViewModel;
     private TabControl? sectionTabControl;
     private PanelEditorState? activePanel;
     private bool isApplyingTabSelection;
+    private bool isObservingViewModel;
+    private bool isObservingSection;
+    private bool isAttachedToVisualTree;
 
     public SettingsSectionEditorView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         Loaded += OnLoaded;
+        AttachedToVisualTree += OnAttachedToVisualTree;
+        DetachedFromVisualTree += OnDetachedFromVisualTree;
     }
 
     public SettingsSectionOptionViewModel? Section
@@ -102,34 +106,86 @@ public partial class SettingsSectionEditorView : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs args)
     {
-        if (observedViewModel is not null)
-        {
-            observedViewModel.SettingsNavigation.PropertyChanged -= OnNavigationPropertyChanged;
-            observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        }
+        StopObservingViewModel();
 
-        observedViewModel = DataContext as MainWindowViewModel;
-        if (observedViewModel is not null)
+        observedViewModel = DataContext as SettingsScreenViewModel;
+        if (isAttachedToVisualTree)
         {
-            observedViewModel.SettingsNavigation.PropertyChanged += OnNavigationPropertyChanged;
-            observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            StartObservingViewModel();
         }
 
         Rebuild();
     }
 
-    private void ObserveSection(SettingsSectionOptionViewModel? section)
+    private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs args)
     {
-        if (observedSection is not null)
+        isAttachedToVisualTree = true;
+        StartObservingViewModel();
+        StartObservingSection();
+        Rebuild();
+    }
+
+    private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs args)
+    {
+        isAttachedToVisualTree = false;
+        StopObservingViewModel();
+        StopObservingSection();
+    }
+
+    private void StartObservingViewModel()
+    {
+        if (isObservingViewModel || observedViewModel is null)
         {
-            observedSection.PropertyChanged -= OnSectionPropertyChanged;
+            return;
         }
 
-        observedSection = section;
-        if (observedSection is not null)
+        observedViewModel.Navigation.PropertyChanged += OnNavigationPropertyChanged;
+        observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        isObservingViewModel = true;
+    }
+
+    private void StopObservingViewModel()
+    {
+        if (!isObservingViewModel || observedViewModel is null)
         {
-            observedSection.PropertyChanged += OnSectionPropertyChanged;
+            return;
         }
+
+        observedViewModel.Navigation.PropertyChanged -= OnNavigationPropertyChanged;
+        observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        isObservingViewModel = false;
+    }
+
+    private void ObserveSection(SettingsSectionOptionViewModel? section)
+    {
+        StopObservingSection();
+        observedSection = section;
+        if (isAttachedToVisualTree)
+        {
+            StartObservingSection();
+        }
+    }
+
+    private void StartObservingSection()
+    {
+        if (isObservingSection || observedSection is null)
+        {
+            return;
+        }
+
+        observedSection.PropertyChanged += OnSectionPropertyChanged;
+        isObservingSection = true;
+    }
+
+    private void StopObservingSection()
+    {
+        if (!isObservingSection || observedSection is null)
+        {
+            return;
+        }
+
+        observedSection.PropertyChanged -= OnSectionPropertyChanged;
+        isObservingSection = false;
     }
 
     private void OnSectionPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -155,7 +211,7 @@ public partial class SettingsSectionEditorView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName == nameof(MainWindowViewModel.IsSettingsLoading) &&
+        if (args.PropertyName == nameof(SettingsScreenViewModel.IsSettingsLoading) &&
             observedViewModel?.IsSettingsLoading == false)
         {
             Rebuild();
@@ -241,7 +297,7 @@ public partial class SettingsSectionEditorView : UserControl
         }
 
         sectionTabControl.ItemsSource = tabItems;
-        sectionTabControl.SelectedIndex = observedViewModel?.SettingsNavigation.SelectedSettingsTabIndex ?? 0;
+        sectionTabControl.SelectedIndex = observedViewModel?.Navigation.SelectedSettingsTabIndex ?? 0;
         sectionTabControl.SelectionChanged += OnSectionTabSelectionChanged;
         SettingsFieldsPanel.Children.Add(sectionTabControl);
         ActivatePanel(sectionTabControl.SelectedIndex);
@@ -402,7 +458,9 @@ public partial class SettingsSectionEditorView : UserControl
 
         if (type == typeof(string) && IsGeneralSetting(field, nameof(GeneralSettings.LanguageTag)))
         {
-            var comboBox = CreateOptionsComboBox(observedViewModel!.LanguageOptions, (string?)currentValue);
+            var viewModel = observedViewModel
+                ?? throw new InvalidOperationException("The settings editor requires a settings screen view model.");
+            var comboBox = CreateOptionsComboBox(viewModel.LanguageOptions, (string?)currentValue);
             comboBox.SelectionChanged += (_, _) =>
             {
                 if (comboBox.SelectedItem is SettingsOptionViewModel option)
@@ -415,7 +473,9 @@ public partial class SettingsSectionEditorView : UserControl
 
         if (type == typeof(string) && IsGeneralSetting(field, nameof(GeneralSettings.TimeZoneId)))
         {
-            var comboBox = CreateOptionsComboBox(observedViewModel!.TimeZoneOptions, (string?)currentValue);
+            var viewModel = observedViewModel
+                ?? throw new InvalidOperationException("The settings editor requires a settings screen view model.");
+            var comboBox = CreateOptionsComboBox(viewModel.TimeZoneOptions, (string?)currentValue);
             comboBox.SelectionChanged += (_, _) =>
             {
                 if (comboBox.SelectedItem is SettingsOptionViewModel option)

@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:vm="using:Hatband.App.ViewModels.Settings"
              xmlns:lang="using:Hatband.App.Localization"
              x:Class="Hatband.App.Views.Screens.SteamConnectorSettingsView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:SettingsScreenViewModel">
     <StackPanel Spacing="12">
         <TextBlock Text="{x:Static lang:Resources.SteamAccount}"
                    FontSize="16"

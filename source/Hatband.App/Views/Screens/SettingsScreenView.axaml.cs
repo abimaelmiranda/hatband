@@ -1,26 +1,31 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
-using Hatband.App.ViewModels;
+using Hatband.App.Navigation;
+using Hatband.App.ViewModels.Navigation;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.Views.Components;
+using Hatband.App.Views.Navigation;
 
 namespace Hatband.App.Views.Screens;
 
-public partial class SettingsScreenView : UserControl
+public partial class SettingsScreenView : FullScreenView
 {
     public SettingsScreenView()
     {
         InitializeComponent();
     }
 
+    /// <summary>Reports whether keyboard focus is on a settings section item.</summary>
     public bool IsSectionNavigationFocused => SettingsSectionList.GetVisualDescendants()
         .OfType<Button>()
         .Any(button => button.IsFocused);
 
+    /// <summary>Moves focus to the selected editor field or compatibility action when settings are loaded.</summary>
     public void FocusSelectedSettingField()
     {
-        if (DataContext is not MainWindowViewModel viewModel || viewModel.IsSettingsLoading)
+        if (DataContext is not SettingsScreenViewModel viewModel || viewModel.IsSettingsLoading)
         {
             return;
         }
@@ -34,25 +39,28 @@ public partial class SettingsScreenView : UserControl
         SettingsSectionEditor.FocusField(viewModel.SelectedSettingsFieldIndex);
     }
 
+    /// <summary>Moves focus to the available Steam connect or sync action.</summary>
     public void FocusConnectorsPrimaryAction() => SteamConnectorSettings.FocusPrimaryAction();
 
+    /// <summary>Selects and focuses the compatibility catalog refresh action.</summary>
     public void FocusCompatibilityRefreshButton()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not SettingsScreenViewModel viewModel)
         {
             return;
         }
 
-        var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+        var protonManagement = viewModel.ProtonManagement;
         var refreshButtonIndex = protonManagement.Catalogs.Count +
             (protonManagement.SelectedCatalog?.Releases.Count ?? 0);
         viewModel.SelectSettingsField(refreshButtonIndex);
         FocusSelectedCompatibilityField(refreshButtonIndex);
     }
 
+    /// <summary>Opens the selected settings field when it is a combo box.</summary>
     public bool OpenSelectedComboBox()
     {
-        if (DataContext is not MainWindowViewModel viewModel || viewModel.IsCompatibilitySettingsSection)
+        if (DataContext is not SettingsScreenViewModel viewModel || viewModel.IsCompatibilitySettingsSection)
         {
             return false;
         }
@@ -60,8 +68,10 @@ public partial class SettingsScreenView : UserControl
         return SettingsSectionEditor.OpenSelectedComboBox(viewModel.SelectedSettingsFieldIndex);
     }
 
+    /// <summary>Reports whether a settings editor combo box is currently expanded.</summary>
     public bool HasOpenComboBox() => SettingsSectionEditor.HasOpenComboBox();
 
+    /// <summary>Closes the expanded settings combo box, if there is one.</summary>
     public bool CloseOpenComboBox()
     {
         var comboBox = SettingsSectionEditor.GetVisualDescendants()
@@ -76,22 +86,115 @@ public partial class SettingsScreenView : UserControl
         return true;
     }
 
+    /// <summary>Moves keyboard focus back to the selected section in the navigation list.</summary>
     public void FocusSelectedSection()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        FindSelectedSectionItem()?.FocusItem();
+    }
+
+    /// <summary>Uses a pending Steam action request or the selected section as the initial focus target.</summary>
+    protected override Control? GetInitialFocusTarget()
+    {
+        var steamAction = SteamConnectorSettings.GetPrimaryActionControl();
+        if (steamAction is not null &&
+            DataContext is SettingsScreenViewModel viewModel &&
+            viewModel.ConsumeConnectorsPrimaryActionFocusRequest())
         {
-            return;
+            return steamAction;
         }
 
-        var sectionItem = SettingsSectionList.GetVisualDescendants()
+        return FindSelectedSectionItem()?
+            .GetVisualDescendants()
+            .OfType<Button>()
+            .FirstOrDefault();
+    }
+
+    private ConsoleNavigationItemView? FindSelectedSectionItem()
+    {
+        if (DataContext is not SettingsScreenViewModel viewModel)
+        {
+            return null;
+        }
+
+        return SettingsSectionList.GetVisualDescendants()
             .OfType<ConsoleNavigationItemView>()
             .FirstOrDefault(item => ReferenceEquals(item.DataContext, viewModel.SelectedSettingsSection));
-        sectionItem?.FocusItem();
+    }
+
+    /// <summary>
+    /// Handles settings confirmation and delegates directional movement to the shared full-screen
+    /// focus navigator.
+    /// </summary>
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent)
+    {
+        if (action == NavigationAction.Back)
+        {
+            return TryHandleBack(originalEvent)
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Unhandled;
+        }
+
+        if (action != NavigationAction.Confirm)
+        {
+            return base.HandleNavigationAction(action, originalEvent);
+        }
+
+        if (DataContext is not SettingsScreenViewModel viewModel)
+        {
+            return NavigationActionHandling.Unhandled;
+        }
+
+        if (viewModel.IsSettingsContentActive &&
+            viewModel.IsSettingsDataSectionSelected &&
+            !HasOpenComboBox() &&
+            OpenSelectedComboBox())
+        {
+            originalEvent.Handled = true;
+            return NavigationActionHandling.Handled;
+        }
+
+        if (!viewModel.IsSettingsContentActive && IsSectionNavigationFocused)
+        {
+            viewModel.ActivateSettingsSection();
+            if (viewModel.IsSettingsDataSectionSelected)
+            {
+                FocusSelectedSettingField();
+            }
+            else if (viewModel.IsCompatibilitySettingsSection)
+            {
+                FocusCompatibilityRefreshButton();
+            }
+
+            originalEvent.Handled = true;
+            return NavigationActionHandling.Handled;
+        }
+
+        return NavigationActionHandling.Native;
+    }
+
+    /// <summary>Closes an expanded combo box or returns focus from content to the section list.</summary>
+    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    {
+        if (CloseOpenComboBox())
+        {
+            originalEvent.Handled = true;
+            return true;
+        }
+
+        if (DataContext is not SettingsScreenViewModel viewModel || !viewModel.IsSettingsContentActive)
+        {
+            return false;
+        }
+
+        viewModel.DeactivateSettingsContent();
+        FocusSelectedSection();
+        originalEvent.Handled = true;
+        return true;
     }
 
     private void OnSettingsSectionClick(object? sender, EventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel ||
+        if (DataContext is not SettingsScreenViewModel viewModel ||
             sender is not ConsoleNavigationItemView { DataContext: SettingsSectionOptionViewModel section })
         {
             return;
@@ -102,7 +205,7 @@ public partial class SettingsScreenView : UserControl
 
     private void OnSettingsSectionFocusEntered(object? sender, EventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel &&
+        if (DataContext is SettingsScreenViewModel viewModel &&
             sender is ConsoleNavigationItemView { DataContext: SettingsSectionOptionViewModel section })
         {
             viewModel.SelectSettingsSection(section);
@@ -111,9 +214,9 @@ public partial class SettingsScreenView : UserControl
 
     private void OnProtonRefreshGotFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel && viewModel.IsCompatibilitySettingsSection)
+        if (DataContext is SettingsScreenViewModel viewModel && viewModel.IsCompatibilitySettingsSection)
         {
-            var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+            var protonManagement = viewModel.ProtonManagement;
             viewModel.SelectSettingsField(
                 protonManagement.Catalogs.Count + (protonManagement.SelectedCatalog?.Releases.Count ?? 0));
         }
@@ -121,13 +224,13 @@ public partial class SettingsScreenView : UserControl
 
     private void OnProtonCatalogGotFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel ||
+        if (DataContext is not SettingsScreenViewModel viewModel ||
             sender is not Button { DataContext: ProtonReleaseCatalogViewModel catalog })
         {
             return;
         }
 
-        var catalogIndex = viewModel.SettingsScreen.ProtonManagement.Catalogs.IndexOf(catalog);
+        var catalogIndex = viewModel.ProtonManagement.Catalogs.IndexOf(catalog);
         if (catalogIndex < 0)
         {
             return;
@@ -139,13 +242,13 @@ public partial class SettingsScreenView : UserControl
 
     private void OnProtonReleaseGotFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel ||
+        if (DataContext is not SettingsScreenViewModel viewModel ||
             sender is not Control { DataContext: ProtonReleaseOptionViewModel release })
         {
             return;
         }
 
-        var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+        var protonManagement = viewModel.ProtonManagement;
         var releaseIndex = protonManagement.SelectedCatalog?.Releases.IndexOf(release) ?? -1;
         if (releaseIndex < 0)
         {
@@ -157,12 +260,12 @@ public partial class SettingsScreenView : UserControl
 
     private void FocusSelectedCompatibilityField(int fieldIndex)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not SettingsScreenViewModel viewModel)
         {
             return;
         }
 
-        var protonManagement = viewModel.SettingsScreen.ProtonManagement;
+        var protonManagement = viewModel.ProtonManagement;
         var controls = ProtonManagementPanel.GetVisualDescendants().OfType<Control>();
         var catalogButtons = new Dictionary<ProtonReleaseCatalogViewModel, Button>();
         var releaseControls = new Dictionary<ProtonReleaseOptionViewModel, Control>();
@@ -217,5 +320,4 @@ public partial class SettingsScreenView : UserControl
 
     private static bool IsFocusable(Control control) =>
         control.IsVisible && control.IsEnabled && control.Focusable && control.IsTabStop;
-
 }

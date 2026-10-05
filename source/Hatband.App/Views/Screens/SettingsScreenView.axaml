@@ -1,12 +1,13 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<navigation:FullScreenView xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:navigation="using:Hatband.App.Views.Navigation"
+             xmlns:vm="using:Hatband.App.ViewModels.Settings"
              xmlns:lang="using:Hatband.App.Localization"
              xmlns:settings="using:Hatband.App.ViewModels.Settings"
              xmlns:components="using:Hatband.App.Views.Components"
              xmlns:screens="using:Hatband.App.Views.Screens"
              x:Class="Hatband.App.Views.Screens.SettingsScreenView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:SettingsScreenViewModel">
     <components:FullScreenNavigationLayout IsMainContentActive="{Binding IsSettingsContentActive}">
         <components:FullScreenNavigationLayout.NavigationContent>
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
@@ -60,24 +61,24 @@
                                           HorizontalScrollBarVisibility="Disabled"
                                           VerticalScrollBarVisibility="Auto">
                              <StackPanel x:Name="ProtonManagementPanel"
-                                            IsEnabled="{Binding SettingsScreen.ProtonManagement.CanInteract}"
+                                            IsEnabled="{Binding ProtonManagement.CanInteract}"
                                             Spacing="14">
                                     <TextBlock Text="{x:Static lang:Resources.Compatibility}"
                                                FontSize="19"
                                                FontWeight="SemiBold" />
                                     <Border Height="1" Background="#39454F" />
-                                    <TextBlock Text="{Binding SettingsScreen.ProtonManagement.UnsupportedMessage}"
-                                               IsVisible="{Binding SettingsScreen.ProtonManagement.IsCatalogBrowsingUnsupported}"
+                                    <TextBlock Text="{Binding ProtonManagement.UnsupportedMessage}"
+                                               IsVisible="{Binding ProtonManagement.IsCatalogBrowsingUnsupported}"
                                                Foreground="#AEBBC5"
                                                FontSize="13" />
-                                    <StackPanel IsVisible="{Binding SettingsScreen.ProtonManagement.CanBrowseCatalogs}"
+                                    <StackPanel IsVisible="{Binding ProtonManagement.CanBrowseCatalogs}"
                                                 Spacing="16">
                                         <StackPanel Spacing="8"
-                                                    IsVisible="{Binding SettingsScreen.ProtonManagement.IsLinuxSupported}">
+                                                    IsVisible="{Binding ProtonManagement.IsLinuxSupported}">
                                             <TextBlock Text="{x:Static lang:Resources.ProtonToolsHeading}"
                                                        FontSize="15"
                                                        FontWeight="SemiBold" />
-                                            <ItemsControl ItemsSource="{Binding SettingsScreen.ProtonManagement.InstalledTools}">
+                                            <ItemsControl ItemsSource="{Binding ProtonManagement.InstalledTools}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
                                                         <StackPanel Spacing="5" />
@@ -99,7 +100,7 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                             <TextBlock Text="{x:Static lang:Resources.NoProtonToolsInstalled}"
-                                                       IsVisible="{Binding SettingsScreen.ProtonManagement.HasNoInstalledTools}"
+                                                       IsVisible="{Binding ProtonManagement.HasNoInstalledTools}"
                                                        Foreground="#AEBBC5"
                                                        FontSize="12" />
                                         </StackPanel>
@@ -112,26 +113,26 @@
                                             <Button x:Name="ProtonRefreshButton"
                                                     Grid.Column="1"
                                                     Content="{x:Static lang:Resources.RefreshProtonCatalog}"
-                                                    Command="{Binding SettingsScreen.ProtonManagement.RefreshCommand}"
+                                                    Command="{Binding ProtonManagement.RefreshCommand}"
                                                     GotFocus="OnProtonRefreshGotFocus"
                                                     Margin="0,0,16,0"
                                                     HorizontalContentAlignment="Center"
                                                     VerticalContentAlignment="Center"
                                                     MinHeight="34" />
                                         </Grid>
-                                        <ProgressBar IsVisible="{Binding SettingsScreen.ProtonManagement.IsLoading}"
+                                        <ProgressBar IsVisible="{Binding ProtonManagement.IsLoading}"
                                                      IsIndeterminate="True"
                                                      MinHeight="4" />
-                                        <TextBlock Text="{Binding SettingsScreen.ProtonManagement.ErrorMessage}"
-                                                   IsVisible="{Binding SettingsScreen.ProtonManagement.HasErrorMessage}"
+                                        <TextBlock Text="{Binding ProtonManagement.ErrorMessage}"
+                                                   IsVisible="{Binding ProtonManagement.HasErrorMessage}"
                                                    Foreground="#FF9D8F"
                                                    FontSize="12"
                                                    TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding SettingsScreen.ProtonManagement.StatusMessage}"
-                                                   IsVisible="{Binding SettingsScreen.ProtonManagement.HasStatusMessage}"
+                                        <TextBlock Text="{Binding ProtonManagement.StatusMessage}"
+                                                   IsVisible="{Binding ProtonManagement.HasStatusMessage}"
                                                    Foreground="#AEBBC5"
                                                    FontSize="12" />
-                                        <ItemsControl ItemsSource="{Binding SettingsScreen.ProtonManagement.Catalogs}">
+                                        <ItemsControl ItemsSource="{Binding ProtonManagement.Catalogs}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <WrapPanel Orientation="Horizontal" />
@@ -150,7 +151,7 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <ItemsControl ItemsSource="{Binding SettingsScreen.ProtonManagement.Catalogs}">
+                                        <ItemsControl ItemsSource="{Binding ProtonManagement.Catalogs}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <StackPanel Spacing="7" />
@@ -209,7 +210,7 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <TextBlock Text="{x:Static lang:Resources.NoProtonCatalogsLoaded}"
-                                                   IsVisible="{Binding SettingsScreen.ProtonManagement.HasNoCatalogs}"
+                                                   IsVisible="{Binding ProtonManagement.HasNoCatalogs}"
                                                    Foreground="#AEBBC5"
                                                    FontSize="12" />
                                     </StackPanel>
@@ -229,4 +230,4 @@
                         </Grid>
         </components:FullScreenNavigationLayout.MainContent>
     </components:FullScreenNavigationLayout>
-</UserControl>
+</navigation:FullScreenView>

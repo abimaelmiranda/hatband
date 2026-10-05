@@ -12,13 +12,15 @@ public partial class SteamConnectorSettingsView : UserControl
 
     public void FocusPrimaryAction()
     {
-        var control = this.GetVisualDescendants()
-            .OfType<Button>()
-            .FirstOrDefault(button => (button.Name is "SteamConnectButton" or "SteamSyncButton") &&
-                                      button.IsVisible && button.IsEnabled);
+        var control = GetPrimaryActionControl();
         if (control is not null)
         {
             DirectionalFocusNavigator.Focus(control);
         }
     }
+
+    public Button? GetPrimaryActionControl() => this.GetVisualDescendants()
+        .OfType<Button>()
+        .FirstOrDefault(button => (button.Name is "SteamConnectButton" or "SteamSyncButton") &&
+                                  button.IsVisible && button.IsEnabled);
 }
