@@ -3,6 +3,7 @@
              xmlns:vm="using:Hatband.App.ViewModels"
              xmlns:navigation="using:Hatband.App.Views.Navigation"
              xmlns:lang="using:Hatband.App.Localization"
+             xmlns:icons="using:FluentIcons.Avalonia"
              x:Class="Hatband.App.Views.Modals.ArtworkPickerModalView"
              x:DataType="vm:ArtworkPickerModalViewModel">
     <UserControl.Resources>
@@ -71,10 +72,11 @@
                 </StackPanel>
                 <Button x:Name="CloseArtworkPickerButton"
                         Grid.Column="1"
-                        Content="✕"
                         FocusAdorner="{x:Null}"
                         Classes="subtle-action"
-                        Command="{Binding ClosePickerCommand}" />
+                        Command="{Binding ClosePickerCommand}">
+                    <icons:FluentIcon Icon="Dismiss" Width="18" Height="18" />
+                </Button>
             </Grid>
 
             <TextBlock Grid.Row="1"

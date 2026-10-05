@@ -4,6 +4,7 @@
              xmlns:navigation="using:Hatband.App.Views.Navigation"
              xmlns:core="using:Hatband.Core.Models.Games"
              xmlns:lang="using:Hatband.App.Localization"
+             xmlns:icons="using:FluentIcons.Avalonia"
              x:Class="Hatband.App.Views.Modals.MetadataSearchModalView"
              x:DataType="vm:MetadataSearchModalViewModel">
     <Border Margin="24"
@@ -28,10 +29,11 @@
                 </StackPanel>
                 <Button x:Name="CloseMetadataSearchButton"
                         Grid.Column="1"
-                        Content="✕"
                         FocusAdorner="{x:Null}"
                         Classes="subtle-action"
-                        Command="{Binding CancelSearchCommand}" />
+                        Command="{Binding CancelSearchCommand}">
+                    <icons:FluentIcon Icon="Dismiss" Width="18" Height="18" />
+                </Button>
             </Grid>
 
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">

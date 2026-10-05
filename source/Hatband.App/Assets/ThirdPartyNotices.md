@@ -1,5 +1,7 @@
 # Third-party assets
 
+The interface icons are provided by [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) through the [FluentIcons.Avalonia](https://github.com/davidxuang/FluentIcons) package. Both are licensed under the MIT License.
+
 The Windows, Apple, and Linux platform icons in `Icons/Platforms` are 512×512 monochrome PNGs adapted from [Devicon](https://github.com/devicons/devicon) SVG icons: `windows8/windows8-original.svg`, `apple/apple-original.svg`, and `linux/linux-plain.svg`.
 
 Devicon is licensed under the MIT License:

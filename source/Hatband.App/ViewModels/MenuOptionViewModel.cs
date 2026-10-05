@@ -18,7 +18,7 @@ public partial class MenuOptionViewModel : ObservableObject
 
     public MenuAction Action { get; }
 
-    public string Symbol => GetSymbol(Action);
+    public FluentIconGlyph IconGlyph => GetIconGlyph(Action);
 
     public IBrush HighlightBrush => IsSelected
         ? new SolidColorBrush(Color.Parse("#263640"))
@@ -45,21 +45,21 @@ public partial class MenuOptionViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectionBorderBrush));
     }
 
-    private static string GetSymbol(MenuAction action)
+    private static FluentIconGlyph GetIconGlyph(MenuAction action)
     {
         switch (action)
         {
             case MenuAction.Library:
             case MenuAction.HiddenGames:
-                return "▦";
+                return FluentIconGlyph.Games;
             case MenuAction.AddGame:
-                return "+";
+                return FluentIconGlyph.Add;
             case MenuAction.Settings:
-                return "⚙";
+                return FluentIconGlyph.Settings;
             case MenuAction.Exit:
-                return "⏻";
+                return FluentIconGlyph.Power;
             default:
-                return "·";
+                return FluentIconGlyph.Apps;
         }
     }
 }

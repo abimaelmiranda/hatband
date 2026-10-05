@@ -34,7 +34,7 @@
                             <DataTemplate x:DataType="vm:MenuOptionViewModel">
                                 <components:ConsoleNavigationItemView Margin="2,1"
                                                                       HorizontalAlignment="Stretch"
-                                                                      Symbol="{Binding Symbol}"
+                                                                      IconGlyph="{Binding IconGlyph}"
                                                                       Title="{Binding Title}"
                                                                       ItemBackground="{Binding HighlightBrush}"
                                                                       ItemBorderBrush="{Binding SelectionBorderBrush}"

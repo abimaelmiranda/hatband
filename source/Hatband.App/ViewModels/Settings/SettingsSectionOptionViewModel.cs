@@ -23,20 +23,25 @@ public partial class SettingsSectionOptionViewModel : ObservableObject
             ConnectorsSectionId => Resources.ConnectorsFallback,
             _ => descriptor.DisplayName
         };
-        Symbol = descriptor.Id == GeneralSectionId ? "◉" : descriptor.Id == ConnectorsSectionId ? "⇄" : "⚙";
+        IconGlyph = descriptor.Id switch
+        {
+            GeneralSectionId => FluentIconGlyph.Settings,
+            ConnectorsSectionId => FluentIconGlyph.ArrowSwap,
+            _ => FluentIconGlyph.Toolbox
+        };
         EditorDefinition = SettingsFieldConvention.CreateEditorDefinition(descriptor.SettingsType);
     }
 
-    private SettingsSectionOptionViewModel(string id, string title, string symbol)
+    private SettingsSectionOptionViewModel(string id, string title, FluentIconGlyph iconGlyph)
     {
         Id = id;
         Title = title;
-        Symbol = symbol;
+        IconGlyph = iconGlyph;
         IsCompatibilitySection = true;
     }
 
     public static SettingsSectionOptionViewModel CreateCompatibilitySection() =>
-        new(CompatibilitySectionId, Resources.Compatibility, "⌁");
+        new(CompatibilitySectionId, Resources.Compatibility, FluentIconGlyph.Toolbox);
 
     public bool IsConnectorsSection => Id == ConnectorsSectionId;
 
@@ -46,7 +51,7 @@ public partial class SettingsSectionOptionViewModel : ObservableObject
 
     public string Title { get; }
 
-    public string Symbol { get; }
+    public FluentIconGlyph IconGlyph { get; }
 
     public bool IsCompatibilitySection { get; }
 

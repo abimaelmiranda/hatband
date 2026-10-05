@@ -5,6 +5,7 @@
              xmlns:core="using:Hatband.Core.Models"
              xmlns:components="using:Hatband.App.Views.Components"
              xmlns:lang="using:Hatband.App.Localization"
+             xmlns:icons="using:FluentIcons.Avalonia"
              x:Class="Hatband.App.Views.Screens.GameMetadataEditorScreenView"
              x:DataType="vm:GameMetadataEditorViewModel">
     <Grid Background="Transparent">
@@ -12,17 +13,17 @@
         <components:FullScreenNavigationLayout.NavigationContent>
                     <StackPanel x:Name="EditorSectionList" Spacing="4">
                         <components:ConsoleNavigationItemView x:Name="MetadataSectionItem"
-                                                              Symbol="▤"
+                                                              IconGlyph="Document"
                                                               Title="{x:Static lang:Resources.MetadataTab}"
                                                               FocusEntered="OnMetadataSectionFocusEntered"
                                                               Activated="OnMetadataSectionActivated" />
                         <components:ConsoleNavigationItemView x:Name="ArtworkSectionItem"
-                                                              Symbol="▧"
+                                                              IconGlyph="Image"
                                                               Title="{x:Static lang:Resources.ArtworkTab}"
                                                               FocusEntered="OnArtworkSectionFocusEntered"
                                                               Activated="OnArtworkSectionActivated" />
                         <components:ConsoleNavigationItemView x:Name="SourcesSectionItem"
-                                                              Symbol="↔"
+                                                              IconGlyph="ArrowSwap"
                                                               Title="{x:Static lang:Resources.MetadataSourcesTab}"
                                                               FocusEntered="OnSourcesSectionFocusEntered"
                                                               Activated="OnSourcesSectionActivated" />

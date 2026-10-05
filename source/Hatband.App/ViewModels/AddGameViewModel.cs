@@ -57,9 +57,9 @@ public partial class AddGameViewModel : ScreenViewModel
         ArtworkPicker = new GameArtworkPickerViewModel(artworkProviders, artworkImageLoader);
         Sections =
         [
-            new AddGameSectionViewModel(GameSectionId, Resources.ManualGameSection, "◉"),
-            new AddGameSectionViewModel(ActionsSectionId, Resources.GameActionsSection, "▶"),
-            new AddGameSectionViewModel(ImagesSectionId, Resources.ManualGameImagesSection, "▧")
+            new AddGameSectionViewModel(GameSectionId, Resources.ManualGameSection, FluentIconGlyph.Document),
+            new AddGameSectionViewModel(ActionsSectionId, Resources.GameActionsSection, FluentIconGlyph.Play),
+            new AddGameSectionViewModel(ImagesSectionId, Resources.ManualGameImagesSection, FluentIconGlyph.Image)
         ];
         var gameSection = Sections.Single(section => section.Id == GameSectionId);
         SelectedSectionIndex = Sections.IndexOf(gameSection);

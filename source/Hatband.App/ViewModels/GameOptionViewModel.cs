@@ -1,3 +1,3 @@
 namespace Hatband.App.ViewModels;
 
-public sealed record GameOptionViewModel(string Title, string Symbol, GameOptionAction Action);
+public sealed record GameOptionViewModel(string Title, FluentIconGlyph IconGlyph, GameOptionAction Action);

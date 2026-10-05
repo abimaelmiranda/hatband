@@ -5,18 +5,18 @@ namespace Hatband.App.ViewModels;
 
 public sealed class AddGameSectionViewModel : ObservableObject
 {
-    public AddGameSectionViewModel(string id, string title, string symbol)
+    public AddGameSectionViewModel(string id, string title, FluentIconGlyph iconGlyph)
     {
         Id = id;
         Title = title;
-        Symbol = symbol;
+        IconGlyph = iconGlyph;
     }
 
     public string Id { get; }
 
     public string Title { get; }
 
-    public string Symbol { get; }
+    public FluentIconGlyph IconGlyph { get; }
 
     private bool _isSelected;
 

@@ -15,3 +15,4 @@ global using Hatband.Core.Models.Compatibility;
 global using Hatband.Core.Models.Games;
 global using Hatband.Core.Models.Libraries;
 global using Hatband.Core.Models.Settings;
+global using FluentIconGlyph = FluentIcons.Common.Icon;

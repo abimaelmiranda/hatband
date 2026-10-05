@@ -16,7 +16,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:GameOptionViewModel">
                         <components:ConsoleNavigationItemView Title="{Binding Title}"
-                                                              Symbol="{Binding Symbol}"
+                                                              IconGlyph="{Binding IconGlyph}"
                                                               TitleFontSize="13"
                                                               Activated="OnOptionActivated" />
                     </DataTemplate>

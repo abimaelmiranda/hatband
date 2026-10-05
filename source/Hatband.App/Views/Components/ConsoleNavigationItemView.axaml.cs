@@ -7,8 +7,8 @@ namespace Hatband.App.Views.Components;
 
 public partial class ConsoleNavigationItemView : UserControl
 {
-    public static readonly StyledProperty<string> SymbolProperty =
-        AvaloniaProperty.Register<ConsoleNavigationItemView, string>(nameof(Symbol), string.Empty);
+    public static readonly StyledProperty<FluentIconGlyph> IconGlyphProperty =
+        AvaloniaProperty.Register<ConsoleNavigationItemView, FluentIconGlyph>(nameof(IconGlyph));
 
     public static readonly StyledProperty<string> TitleProperty =
         AvaloniaProperty.Register<ConsoleNavigationItemView, string>(nameof(Title), string.Empty);
@@ -27,10 +27,10 @@ public partial class ConsoleNavigationItemView : UserControl
         InitializeComponent();
     }
 
-    public string Symbol
+    public FluentIconGlyph IconGlyph
     {
-        get => GetValue(SymbolProperty);
-        set => SetValue(SymbolProperty, value);
+        get => GetValue(IconGlyphProperty);
+        set => SetValue(IconGlyphProperty, value);
     }
 
     public string Title

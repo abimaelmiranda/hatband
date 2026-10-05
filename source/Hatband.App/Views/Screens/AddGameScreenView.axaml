@@ -49,7 +49,7 @@
                             <DataTemplate x:DataType="vm:AddGameSectionViewModel">
                                 <components:ConsoleNavigationItemView Margin="2,1"
                                                                       HorizontalAlignment="Stretch"
-                                                                      Symbol="{Binding Symbol}"
+                                                                      IconGlyph="{Binding IconGlyph}"
                                                                       Title="{Binding Title}"
                                                                       ItemBackground="{Binding Background}"
                                                                       ItemBorderBrush="{Binding SelectionBorderBrush}"
