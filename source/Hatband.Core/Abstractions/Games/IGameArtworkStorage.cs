@@ -13,7 +13,7 @@ public interface IGameArtworkStorage
 
     Task<GameArtwork> StoreAsync(
         Guid gameId,
-        GameArtwork sources,
+        IReadOnlyList<GameArtworkImage> images,
         GameArtwork existingArtwork,
         CancellationToken cancellationToken = default);
 

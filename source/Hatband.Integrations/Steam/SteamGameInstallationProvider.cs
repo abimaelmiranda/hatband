@@ -1,7 +1,7 @@
 using System.Globalization;
-using Hatband.Core.Abstractions;
+using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Enums.Stores;
-using Hatband.Core.Models;
+using Hatband.Core.Models.Games;
 using Hatband.Integrations.Steam.Abstractions;
 
 namespace Hatband.Integrations.Steam;
@@ -18,11 +18,11 @@ public sealed class SteamGameInstallationProvider : IGameInstallationProvider
 
     public GameSourceId SourceId => GameSourceId.Steam;
 
-    public async Task<IReadOnlyList<GameInstallationInfo>> ScanInstalledGamesAsync(
+    public async Task<IReadOnlyDictionary<string, GameInstallationInfo>> ScanInstalledGamesAsync(
         CancellationToken cancellationToken = default)
     {
         var installedGames = await installedGameScanner.ScanAsync(cancellationToken);
-        var installationInfo = new List<GameInstallationInfo>(installedGames.Count);
+        var installationInfo = new Dictionary<string, GameInstallationInfo>(StringComparer.Ordinal);
         foreach (var game in installedGames)
         {
             if (game.InstallDirectory is null)
@@ -31,9 +31,9 @@ public sealed class SteamGameInstallationProvider : IGameInstallationProvider
                     $"Steam reported installed game {game.AppId} without an installation directory.");
             }
 
-            installationInfo.Add(new GameInstallationInfo
+            var sourceGameId = game.AppId.ToString(CultureInfo.InvariantCulture);
+            installationInfo.Add(sourceGameId, new GameInstallationInfo
             {
-                SourceGameId = game.AppId.ToString(CultureInfo.InvariantCulture),
                 InstallDirectory = game.InstallDirectory
             });
         }

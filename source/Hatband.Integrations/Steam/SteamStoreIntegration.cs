@@ -1,8 +1,8 @@
-using Hatband.Core.Abstractions;
 using Hatband.Core.Abstractions.Authentication;
+using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Enums.Stores;
-using Hatband.Core.Models;
 using Hatband.Core.Models.Authentication;
+using Hatband.Core.Models.Games;
 using Hatband.Integrations.Steam.Abstractions;
 using Hatband.Integrations.Steam.Models;
 
@@ -79,8 +79,9 @@ public sealed class SteamStoreIntegration : IGameStoreIntegration, IQrCodeLoginP
                 Name = game.Name,
                 SourceId = SourceId,
                 SourceGameId = game.AppId.ToString(),
-                IsInstalled = game.IsInstalled,
-                InstallDirectory = game.InstallDirectory,
+                InstallationInfo = game.InstallDirectory is null
+                    ? null
+                    : new GameInstallationInfo { InstallDirectory = game.InstallDirectory },
                 PlaytimeSeconds = game.PlaytimeSeconds,
                 LastActivity = game.LastActivity
             })

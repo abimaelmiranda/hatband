@@ -1,6 +1,6 @@
 using System.Text.Json;
+using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Extensions;
-using Hatband.Core.Models;
 
 namespace Hatband.Integrations.IGN;
 
@@ -62,16 +62,18 @@ internal static class IgnGraphQlParser
         };
     }
 
-    public static GameArtworkSources ReadArtwork(JsonElement root, string? primaryImageUrl)
+    public static IReadOnlyList<(string Url, GameArtworkSlot Slot)> ReadArtwork(
+        JsonElement root,
+        string? primaryImageUrl)
     {
-        var candidates = new List<GameArtworkCandidate>();
+        var sources = new List<(string Url, GameArtworkSlot Slot)>();
+        var knownUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (primaryImageUrl is not null)
         {
-            candidates.Add(new GameArtworkCandidate
+            if (knownUrls.Add(primaryImageUrl))
             {
-                Url = primaryImageUrl,
-                IsPrimaryImage = true
-            });
+                sources.Add((primaryImageUrl, GameArtworkSlot.Cover));
+            }
         }
 
         var gallery = GetProperty(
@@ -79,7 +81,6 @@ internal static class IgnGraphQlParser
             "images");
         if (gallery.ValueKind == JsonValueKind.Array)
         {
-            var knownUrls = new HashSet<string>(candidates.Select(candidate => candidate.Url), StringComparer.OrdinalIgnoreCase);
             foreach (var image in gallery.EnumerateArray())
             {
                 var url = GetString(image, "url");
@@ -88,24 +89,11 @@ internal static class IgnGraphQlParser
                     continue;
                 }
 
-                candidates.Add(new GameArtworkCandidate
-                {
-                    Url = url,
-                    Caption = GetString(image, "caption")
-                });
+                sources.Add((url, GameArtworkSlot.Background));
             }
         }
 
-        var backgroundCandidates = candidates
-            .Where(candidate => !candidate.IsPrimaryImage)
-            .ToArray();
-        return new GameArtworkSources
-        {
-            CoverImageCandidates = candidates,
-            BackgroundImageCandidates = backgroundCandidates,
-            CoverImageUrls = candidates.Select(candidate => candidate.Url).ToArray(),
-            BackgroundImageUrls = backgroundCandidates.Select(candidate => candidate.Url).ToArray()
-        };
+        return sources;
     }
 
     public static string? ReadApiError(JsonElement response)

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Hatband.Core.Abstractions;
+using Hatband.Core.Abstractions.Integrations.HowLongToBeat;
 using Hatband.Core.Models;
 using Hatband.Integrations.HowLongToBeat.Models;
 

@@ -12,8 +12,6 @@ public sealed class Game : ModelBase
 {
     public required string Name { get; set; }
 
-    public bool IsNameCustomized { get; set; }
-
     /// <summary>
     /// Source that owns this game. Manual games have no source game ID.
     /// </summary>

@@ -2,10 +2,10 @@ using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
+using Hatband.Core.Abstractions.Games;
+using Hatband.Core.Enums.Games;
 using Hatband.Core.Enums.Stores;
-using Hatband.Core.Models;
+using Hatband.Core.Models.Games;
 using Hatband.Integrations.Steam.Models;
 
 namespace Hatband.Integrations.Steam;
@@ -13,7 +13,7 @@ namespace Hatband.Integrations.Steam;
 /// <summary>
 /// Reads descriptive metadata from the Steam store.
 /// </summary>
-public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGameMetadataSearchProvider
+public sealed partial class SteamMetadataProvider : IGameMetadataProvider
 {
     private readonly HttpClient httpClient;
 
@@ -29,88 +29,53 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         this.httpClient = httpClient;
     }
 
-    public GameSourceId SourceId => GameSourceId.Steam;
+    public GameSourceId? SourceId => GameSourceId.Steam;
 
     public string ProviderId => "steam";
 
     public string DisplayName => "Steam";
 
-    public bool CanSearch(GameSourceLookupRequest request)
+    public bool CanSearch(Game game)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        return request.SourceId == GameSourceId.Steam &&
-               uint.TryParse(request.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out _);
+        ArgumentNullException.ThrowIfNull(game);
+        return game.SourceId == GameSourceId.Steam &&
+               uint.TryParse(game.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out _);
     }
 
-    public Task<GameMetadataSearchResponse> SearchAsync(
-        GameSourceLookupRequest request,
-        string preferredLanguageTag,
+    public async Task<IReadOnlyList<GameMetadata>> SearchAsync(
+        Game game,
+        string languageTag,
         string region,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentException.ThrowIfNullOrWhiteSpace(preferredLanguageTag);
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         ArgumentException.ThrowIfNullOrWhiteSpace(region);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!CanSearch(request))
+        if (!CanSearch(game) || game.SourceGameId is not string sourceGameId)
         {
-            return Task.FromResult(new GameMetadataSearchResponse
-            {
-                ErrorMessage = "A Steam app ID is required to load metadata from Steam."
-            });
+            return [];
         }
 
-        if (string.IsNullOrWhiteSpace(request.SourceGameId))
-        {
-            throw new InvalidOperationException("A searchable Steam request must contain a Steam app ID.");
-        }
-
-        var appId = request.SourceGameId;
-        return Task.FromResult(new GameMetadataSearchResponse
-        {
-            Results =
-            [
-                new GameMetadataSearchResult
-                {
-                    Id = appId,
-                    Name = request.GameName,
-                    ProviderToken = appId
-                }
-            ]
-        });
+        var metadata = await GetMetadataForAppAsync(sourceGameId, languageTag, cancellationToken);
+        return metadata is null ? [] : [metadata];
     }
 
-    public async Task<GameMetadataLookupResponse> GetDetailsAsync(
-        GameMetadataSearchResult selection,
-        string preferredLanguageTag,
-        string region,
+    public Task<GameMetadata?> GetMetadataAsync(
+        Game game,
+        string languageTag,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(selection);
-        ArgumentException.ThrowIfNullOrWhiteSpace(preferredLanguageTag);
-        ArgumentException.ThrowIfNullOrWhiteSpace(region);
-        var (_, contentLanguageTag) = SteamLanguage.Resolve(preferredLanguageTag);
-        var metadata = await GetMetadataAsync(selection.ProviderToken, preferredLanguageTag, cancellationToken);
-        if (metadata is null)
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
+        if (!CanSearch(game) || game.SourceGameId is not string sourceGameId)
         {
-            return new GameMetadataLookupResponse
-            {
-                ErrorMessage = "Steam did not return metadata for this game."
-            };
+            return Task.FromResult<GameMetadata?>(null);
         }
 
-        return new GameMetadataLookupResponse
-        {
-            Metadata = metadata,
-            RequestedLanguageTag = preferredLanguageTag,
-            ContentLanguageTag = contentLanguageTag,
-            IsContentLanguageMatch = LanguageMatches(preferredLanguageTag, contentLanguageTag),
-            SourceUri = new Uri($"https://store.steampowered.com/app/{Uri.EscapeDataString(selection.ProviderToken)}")
-        };
+        return GetMetadataForAppAsync(sourceGameId, languageTag, cancellationToken);
     }
 
-    public async Task<GameMetadata?> GetMetadataAsync(
+    private async Task<GameMetadata?> GetMetadataForAppAsync(
         string sourceGameId,
         string languageTag,
         CancellationToken cancellationToken = default)
@@ -279,10 +244,4 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
-    private static bool LanguageMatches(string requestedLanguageTag, string contentLanguageTag)
-    {
-        var requestedLanguage = CultureInfo.GetCultureInfo(requestedLanguageTag).TwoLetterISOLanguageName;
-        var contentLanguage = CultureInfo.GetCultureInfo(contentLanguageTag).TwoLetterISOLanguageName;
-        return string.Equals(requestedLanguage, contentLanguage, StringComparison.OrdinalIgnoreCase);
-    }
 }

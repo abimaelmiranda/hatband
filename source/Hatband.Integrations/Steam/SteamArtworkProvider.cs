@@ -1,15 +1,16 @@
 using System.Globalization;
 using System.Text.Json;
-using Hatband.Core.Abstractions;
+using Hatband.Core.Abstractions.Games;
+using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Enums.Stores;
-using Hatband.Core.Models;
+using Hatband.Core.Models.Games;
 
 namespace Hatband.Integrations.Steam;
 
 /// <summary>
 /// Resolves Steam library artwork through Steam's store item assets.
 /// </summary>
-public sealed class SteamArtworkProvider : IGameArtworkProvider, IGameArtworkSearchProvider
+public sealed class SteamArtworkProvider : IGameArtworkProvider
 {
     private static readonly Uri StoreBrowseUri = new("https://api.steampowered.com/IStoreBrowseService/GetItems/v1/");
     private const string LegacyArtworkBaseUri = "https://steamcdn-a.akamaihd.net/steam/apps/";
@@ -23,65 +24,100 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider, IGameArtworkSea
         this.httpClient = httpClient;
     }
 
-    public GameSourceId SourceId => GameSourceId.Steam;
-
-    public string ProviderId => "steam";
+    public GameSourceId? SourceId => GameSourceId.Steam;
 
     public string DisplayName => "Steam";
 
-    public bool CanSearch(GameSourceLookupRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return request.SourceId == GameSourceId.Steam &&
-               uint.TryParse(request.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out _);
-    }
-
-    public async Task<GameArtworkSearchResponse> SearchArtworkAsync(
-        GameSourceLookupRequest request,
-        string preferredLanguageTag,
-        string region,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentException.ThrowIfNullOrWhiteSpace(preferredLanguageTag);
-        ArgumentException.ThrowIfNullOrWhiteSpace(region);
-        if (!CanSearch(request))
-        {
-            return new GameArtworkSearchResponse
-            {
-                ErrorMessage = "A Steam app ID is required to search Steam artwork."
-            };
-        }
-
-        if (string.IsNullOrWhiteSpace(request.SourceGameId))
-        {
-            throw new InvalidOperationException("A searchable Steam request must contain a Steam app ID.");
-        }
-
-        var sources = await GetArtworkSourcesAsync(
-            request.SourceGameId,
-            preferredLanguageTag,
-            cancellationToken);
-        return sources is null
-            ? new GameArtworkSearchResponse { ErrorMessage = "Steam did not return artwork for this game." }
-            : new GameArtworkSearchResponse { Sources = sources };
-    }
-
-    public async Task<GameArtworkSources?> GetArtworkSourcesAsync(
-        string sourceGameId,
+    public async Task<IReadOnlyList<GameArtworkImage>> GetDefaultArtworksAsync(
+        Game game,
         string languageTag,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceGameId);
-        if (!uint.TryParse(sourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out var appId))
+        var sources = await GetArtworkSourcesAsync(game, languageTag, cancellationToken);
+        var defaultSources = sources
+            .GroupBy(source => source.Slot)
+            .Select(group => group.First())
+            .ToArray();
+        return await DownloadArtworksAsync(defaultSources, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<GameArtworkImage>> GetArtworksAsync(
+        Game game,
+        string languageTag,
+        CancellationToken cancellationToken = default)
+    {
+        var sources = await GetArtworkSourcesAsync(game, languageTag, cancellationToken);
+        return await DownloadArtworksAsync(sources, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<(string Url, GameArtworkSlot Slot)>> GetArtworkSourcesAsync(
+        Game game,
+        string languageTag,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
+        if (game.SourceId != GameSourceId.Steam ||
+            !uint.TryParse(game.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out var appId))
         {
-            throw new ArgumentException("Steam game IDs must be numeric app IDs.", nameof(sourceGameId));
+            return [];
         }
 
         var (steamLanguage, _) = SteamLanguage.Resolve(languageTag);
         cancellationToken.ThrowIfCancellationRequested();
         var storeAssets = await TryGetStoreAssetsAsync(appId, steamLanguage, cancellationToken);
         return CreateArtworkSources(appId, storeAssets);
+    }
+
+    private async Task<IReadOnlyList<GameArtworkImage>> DownloadArtworksAsync(
+        IReadOnlyList<(string Url, GameArtworkSlot Slot)> sources,
+        CancellationToken cancellationToken)
+    {
+        var images = new List<GameArtworkImage>(sources.Count);
+        foreach (var (url, slot) in sources)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var imageUri) ||
+                (imageUri.Scheme != Uri.UriSchemeHttp && imageUri.Scheme != Uri.UriSchemeHttps))
+            {
+                continue;
+            }
+
+            try
+            {
+                using var response = await httpClient.GetAsync(
+                    imageUri,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    continue;
+                }
+
+                var content = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                if (content.Length == 0)
+                {
+                    continue;
+                }
+
+                images.Add(new GameArtworkImage
+                {
+                    Slot = slot,
+                    Content = content,
+                    ContentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream"
+                });
+            }
+            catch (HttpRequestException)
+            {
+                // Skip unavailable assets and keep loading the other artwork choices.
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Skip timed out assets and keep loading the other artwork choices.
+            }
+        }
+
+        return images;
     }
 
     private async Task<JsonElement?> TryGetStoreAssetsAsync(
@@ -184,62 +220,54 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider, IGameArtworkSea
         return false;
     }
 
-    private static GameArtworkSources CreateArtworkSources(uint appId, JsonElement? storeAssets)
+    private static IReadOnlyList<(string Url, GameArtworkSlot Slot)> CreateArtworkSources(
+        uint appId,
+        JsonElement? storeAssets)
     {
         var appIdText = appId.ToString(CultureInfo.InvariantCulture);
-        var coverImageUrls = new List<string>();
-        var backgroundImageUrls = new List<string>();
-        var coverImageCandidates = new List<GameArtworkCandidate>();
-        var backgroundImageCandidates = new List<GameArtworkCandidate>();
+        var sources = new List<(string Url, GameArtworkSlot Slot)>();
 
         if (storeAssets is JsonElement assets)
         {
             var assetUrlFormat = ReadAssetString(assets, "asset_url_format");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "library_capsule_2x", "Library Capsule 2×");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "library_capsule", "Library Capsule");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "hero_capsule", "Vertical Capsule");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "hero_capsule_2x", "Vertical Capsule 2×");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "main_capsule", "Main Capsule");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "main_capsule_2x", "Main Capsule 2×");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "small_capsule", "Small Capsule");
-            AddResolvedAsset(coverImageUrls, coverImageCandidates, assets, assetUrlFormat, "small_capsule_2x", "Small Capsule 2×");
+            AddResolvedAsset(sources, assets, assetUrlFormat, "library_capsule_2x", GameArtworkSlot.Cover);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "library_capsule", GameArtworkSlot.Cover);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "hero_capsule", GameArtworkSlot.Cover);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "hero_capsule_2x", GameArtworkSlot.Cover);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "main_capsule", GameArtworkSlot.Cover);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "main_capsule_2x", GameArtworkSlot.Cover);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "small_capsule", GameArtworkSlot.Cover);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "small_capsule_2x", GameArtworkSlot.Cover);
 
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "library_hero", "Library Hero");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "library_hero_2x", "Library Hero 2×");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "raw", "Raw Background");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "raw_2x", "Raw Background 2×");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "raw_page_background", "Raw Page Background");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "page_background", "Page Background");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "library_header", "Library Header");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "library_header_2x", "Library Header 2×");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "header", "Header");
-            AddResolvedAsset(backgroundImageUrls, backgroundImageCandidates, assets, assetUrlFormat, "header_2x", "Header 2×");
+            AddResolvedAsset(sources, assets, assetUrlFormat, "library_hero", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "library_hero_2x", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "raw", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "raw_2x", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "raw_page_background", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "page_background", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "library_header", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "library_header_2x", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "header", GameArtworkSlot.Background);
+            AddResolvedAsset(sources, assets, assetUrlFormat, "header_2x", GameArtworkSlot.Background);
         }
 
-        AddFallbackCandidate(coverImageUrls, coverImageCandidates, $"{LegacyArtworkBaseUri}{appIdText}/library_600x900_2x.jpg", "Library Capsule 2× · Legacy");
-        AddFallbackCandidate(coverImageUrls, coverImageCandidates, $"{LegacyArtworkBaseUri}{appIdText}/library_600x900.jpg", "Library Capsule · Legacy");
-        AddFallbackCandidate(coverImageUrls, coverImageCandidates, $"{LegacyArtworkBaseUri}{appIdText}/hero_capsule.jpg", "Vertical Capsule · Legacy");
-        AddFallbackCandidate(coverImageUrls, coverImageCandidates, $"{LegacyArtworkBaseUri}{appIdText}/capsule_616x353.jpg", "Main Capsule · Legacy");
-        AddFallbackCandidate(backgroundImageUrls, backgroundImageCandidates, $"{LegacyArtworkBaseUri}{appIdText}/library_hero.jpg", "Library Hero · Legacy");
-        AddFallbackCandidate(backgroundImageUrls, backgroundImageCandidates, $"{LegacyArtworkBaseUri}{appIdText}/background.jpg", "Raw Background · Legacy");
-        AddFallbackCandidate(backgroundImageUrls, backgroundImageCandidates, $"{LegacyArtworkBaseUri}{appIdText}/header.jpg", "Header · Legacy");
+        AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/library_600x900_2x.jpg", GameArtworkSlot.Cover);
+        AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/library_600x900.jpg", GameArtworkSlot.Cover);
+        AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/hero_capsule.jpg", GameArtworkSlot.Cover);
+        AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/capsule_616x353.jpg", GameArtworkSlot.Cover);
+        AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/library_hero.jpg", GameArtworkSlot.Background);
+        AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/background.jpg", GameArtworkSlot.Background);
+        AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/header.jpg", GameArtworkSlot.Background);
 
-        return new GameArtworkSources
-        {
-            CoverImageUrls = coverImageUrls,
-            BackgroundImageUrls = backgroundImageUrls,
-            CoverImageCandidates = coverImageCandidates,
-            BackgroundImageCandidates = backgroundImageCandidates
-        };
+        return sources;
     }
 
     private static void AddResolvedAsset(
-        ICollection<string> urls,
-        ICollection<GameArtworkCandidate> candidates,
+        ICollection<(string Url, GameArtworkSlot Slot)> sources,
         JsonElement assets,
         string? assetUrlFormat,
         string assetName,
-        string displayName)
+        GameArtworkSlot slot)
     {
         if (string.IsNullOrWhiteSpace(assetUrlFormat))
         {
@@ -262,40 +290,20 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider, IGameArtworkSea
             }
         }
 
-        AddCandidate(urls, candidates, absoluteUri.AbsoluteUri, displayName);
+        AddSource(sources, absoluteUri.AbsoluteUri, slot);
     }
 
-    private static void AddCandidate(
-        ICollection<string> urls,
-        ICollection<GameArtworkCandidate> candidates,
+    private static void AddSource(
+        ICollection<(string Url, GameArtworkSlot Slot)> sources,
         string url,
-        string caption)
+        GameArtworkSlot slot)
     {
-        if (urls.Contains(url, StringComparer.OrdinalIgnoreCase))
+        if (sources.Any(source => string.Equals(source.Url, url, StringComparison.OrdinalIgnoreCase)))
         {
             return;
         }
 
-        urls.Add(url);
-        candidates.Add(new GameArtworkCandidate
-        {
-            Url = url,
-            Caption = caption
-        });
-    }
-
-    private static void AddFallbackCandidate(
-        ICollection<string> urls,
-        ICollection<GameArtworkCandidate> candidates,
-        string url,
-        string caption)
-    {
-        if (candidates.Any(candidate => string.Equals(candidate.Caption, caption, StringComparison.OrdinalIgnoreCase)))
-        {
-            return;
-        }
-
-        AddCandidate(urls, candidates, url, caption);
+        sources.Add((url, slot));
     }
 
     private static string? ReadAssetString(JsonElement assets, string propertyName)

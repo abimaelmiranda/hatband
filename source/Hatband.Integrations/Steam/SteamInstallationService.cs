@@ -1,5 +1,5 @@
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
+using Hatband.Core.Abstractions.Host;
+using Hatband.Core.Enums.Host;
 using Hatband.Integrations.Steam.Abstractions;
 using Hatband.Integrations.Steam.Models;
 using Microsoft.Win32;
