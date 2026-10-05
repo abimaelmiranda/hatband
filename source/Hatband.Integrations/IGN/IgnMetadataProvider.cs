@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text.RegularExpressions;
 using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Extensions;
@@ -8,12 +10,18 @@ namespace Hatband.Integrations.IGN;
 /// <summary>
 /// Searches IGN by game title and loads metadata for the matching entries.
 /// </summary>
-public sealed class IgnMetadataProvider : IGameMetadataProvider
+public sealed partial class IgnMetadataProvider : IGameMetadataProvider
 {
     private const string DefaultRegion = "US";
     private const int MaximumDetailedResults = 5;
 
     private readonly IgnGraphQlClient client;
+
+    [GeneratedRegex("<[^>]+>")]
+    private static partial Regex HtmlTagPattern();
+
+    [GeneratedRegex("\\s+")]
+    private static partial Regex WhitespacePattern();
 
     public IgnMetadataProvider(IHttpClientFactory httpClientFactory)
     {
@@ -26,6 +34,8 @@ public sealed class IgnMetadataProvider : IGameMetadataProvider
     public string DisplayName => "IGN";
 
     public GameSourceId? SourceId => null;
+
+    public bool SupportsManualSearch => true;
 
     public bool CanSearch(Game game)
     {
@@ -85,7 +95,7 @@ public sealed class IgnMetadataProvider : IGameMetadataProvider
             {
                 LanguageTag = "en",
                 StoreName = entry.Name,
-                Description = details.Description,
+                Description = CleanDescription(details.Description),
                 Developer = details.Developer,
                 Publisher = details.Publisher,
                 Genre = details.Genre,
@@ -103,5 +113,16 @@ public sealed class IgnMetadataProvider : IGameMetadataProvider
     {
         var results = await SearchAsync(game, languageTag, DefaultRegion, cancellationToken);
         return results.FirstOrDefault();
+    }
+
+    private static string? CleanDescription(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return null;
+        }
+
+        var plainText = WebUtility.HtmlDecode(HtmlTagPattern().Replace(description, " "));
+        return WhitespacePattern().Replace(plainText, " ").Trim();
     }
 }

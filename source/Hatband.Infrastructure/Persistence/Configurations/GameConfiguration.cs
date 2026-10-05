@@ -18,6 +18,10 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
         {
             metadata.Property(value => value.LanguageTag).HasColumnName("Metadata_LanguageTag");
             metadata.Property(value => value.StoreName).HasColumnName("Metadata_StoreName");
+            metadata.Property(value => value.StoreSourceId)
+                .HasConversion<GameSourceIdConverter>()
+                .HasColumnName("Metadata_StoreSourceId");
+            metadata.Property(value => value.StoreGameId).HasColumnName("Metadata_StoreGameId");
             metadata.Property(value => value.Description).HasColumnName("Metadata_Description");
             metadata.Property(value => value.Developer).HasColumnName("Metadata_Developer");
             metadata.Property(value => value.Publisher).HasColumnName("Metadata_Publisher");

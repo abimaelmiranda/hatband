@@ -15,6 +15,11 @@ public interface IGameMetadataProvider
 
     GameSourceId? SourceId { get; }
 
+    /// <summary>
+    /// Allows title searches without an identity supplied by a library connector.
+    /// </summary>
+    bool SupportsManualSearch { get; }
+
     bool CanSearch(Game game);
 
     Task<IReadOnlyList<GameMetadata>> SearchAsync(

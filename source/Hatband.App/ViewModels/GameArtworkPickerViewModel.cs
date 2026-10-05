@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hatband.App.Localization;
 using Hatband.App.Services;
+using Hatband.Core.Enums.Stores;
 
 namespace Hatband.App.ViewModels;
 
@@ -14,6 +15,8 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     private Game? game;
     private string? artworkOptionsSearchName;
     private string preferredLanguageTag = "en-US";
+    private GameSourceId? _storeSourceId;
+    private string? _storeGameId;
     private int searchRevision;
 
     [ObservableProperty]
@@ -79,6 +82,8 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         game = selectedGame;
         preferredLanguageTag = languageTag;
+        _storeSourceId = selectedGame.Metadata.StoreSourceId;
+        _storeGameId = selectedGame.Metadata.StoreGameId;
         InvalidateSearch();
         ArtworkSourcesStatus = null;
         IsArtworkPickerOpen = false;
@@ -97,6 +102,18 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         OnPropertyChanged(nameof(HasActiveArtworkOptions));
         OnPropertyChanged(nameof(HasArtworkOptions));
         OnPropertyChanged(nameof(HasNoActiveArtworkOptions));
+    }
+
+    public void UpdateStoreReference(GameSourceId? storeSourceId, string? storeGameId)
+    {
+        if ((storeSourceId is null) != string.IsNullOrWhiteSpace(storeGameId))
+        {
+            throw new ArgumentException("A store source and game ID must be provided together.");
+        }
+
+        _storeSourceId = storeSourceId;
+        _storeGameId = storeGameId;
+        InvalidateSearch();
     }
 
     public async Task OpenAsync(GameArtworkSlot slot, string editedGameName, CancellationToken cancellationToken = default)
@@ -147,12 +164,26 @@ public partial class GameArtworkPickerViewModel : ObservableObject
 
         var selectedGame = game ?? throw new InvalidOperationException("The game artwork picker has not been initialized.");
         var currentSearchRevision = searchRevision;
+        var searchSourceId = selectedGame.SourceId;
+        var sourceGameId = selectedGame.SourceGameId;
+        if (selectedGame.SourceId == GameSourceId.Manual &&
+            _storeSourceId is { } storeSourceId &&
+            !string.IsNullOrWhiteSpace(_storeGameId))
+        {
+            searchSourceId = storeSourceId;
+            sourceGameId = _storeGameId;
+        }
+
         var searchGame = new Game
         {
             Name = searchName,
-            SourceId = selectedGame.SourceId,
-            SourceGameId = selectedGame.SourceGameId,
-            Metadata = selectedGame.Metadata
+            SourceId = searchSourceId,
+            SourceGameId = sourceGameId,
+            Metadata = selectedGame.Metadata with
+            {
+                StoreSourceId = _storeSourceId,
+                StoreGameId = _storeGameId
+            }
         };
         try
         {

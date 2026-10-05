@@ -7,11 +7,11 @@ namespace Hatband.App.ViewModels;
 
 public partial class GameMetadataSourceViewModel : ObservableObject
 {
-    private readonly IGameMetadataProvider provider;
-    private readonly Action<GameMetadata> applyMetadata;
-    private Game? game;
-    private string languageTag = string.Empty;
-    private string region = string.Empty;
+    private readonly IGameMetadataProvider _provider;
+    private readonly Action<GameMetadata> _applyMetadata;
+    private Game? _game;
+    private string _languageTag = string.Empty;
+    private string _region = string.Empty;
 
     [ObservableProperty]
     public partial string SearchQuery { get; set; } = string.Empty;
@@ -38,13 +38,13 @@ public partial class GameMetadataSourceViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(applyMetadata);
-        this.provider = provider;
-        this.applyMetadata = applyMetadata;
+        _provider = provider;
+        _applyMetadata = applyMetadata;
     }
 
-    public string ProviderId => provider.ProviderId;
+    public string ProviderId => _provider.ProviderId;
 
-    public string DisplayName => provider.DisplayName;
+    public string DisplayName => _provider.DisplayName;
 
     public bool HasLookup => SelectedSearchResult is not null;
 
@@ -63,10 +63,10 @@ public partial class GameMetadataSourceViewModel : ObservableObject
     public void Initialize(Game selectedGame, string preferredLanguageTag, string lookupRegion)
     {
         ArgumentNullException.ThrowIfNull(selectedGame);
-        game = selectedGame;
+        _game = selectedGame;
         SearchQuery = selectedGame.Name;
-        languageTag = preferredLanguageTag;
-        region = lookupRegion;
+        _languageTag = preferredLanguageTag;
+        _region = lookupRegion;
         SearchResults.Clear();
         SelectedSearchResult = null;
         StatusMessage = null;
@@ -97,9 +97,11 @@ public partial class GameMetadataSourceViewModel : ObservableObject
 
         IsSearching = true;
         StatusMessage = null;
+        SelectedSearchResult = null;
+        SearchResults.Clear();
         try
         {
-            var sourceGame = game ?? throw new InvalidOperationException("The metadata source has not been initialized.");
+            var sourceGame = _game ?? throw new InvalidOperationException("The metadata source has not been initialized.");
             var queryGame = new Game
             {
                 Name = SearchQuery.Trim(),
@@ -107,7 +109,7 @@ public partial class GameMetadataSourceViewModel : ObservableObject
                 SourceGameId = sourceGame.SourceGameId,
                 Metadata = sourceGame.Metadata
             };
-            var results = await provider.SearchAsync(queryGame, languageTag, region, cancellationToken);
+            var results = await _provider.SearchAsync(queryGame, _languageTag, _region, cancellationToken);
             SearchResults = new ObservableCollection<GameMetadata>(results);
             SelectedSearchResult = SearchResults.FirstOrDefault();
             if (results.Count == 0)
@@ -139,12 +141,12 @@ public partial class GameMetadataSourceViewModel : ObservableObject
     [RelayCommand]
     private void Apply()
     {
-        if (SelectedSearchResult is not { } metadata)
+        if (IsSearching || SelectedSearchResult is not { } metadata)
         {
             return;
         }
 
-        applyMetadata(metadata);
+        _applyMetadata(metadata);
         StatusMessage = Resources.MetadataSourceApplied;
     }
 }

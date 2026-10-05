@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.Core.Extensions;
+using Hatband.Core.Enums.Stores;
 
 namespace Hatband.App.ViewModels;
 
@@ -19,6 +20,8 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
     private bool restoreCover;
     private bool restoreBackground;
     private GamePlatform? selectedNativePlatforms;
+    private GameSourceId? _selectedStoreSourceId;
+    private string? _selectedStoreGameId;
 
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
@@ -111,6 +114,8 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         game = selectedGame;
         selectedNativePlatforms = null;
+        _selectedStoreSourceId = selectedGame.Metadata.StoreSourceId;
+        _selectedStoreGameId = selectedGame.Metadata.StoreGameId;
         Name = selectedGame.Name;
         Description = selectedGame.Metadata.Description ?? string.Empty;
         Developer = selectedGame.Metadata.Developer ?? string.Empty;
@@ -129,7 +134,9 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
         ErrorMessage = null;
         var region = GetRegion(languageTag);
         MetadataSources = new ObservableCollection<GameMetadataSourceViewModel>(metadataProviders
-            .Where(provider => provider.CanSearch(selectedGame))
+            .Where(provider => selectedGame.SourceId == GameSourceId.Manual
+                ? provider.SupportsManualSearch
+                : provider.CanSearch(selectedGame))
             .OrderBy(provider => provider.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .Select(provider =>
             {
@@ -196,12 +203,42 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
     private void ApplyMetadata(GameMetadata metadata)
     {
         selectedNativePlatforms = metadata.NativePlatforms;
-        if (!string.IsNullOrWhiteSpace(metadata.StoreName)) Name = metadata.StoreName;
-        if (!string.IsNullOrWhiteSpace(metadata.Description)) Description = metadata.Description;
-        if (!string.IsNullOrWhiteSpace(metadata.Developer)) Developer = metadata.Developer;
-        if (!string.IsNullOrWhiteSpace(metadata.Publisher)) Publisher = metadata.Publisher;
-        if (!string.IsNullOrWhiteSpace(metadata.Genre)) Genre = metadata.Genre;
-        if (metadata.ReleaseDate is DateOnly releaseDate) ReleaseDate = releaseDate.ToIsoDateString();
+        if (metadata.StoreSourceId is { } storeSourceId && !string.IsNullOrWhiteSpace(metadata.StoreGameId))
+        {
+            _selectedStoreSourceId = storeSourceId;
+            _selectedStoreGameId = metadata.StoreGameId;
+            ArtworkPicker.UpdateStoreReference(_selectedStoreSourceId, _selectedStoreGameId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.StoreName))
+        {
+            Name = metadata.StoreName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.Description))
+        {
+            Description = metadata.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.Developer))
+        {
+            Developer = metadata.Developer;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.Publisher))
+        {
+            Publisher = metadata.Publisher;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.Genre))
+        {
+            Genre = metadata.Genre;
+        }
+
+        if (metadata.ReleaseDate is DateOnly releaseDate)
+        {
+            ReleaseDate = releaseDate.ToIsoDateString();
+        }
     }
 
     [RelayCommand]
@@ -231,6 +268,8 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
                 Publisher = Normalize(Publisher),
                 Genre = Normalize(Genre),
                 ReleaseDate = releaseDate,
+                StoreSourceId = _selectedStoreSourceId,
+                StoreGameId = _selectedStoreGameId,
                 NativePlatforms = selectedNativePlatforms ?? game.Metadata.NativePlatforms
             };
             var artwork = await ImportSelectedArtworkAsync(game, cancellationToken);
