@@ -1,11 +1,8 @@
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
-using Hatband.Core.Models;
 using Hatband.Integrations.Steam.Abstractions;
 
-namespace Hatband.Infrastructure.Services;
+namespace Hatband.Infrastructure.Services.CompatibilityTools;
 
-public sealed class ProtonToolDiscoveryService : IProtonToolDiscoveryService
+public sealed class CompatibilityToolDiscoveryService : ICompatibilityToolDiscoveryService
 {
     private const string HatbandRunnersDirectory = "proton/runners";
 
@@ -13,7 +10,7 @@ public sealed class ProtonToolDiscoveryService : IProtonToolDiscoveryService
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly ISteamInstallationService steamInstallationService;
 
-    public ProtonToolDiscoveryService(
+    public CompatibilityToolDiscoveryService(
         IAppDataFileSystem appDataFileSystem,
         IHostSystemInfo hostSystemInfo,
         ISteamInstallationService steamInstallationService)
@@ -26,16 +23,16 @@ public sealed class ProtonToolDiscoveryService : IProtonToolDiscoveryService
         this.steamInstallationService = steamInstallationService;
     }
 
-    public async Task<IReadOnlyList<ProtonTool>> DiscoverInstalledToolsAsync(
+    public async Task<IReadOnlyList<CompatibilityTool>> DiscoverInstalledToolsAsync(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         EnsureLinuxHost();
 
-        var protonTools = new List<ProtonTool>();
+        var protonTools = new List<CompatibilityTool>();
         AddToolsFromDirectory(
             appDataFileSystem.GetPath(HatbandRunnersDirectory),
-            ProtonToolSource.Hatband,
+            CompatibilityToolSource.Hatband,
             protonTools);
 
         var installations = await steamInstallationService.GetInstallationsAsync(cancellationToken);
@@ -46,11 +43,11 @@ public sealed class ProtonToolDiscoveryService : IProtonToolDiscoveryService
         {
             AddToolsFromDirectory(
                 Path.Combine(steamDirectory, "steamapps", "common"),
-                ProtonToolSource.Steam,
+                CompatibilityToolSource.Steam,
                 protonTools);
             AddToolsFromDirectory(
                 Path.Combine(steamDirectory, "compatibilitytools.d"),
-                ProtonToolSource.Steam,
+                CompatibilityToolSource.Steam,
                 protonTools);
         }
 
@@ -71,8 +68,8 @@ public sealed class ProtonToolDiscoveryService : IProtonToolDiscoveryService
 
     private static void AddToolsFromDirectory(
         string directoryPath,
-        ProtonToolSource source,
-        ICollection<ProtonTool> protonTools)
+        CompatibilityToolSource source,
+        ICollection<CompatibilityTool> protonTools)
     {
         if (!Directory.Exists(directoryPath))
         {
@@ -88,7 +85,7 @@ public sealed class ProtonToolDiscoveryService : IProtonToolDiscoveryService
             }
 
             var name = Path.GetFileName(toolDirectory);
-            protonTools.Add(new ProtonTool(name, name, toolDirectory, source));
+            protonTools.Add(new CompatibilityTool(name, name, toolDirectory, source));
         }
     }
 

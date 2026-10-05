@@ -1,8 +1,7 @@
-using Hatband.Core.Abstractions;
 using SharpCompress.Common;
 using SharpCompress.Readers;
 
-namespace Hatband.Infrastructure.Services;
+namespace Hatband.Infrastructure.Archives;
 
 public sealed class SharpCompressArchiveExtractionService : IArchiveExtractionService
 {

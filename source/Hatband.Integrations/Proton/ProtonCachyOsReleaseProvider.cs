@@ -1,10 +1,12 @@
-using Hatband.Core.Abstractions;
-using Hatband.Core.Models;
+using Hatband.Core.Abstractions.Compatibility;
+using Hatband.Core.Abstractions.Host;
+using Hatband.Core.Enums.Host;
+using Hatband.Core.Models.Compatibility;
 using Hatband.Integrations.Proton.Models;
 
 namespace Hatband.Integrations.Proton;
 
-public sealed class ProtonCachyOsReleaseProvider : IProtonReleaseProvider
+public sealed class ProtonCachyOsReleaseProvider : ICompatibilityToolReleaseProvider
 {
     private static readonly Uri ReleasesUri = new("https://api.github.com/repos/CachyOS/proton-cachyos/releases?per_page=20");
     private readonly GitHubReleaseClient releaseClient;
@@ -22,16 +24,16 @@ public sealed class ProtonCachyOsReleaseProvider : IProtonReleaseProvider
 
     public string DisplayName => "Proton-CachyOS";
 
-    public async Task<IReadOnlyList<ProtonRelease>> GetLatestReleasesAsync(
+    public async Task<IReadOnlyList<CompatibilityToolRelease>> GetLatestReleasesAsync(
         CancellationToken cancellationToken = default)
     {
         var architectureName = ProtonArchitecture.GetAssetArchitectureName(hostSystemInfo.OperatingSystemArchitecture);
         var releases = await releaseClient.GetLatestReleasesAsync(ReleasesUri, cancellationToken);
-        var protonReleases = new List<ProtonRelease>(releases.Count);
+        var protonReleases = new List<CompatibilityToolRelease>(releases.Count);
 
         foreach (var release in releases)
         {
-            var protonRelease = ToProtonRelease(release, architectureName);
+            var protonRelease = ToCompatibilityToolRelease(release, architectureName);
             if (protonRelease is not null)
             {
                 protonReleases.Add(protonRelease);
@@ -41,7 +43,7 @@ public sealed class ProtonCachyOsReleaseProvider : IProtonReleaseProvider
         return protonReleases;
     }
 
-    private static ProtonRelease? ToProtonRelease(GitHubRelease release, string architectureName)
+    private static CompatibilityToolRelease? ToCompatibilityToolRelease(GitHubRelease release, string architectureName)
     {
         var archive = release.Assets.FirstOrDefault(asset =>
             asset.Name.Contains("-slr-", StringComparison.OrdinalIgnoreCase) &&
@@ -52,7 +54,7 @@ public sealed class ProtonCachyOsReleaseProvider : IProtonReleaseProvider
         }
 
         var displayName = string.IsNullOrWhiteSpace(release.Name) ? release.TagName : release.Name;
-        return new ProtonRelease(
+        return new CompatibilityToolRelease(
             $"proton-cachyos:{release.TagName}:{architectureName}-slr",
             "proton-cachyos",
             "Proton-CachyOS",

@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
+using Hatband.Core.Enums.Host;
 
 namespace Hatband.Infrastructure.Host;
 

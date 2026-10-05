@@ -1,11 +1,8 @@
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
-using Hatband.Core.Models;
 using Hatband.Integrations.Steam.Abstractions;
 
-namespace Hatband.Infrastructure.Services;
+namespace Hatband.Infrastructure.Services.CompatibilityTools;
 
-public sealed class ProtonToolInstallationService : IProtonToolInstallationService
+public sealed class CompatibilityToolInstallationService : ICompatibilityToolInstallationService
 {
     private const string HatbandRunnersDirectory = "proton/runners";
     private const string DownloadDirectory = "proton/.downloads";
@@ -17,7 +14,7 @@ public sealed class ProtonToolInstallationService : IProtonToolInstallationServi
     private readonly ISteamInstallationService steamInstallationService;
     private readonly HttpClient httpClient;
 
-    public ProtonToolInstallationService(
+    public CompatibilityToolInstallationService(
         IAppDataFileSystem appDataFileSystem,
         IArchiveExtractionService archiveExtractionService,
         IHostSystemInfo hostSystemInfo,
@@ -36,7 +33,7 @@ public sealed class ProtonToolInstallationService : IProtonToolInstallationServi
         this.httpClient = httpClient;
     }
 
-    public async Task InstallAsync(ProtonRelease release, CancellationToken cancellationToken = default)
+    public async Task InstallAsync(CompatibilityToolRelease release, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(release);
         EnsureLinuxHost();
@@ -99,7 +96,7 @@ public sealed class ProtonToolInstallationService : IProtonToolInstallationServi
         }
     }
 
-    private void ValidateRelease(ProtonRelease release)
+    private void ValidateRelease(CompatibilityToolRelease release)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(release.Id);
         ArgumentException.ThrowIfNullOrWhiteSpace(release.ProviderId);
@@ -115,7 +112,7 @@ public sealed class ProtonToolInstallationService : IProtonToolInstallationServi
         }
     }
 
-    private static string CreateInstallationDirectoryName(ProtonRelease release)
+    private static string CreateInstallationDirectoryName(CompatibilityToolRelease release)
     {
         var providerId = SanitizePathSegment(release.ProviderId);
         var version = SanitizePathSegment(release.Version);

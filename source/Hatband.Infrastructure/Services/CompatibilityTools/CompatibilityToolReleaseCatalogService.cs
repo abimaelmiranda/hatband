@@ -1,14 +1,11 @@
 using System.Text.Json;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Models;
+namespace Hatband.Infrastructure.Services.CompatibilityTools;
 
-namespace Hatband.Infrastructure.Services;
-
-public sealed class ProtonReleaseCatalogService : IProtonReleaseCatalogService
+public sealed class CompatibilityToolReleaseCatalogService : ICompatibilityToolReleaseCatalogService
 {
-    private readonly IReadOnlyList<IProtonReleaseProvider> releaseProviders;
+    private readonly IReadOnlyList<ICompatibilityToolReleaseProvider> releaseProviders;
 
-    public ProtonReleaseCatalogService(IEnumerable<IProtonReleaseProvider> releaseProviders)
+    public CompatibilityToolReleaseCatalogService(IEnumerable<ICompatibilityToolReleaseProvider> releaseProviders)
     {
         ArgumentNullException.ThrowIfNull(releaseProviders);
 
@@ -18,32 +15,32 @@ public sealed class ProtonReleaseCatalogService : IProtonReleaseCatalogService
         EnsureReleaseProviderIdsAreUnique(this.releaseProviders);
     }
 
-    public async Task<IReadOnlyList<ProtonReleaseCatalog>> GetCatalogsAsync(
+    public async Task<IReadOnlyList<CompatibilityToolReleaseCatalog>> GetCatalogsAsync(
         CancellationToken cancellationToken = default)
     {
-        var catalogs = new List<ProtonReleaseCatalog>(releaseProviders.Count);
+        var catalogs = new List<CompatibilityToolReleaseCatalog>(releaseProviders.Count);
 
         foreach (var provider in releaseProviders)
         {
             try
             {
                 var releases = await provider.GetLatestReleasesAsync(cancellationToken);
-                catalogs.Add(new ProtonReleaseCatalog(provider.Id, provider.DisplayName, releases, null));
+                catalogs.Add(new CompatibilityToolReleaseCatalog(provider.Id, provider.DisplayName, releases, null));
             }
             catch (HttpRequestException exception)
             {
-                catalogs.Add(new ProtonReleaseCatalog(provider.Id, provider.DisplayName, [], exception.Message));
+                catalogs.Add(new CompatibilityToolReleaseCatalog(provider.Id, provider.DisplayName, [], exception.Message));
             }
             catch (JsonException exception)
             {
-                catalogs.Add(new ProtonReleaseCatalog(provider.Id, provider.DisplayName, [], exception.Message));
+                catalogs.Add(new CompatibilityToolReleaseCatalog(provider.Id, provider.DisplayName, [], exception.Message));
             }
         }
 
         return catalogs;
     }
 
-    private static void EnsureReleaseProviderIdsAreUnique(IReadOnlyList<IProtonReleaseProvider> providers)
+    private static void EnsureReleaseProviderIdsAreUnique(IReadOnlyList<ICompatibilityToolReleaseProvider> providers)
     {
         var duplicateId = providers
             .GroupBy(provider => provider.Id, StringComparer.Ordinal)
