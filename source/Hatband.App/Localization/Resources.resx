@@ -103,7 +103,7 @@
     <value>Steam account</value>
   </data>
   <data name="SteamSilentModeDescription" xml:space="preserve">
-    <value>Tries to close Steam normally and run actions through its command line. If that fails, it uses the Steam protocol and returns to Hatband.</value>
+    <value>When launching a game with silent mode on, Hatband starts Steam in the background if it is closed or uses a Steam link if it is open. Silent installs and uninstalls may restart Steam. If a command cannot start, Hatband falls back to a Steam link.</value>
   </data>
   <data name="ChooseConnectionMethod" xml:space="preserve">
     <value>Choose how you want to connect your account.</value>

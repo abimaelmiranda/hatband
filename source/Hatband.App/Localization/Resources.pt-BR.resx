@@ -103,7 +103,7 @@
     <value>Conta Steam</value>
   </data>
   <data name="SteamSilentModeDescription" xml:space="preserve">
-    <value>Tenta fechar a Steam normalmente e executar ações pelo comando. Se não conseguir, usa o protocolo da Steam e retorna ao Hatband.</value>
+    <value>Ao jogar com o modo silencioso ativado, o Hatband inicia a Steam em segundo plano se ela estiver fechada ou usa um link da Steam se ela estiver aberta. Instalações e desinstalações silenciosas podem reiniciar a Steam. Se não conseguir iniciar um comando, o Hatband usa um link da Steam.</value>
   </data>
   <data name="ChooseConnectionMethod" xml:space="preserve">
     <value>Escolha como deseja conectar sua conta.</value>

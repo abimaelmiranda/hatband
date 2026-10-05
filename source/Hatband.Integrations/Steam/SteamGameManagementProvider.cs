@@ -17,10 +17,10 @@ namespace Hatband.Integrations.Steam;
 
 public sealed class SteamGameManagementProvider : IGameManagementService
 {
-    private readonly IHostApplicationLauncher hostApplicationLauncher;
-    private readonly IHostSystemInfo hostSystemInfo;
-    private readonly ISteamInstallationService steamInstallationService;
-    private readonly ISettingsApi settingsApi;
+    private readonly IHostApplicationLauncher _hostApplicationLauncher;
+    private readonly IHostSystemInfo _hostSystemInfo;
+    private readonly ISteamInstallationService _steamInstallationService;
+    private readonly ISettingsApi _settingsApi;
 
     public SteamGameManagementProvider(
         IHostApplicationLauncher hostApplicationLauncher,
@@ -32,10 +32,10 @@ public sealed class SteamGameManagementProvider : IGameManagementService
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentNullException.ThrowIfNull(steamInstallationService);
         ArgumentNullException.ThrowIfNull(settingsApi);
-        this.hostApplicationLauncher = hostApplicationLauncher;
-        this.hostSystemInfo = hostSystemInfo;
-        this.steamInstallationService = steamInstallationService;
-        this.settingsApi = settingsApi;
+        _hostApplicationLauncher = hostApplicationLauncher;
+        _hostSystemInfo = hostSystemInfo;
+        _steamInstallationService = steamInstallationService;
+        _settingsApi = settingsApi;
     }
 
     public GameSourceId SourceId => GameSourceId.Steam;
@@ -51,7 +51,7 @@ public sealed class SteamGameManagementProvider : IGameManagementService
             return [];
         }
 
-        var installations = await steamInstallationService.GetInstallationsAsync(cancellationToken);
+        var installations = await _steamInstallationService.GetInstallationsAsync(cancellationToken);
         if (installations.Count == 0)
         {
             return [];
@@ -127,14 +127,14 @@ public sealed class SteamGameManagementProvider : IGameManagementService
         }
 
         var steamUri = new Uri($"steam://{action}/{appId.ToString(CultureInfo.InvariantCulture)}");
-        if (await hostApplicationLauncher.TryOpenUriAsync(steamUri, cancellationToken))
+        if (await _hostApplicationLauncher.TryOpenUriAsync(steamUri, cancellationToken))
         {
             return restoreHostAfterFallback
                 ? GameManagementResult.FallbackProtocolOpened
                 : GameManagementResult.ProtocolOpened;
         }
 
-        if (!IsSteamClientRunning() && await TryLaunchSteamClientAsync(cancellationToken))
+        if (!IsSteamClientRunning() && await TryLaunchSteamClientAsync([], cancellationToken))
         {
             return restoreHostAfterFallback
                 ? GameManagementResult.FallbackStoreClientOpened
@@ -156,13 +156,14 @@ public sealed class SteamGameManagementProvider : IGameManagementService
             return GameManagementResult.Unavailable;
         }
 
-        if (OperatingSystem.IsMacOS() && hostSystemInfo.Platform == HostOperatingSystem.MacOS &&
-            await hostApplicationLauncher.TryLaunchApplicationAsync(
-                "open",
-                ["-a", "Steam", "--args", "-silent", "-applaunch", appId.ToString(CultureInfo.InvariantCulture)],
-                cancellationToken))
+        if (!await IsSilentModeEnabledAsync(cancellationToken) || IsSteamClientRunning())
         {
-            return GameManagementResult.ProtocolOpened;
+            return await OpenSteamActionAsync(game, "run", cancellationToken);
+        }
+
+        if (await TryRunSteamCommandAsync("-applaunch", appId, null, cancellationToken))
+        {
+            return GameManagementResult.SilentCommandStarted;
         }
 
         return await OpenSteamActionAsync(game, "run", cancellationToken);
@@ -196,16 +197,16 @@ public sealed class SteamGameManagementProvider : IGameManagementService
 
     private async Task<bool> IsSilentModeEnabledAsync(CancellationToken cancellationToken)
     {
-        var settings = await settingsApi.GetSectionAsync<ConnectorsSettings>(cancellationToken);
+        var settings = await _settingsApi.GetSectionAsync<ConnectorsSettings>(cancellationToken);
         return settings.Steam.SilentModeEnabled;
     }
 
     private bool IsSteamClientRunning()
     {
-        var processNames = hostSystemInfo.Platform == HostOperatingSystem.MacOS
+        var processNames = _hostSystemInfo.Platform == HostOperatingSystem.MacOS
             ? new[] { "steam_osx", "Steam" }
             : new[] { "steam" };
-        return processNames.Any(hostApplicationLauncher.IsProcessRunning);
+        return processNames.Any(_hostApplicationLauncher.IsProcessRunning);
     }
 
     private async Task<bool> TryCloseSteamClientGracefullyAsync(CancellationToken cancellationToken)
@@ -215,7 +216,7 @@ public sealed class SteamGameManagementProvider : IGameManagementService
             return true;
         }
 
-        if (!await hostApplicationLauncher.TryOpenUriAsync(new Uri("steam://exit"), cancellationToken))
+        if (!await _hostApplicationLauncher.TryOpenUriAsync(new Uri("steam://exit"), cancellationToken))
         {
             return false;
         }
@@ -246,50 +247,73 @@ public sealed class SteamGameManagementProvider : IGameManagementService
             return false;
         }
 
-        var arguments = new List<string> { "-silent", command, appId.ToString(CultureInfo.InvariantCulture) };
+        var steamArguments = new List<string> { "-silent", command, appId.ToString(CultureInfo.InvariantCulture) };
         if (volumeIndex is not null)
         {
-            arguments.Add(volumeIndex.Value.ToString(CultureInfo.InvariantCulture));
+            steamArguments.Add(volumeIndex.Value.ToString(CultureInfo.InvariantCulture));
         }
 
-        var executable = hostSystemInfo.Platform switch
-        {
-            HostOperatingSystem.Linux => "steam",
-            HostOperatingSystem.MacOS when OperatingSystem.IsMacOS() => "open",
-            HostOperatingSystem.Windows when OperatingSystem.IsWindows() => GetWindowsSteamExecutable(),
-            _ => null
-        };
-        if (executable is null)
-        {
-            return false;
-        }
-
-        if (hostSystemInfo.Platform == HostOperatingSystem.MacOS)
-        {
-            arguments.InsertRange(0, ["-g", "-a", "Steam", "--args"]);
-        }
-
-        return await hostApplicationLauncher.TryLaunchApplicationAsync(executable, arguments, cancellationToken);
+        return await TryLaunchSteamClientAsync(steamArguments, cancellationToken);
     }
 
-    private async Task<bool> TryLaunchSteamClientAsync(CancellationToken cancellationToken)
+    private async Task<bool> TryLaunchSteamClientAsync(
+        IReadOnlyList<string> steamArguments,
+        CancellationToken cancellationToken)
     {
-        var executable = hostSystemInfo.Platform switch
+        switch (_hostSystemInfo.Platform)
         {
-            HostOperatingSystem.Linux => "steam",
-            HostOperatingSystem.MacOS when OperatingSystem.IsMacOS() => "open",
-            HostOperatingSystem.Windows when OperatingSystem.IsWindows() => GetWindowsSteamExecutable(),
-            _ => null
-        };
-        if (executable is null)
+            case HostOperatingSystem.Linux:
+                return await TryLaunchSteamOnLinuxAsync(steamArguments, cancellationToken);
+            case HostOperatingSystem.MacOS when OperatingSystem.IsMacOS():
+                return await TryLaunchSteamOnMacOSAsync(steamArguments, cancellationToken);
+            case HostOperatingSystem.Windows when OperatingSystem.IsWindows():
+                return await TryLaunchSteamOnWindowsAsync(steamArguments, cancellationToken);
+            default:
+                return false;
+        }
+    }
+
+    private async Task<bool> TryLaunchSteamOnLinuxAsync(
+        IReadOnlyList<string> steamArguments,
+        CancellationToken cancellationToken)
+    {
+        if (await _hostApplicationLauncher.TryLaunchApplicationAsync("steam", steamArguments, cancellationToken))
         {
-            return false;
+            return true;
         }
 
-        var arguments = hostSystemInfo.Platform == HostOperatingSystem.MacOS
-            ? new[] { "-a", "Steam" }
-            : Array.Empty<string>();
-        return await hostApplicationLauncher.TryLaunchApplicationAsync(executable, arguments, cancellationToken);
+        var arguments = new List<string> { "run", "com.valvesoftware.Steam" };
+        arguments.AddRange(steamArguments);
+        return await _hostApplicationLauncher.TryLaunchApplicationAsync("flatpak", arguments, cancellationToken);
+    }
+
+    private Task<bool> TryLaunchSteamOnMacOSAsync(
+        IReadOnlyList<string> steamArguments,
+        CancellationToken cancellationToken)
+    {
+        var arguments = new List<string> { "-a", "Steam" };
+        if (steamArguments.Count > 0)
+        {
+            arguments.Insert(0, "-g");
+            arguments.Add("--args");
+            arguments.AddRange(steamArguments);
+        }
+
+        return _hostApplicationLauncher.TryLaunchApplicationAsync("open", arguments, cancellationToken);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private Task<bool> TryLaunchSteamOnWindowsAsync(
+        IReadOnlyList<string> steamArguments,
+        CancellationToken cancellationToken)
+    {
+        var executable = GetWindowsSteamExecutable();
+        if (executable is null)
+        {
+            return Task.FromResult(false);
+        }
+
+        return _hostApplicationLauncher.TryLaunchApplicationAsync(executable, steamArguments, cancellationToken);
     }
 
     [SupportedOSPlatform("windows")]
