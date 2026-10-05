@@ -5,17 +5,17 @@ namespace Hatband.App.ViewModels;
 
 public sealed partial class GameArtworkSourceOption : ObservableObject
 {
-    public GameArtworkSourceOption(string displayName, string url)
+    public GameArtworkSourceOption(string displayName, GameArtworkImage image)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        ArgumentNullException.ThrowIfNull(image);
         DisplayName = displayName;
-        Url = url;
+        Image = image;
     }
 
     public string DisplayName { get; }
 
-    public string Url { get; }
+    public GameArtworkImage Image { get; }
 
     [ObservableProperty]
     public partial Bitmap? PreviewImage { get; set; }

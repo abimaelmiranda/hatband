@@ -74,16 +74,10 @@
                                   HorizontalScrollBarVisibility="Disabled"
                                   VerticalScrollBarVisibility="Auto">
                             <StackPanel Spacing="10" Margin="0,8,8,0">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{x:Static lang:Resources.Name}" Foreground="#D9E0E5" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Name" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreName}" />
-                        </Grid>
+                        <TextBlock Text="{x:Static lang:Resources.Name}" Foreground="#D9E0E5" VerticalAlignment="Center" />
                         <TextBox x:Name="NameBox" Text="{Binding GameMetadataEditor.Name}" />
 
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="{x:Static lang:Resources.Description}" Foreground="#D9E0E5" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Description" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreDescription}" />
-                        </Grid>
+                        <TextBlock Text="{x:Static lang:Resources.Description}" Foreground="#D9E0E5" VerticalAlignment="Center" />
                         <TextBox Text="{Binding GameMetadataEditor.Description}"
                                  AcceptsReturn="True"
                                  TextWrapping="Wrap"
@@ -95,14 +89,12 @@
                             <StackPanel Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{x:Static lang:Resources.Developer}" Foreground="#D9E0E5" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Developer" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreDeveloper}" />
                                 </Grid>
                                 <TextBox Text="{Binding GameMetadataEditor.Developer}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{x:Static lang:Resources.Publisher}" Foreground="#D9E0E5" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Publisher" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestorePublisher}" />
                                 </Grid>
                                 <TextBox Text="{Binding GameMetadataEditor.Publisher}" />
                             </StackPanel>
@@ -112,14 +104,12 @@
                             <StackPanel Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{x:Static lang:Resources.Genre}" Foreground="#D9E0E5" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="Genre" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreGenre}" />
                                 </Grid>
                                 <TextBox Text="{Binding GameMetadataEditor.Genre}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{x:Static lang:Resources.ReleaseDate}" Foreground="#D9E0E5" VerticalAlignment="Center" />
-                                    <Button Grid.Column="1" Content="{x:Static lang:Resources.RestoreStoreData}" Classes="subtle-action" Tag="ReleaseDate" Click="OnRestoreMetadataClick" IsVisible="{Binding GameMetadataEditor.CanRestoreReleaseDate}" />
                                 </Grid>
                                 <TextBox Text="{Binding GameMetadataEditor.ReleaseDate}"
                                          PlaceholderText="{x:Static lang:Resources.ReleaseDateFormat}" />
@@ -218,7 +208,7 @@
                                         IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.IsResultViewVisible}">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedSearchResult.Name}"
+                                        <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedResultName}"
                                                    FontSize="22"
                                                    FontWeight="SemiBold"
                                                    IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.HasSearchResult}" />
@@ -245,12 +235,12 @@
                                 </Border>
                                 <StackPanel Spacing="6"
                                             IsVisible="{Binding GameMetadataEditor.SelectedMetadataSource.HasLookup}">
-                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Description}"
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedSearchResult.Description}"
                                                TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Developer}" />
-                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Publisher}" />
-                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.Genre}" />
-                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.Lookup.Metadata.ReleaseDate}" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedSearchResult.Developer}" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedSearchResult.Publisher}" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedSearchResult.Genre}" />
+                                    <TextBlock Text="{Binding GameMetadataEditor.SelectedMetadataSource.SelectedSearchResult.ReleaseDate}" />
                                 </StackPanel>
                                 <Button Content="{x:Static lang:Resources.MetadataSourceApply}"
                                         Classes="subtle-action"

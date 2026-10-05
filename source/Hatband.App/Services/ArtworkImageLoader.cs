@@ -1,6 +1,6 @@
 using Avalonia.Media.Imaging;
+using Hatband.Core.Models.Games;
 using System.Net.Http;
-using Hatband.Core.Abstractions;
 
 namespace Hatband.App.Services;
 
@@ -102,5 +102,17 @@ public sealed class ArtworkImageLoader
         {
             return null;
         }
+    }
+
+    public Task<Bitmap?> LoadAsync(GameArtworkImage image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        if (image.Content.Length == 0)
+        {
+            return Task.FromResult<Bitmap?>(null);
+        }
+
+        using var stream = new MemoryStream(image.Content);
+        return Task.FromResult<Bitmap?>(new Bitmap(stream));
     }
 }

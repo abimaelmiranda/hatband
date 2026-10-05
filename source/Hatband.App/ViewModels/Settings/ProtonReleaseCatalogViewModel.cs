@@ -4,15 +4,14 @@ using Avalonia.Media;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hatband.App.Localization;
-using Hatband.Core.Models;
 
 namespace Hatband.App.ViewModels.Settings;
 
 public sealed partial class ProtonReleaseCatalogViewModel : ObservableObject
 {
     public ProtonReleaseCatalogViewModel(
-        ProtonReleaseCatalog catalog,
-        Func<ProtonRelease, Task> installRelease,
+        CompatibilityToolReleaseCatalog catalog,
+        Func<CompatibilityToolRelease, Task> installRelease,
         Action<ProtonReleaseCatalogViewModel> selectCatalog,
         bool canInstall)
     {

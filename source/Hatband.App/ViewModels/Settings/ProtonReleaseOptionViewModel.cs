@@ -1,12 +1,11 @@
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
-using Hatband.Core.Models;
 
 namespace Hatband.App.ViewModels.Settings;
 
 public sealed class ProtonReleaseOptionViewModel
 {
-    public ProtonReleaseOptionViewModel(ProtonRelease release, Func<Task> installRelease, bool canInstall)
+    public ProtonReleaseOptionViewModel(CompatibilityToolRelease release, Func<Task> installRelease, bool canInstall)
     {
         ArgumentNullException.ThrowIfNull(release);
         ArgumentNullException.ThrowIfNull(installRelease);

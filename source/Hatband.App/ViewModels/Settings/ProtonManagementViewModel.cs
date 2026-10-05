@@ -2,18 +2,15 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
-using Hatband.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace Hatband.App.ViewModels.Settings;
 
 public partial class ProtonManagementViewModel : ObservableObject
 {
-    private readonly IProtonReleaseCatalogService protonReleaseCatalogService;
-    private readonly IProtonToolDiscoveryService protonToolDiscoveryService;
-    private readonly IProtonToolInstallationService protonToolInstallationService;
+    private readonly ICompatibilityToolReleaseCatalogService compatibilityToolReleaseCatalogService;
+    private readonly ICompatibilityToolDiscoveryService compatibilityToolDiscoveryService;
+    private readonly ICompatibilityToolInstallationService compatibilityToolInstallationService;
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly ILogger<ProtonManagementViewModel> logger;
 
@@ -42,20 +39,20 @@ public partial class ProtonManagementViewModel : ObservableObject
     public partial string? StatusMessage { get; set; }
 
     public ProtonManagementViewModel(
-        IProtonReleaseCatalogService protonReleaseCatalogService,
-        IProtonToolDiscoveryService protonToolDiscoveryService,
-        IProtonToolInstallationService protonToolInstallationService,
+        ICompatibilityToolReleaseCatalogService compatibilityToolReleaseCatalogService,
+        ICompatibilityToolDiscoveryService compatibilityToolDiscoveryService,
+        ICompatibilityToolInstallationService compatibilityToolInstallationService,
         IHostSystemInfo hostSystemInfo,
         ILogger<ProtonManagementViewModel> logger)
     {
-        ArgumentNullException.ThrowIfNull(protonReleaseCatalogService);
-        ArgumentNullException.ThrowIfNull(protonToolDiscoveryService);
-        ArgumentNullException.ThrowIfNull(protonToolInstallationService);
+        ArgumentNullException.ThrowIfNull(compatibilityToolReleaseCatalogService);
+        ArgumentNullException.ThrowIfNull(compatibilityToolDiscoveryService);
+        ArgumentNullException.ThrowIfNull(compatibilityToolInstallationService);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentNullException.ThrowIfNull(logger);
-        this.protonReleaseCatalogService = protonReleaseCatalogService;
-        this.protonToolDiscoveryService = protonToolDiscoveryService;
-        this.protonToolInstallationService = protonToolInstallationService;
+        this.compatibilityToolReleaseCatalogService = compatibilityToolReleaseCatalogService;
+        this.compatibilityToolDiscoveryService = compatibilityToolDiscoveryService;
+        this.compatibilityToolInstallationService = compatibilityToolInstallationService;
         this.hostSystemInfo = hostSystemInfo;
         this.logger = logger;
     }
@@ -103,7 +100,7 @@ public partial class ProtonManagementViewModel : ObservableObject
                 await RefreshInstalledToolsAsync();
             }
 
-            var catalogs = await protonReleaseCatalogService.GetCatalogsAsync();
+            var catalogs = await compatibilityToolReleaseCatalogService.GetCatalogsAsync();
             Catalogs = new ObservableCollection<ProtonReleaseCatalogViewModel>(
                 catalogs.Select(catalog => new ProtonReleaseCatalogViewModel(
                     catalog,
@@ -141,7 +138,7 @@ public partial class ProtonManagementViewModel : ObservableObject
         OnPropertyChanged(nameof(NavigationFieldCount));
     }
 
-    private async Task InstallReleaseAsync(ProtonRelease release)
+    private async Task InstallReleaseAsync(CompatibilityToolRelease release)
     {
         if (!IsLinuxSupported)
         {
@@ -154,7 +151,7 @@ public partial class ProtonManagementViewModel : ObservableObject
         StatusMessage = string.Format(Resources.ProtonInstalling, release.DisplayName);
         try
         {
-            await protonToolInstallationService.InstallAsync(release);
+            await compatibilityToolInstallationService.InstallAsync(release);
             await RefreshInstalledToolsAsync();
             StatusMessage = string.Format(Resources.ProtonInstallComplete, release.DisplayName);
         }
@@ -173,7 +170,7 @@ public partial class ProtonManagementViewModel : ObservableObject
 
     private async Task RefreshInstalledToolsAsync()
     {
-        var protonTools = await protonToolDiscoveryService.DiscoverInstalledToolsAsync();
+        var protonTools = await compatibilityToolDiscoveryService.DiscoverInstalledToolsAsync();
         InstalledTools = new ObservableCollection<ProtonToolViewModel>(
             protonTools.Select(protonTool => new ProtonToolViewModel(protonTool)));
     }

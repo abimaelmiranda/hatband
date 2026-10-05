@@ -1,6 +1,5 @@
 using Avalonia.Threading;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums;
+using Hatband.Core.Enums.Games;
 using Hatband.Core.Models;
 using Microsoft.Extensions.Logging;
 

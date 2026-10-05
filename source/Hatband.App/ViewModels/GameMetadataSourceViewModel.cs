@@ -2,30 +2,25 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Models;
 
 namespace Hatband.App.ViewModels;
 
 public partial class GameMetadataSourceViewModel : ObservableObject
 {
-    private readonly IGameMetadataSearchProvider provider;
-    private readonly Action<string, GameMetadata> applyMetadata;
-    private string preferredLanguageTag = string.Empty;
+    private readonly IGameMetadataProvider provider;
+    private readonly Action<GameMetadata> applyMetadata;
+    private Game? game;
+    private string languageTag = string.Empty;
     private string region = string.Empty;
-    private GameSourceLookupRequest? request;
 
     [ObservableProperty]
     public partial string SearchQuery { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial ObservableCollection<GameMetadataSearchResult> SearchResults { get; set; } = [];
+    public partial ObservableCollection<GameMetadata> SearchResults { get; set; } = [];
 
     [ObservableProperty]
-    public partial GameMetadataSearchResult? SelectedSearchResult { get; set; }
-
-    [ObservableProperty]
-    public partial GameMetadataLookupResponse? Lookup { get; set; }
+    public partial GameMetadata? SelectedSearchResult { get; set; }
 
     [ObservableProperty]
     public partial string? StatusMessage { get; set; }
@@ -39,9 +34,7 @@ public partial class GameMetadataSourceViewModel : ObservableObject
     [ObservableProperty]
     public partial bool HasSearched { get; set; }
 
-    public GameMetadataSourceViewModel(
-        IGameMetadataSearchProvider provider,
-        Action<string, GameMetadata> applyMetadata)
+    public GameMetadataSourceViewModel(IGameMetadataProvider provider, Action<GameMetadata> applyMetadata)
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(applyMetadata);
@@ -53,7 +46,7 @@ public partial class GameMetadataSourceViewModel : ObservableObject
 
     public string DisplayName => provider.DisplayName;
 
-    public bool HasLookup => Lookup?.Metadata is not null;
+    public bool HasLookup => SelectedSearchResult is not null;
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
 
@@ -61,89 +54,65 @@ public partial class GameMetadataSourceViewModel : ObservableObject
 
     public bool IsResultViewVisible => !IsCustomSearchOpen;
 
-    public bool CanSearch => !IsSearching;
+    public bool CanSearch => !IsSearching && !string.IsNullOrWhiteSpace(SearchQuery);
 
-    public bool IsLanguageMismatch => Lookup is { Metadata: not null, IsContentLanguageMatch: false };
+    public bool IsLanguageMismatch => false;
 
-    partial void OnStatusMessageChanged(string? value)
+    public string? SelectedResultName => SelectedSearchResult?.StoreName;
+
+    public void Initialize(Game selectedGame, string preferredLanguageTag, string lookupRegion)
     {
-        OnPropertyChanged(nameof(HasStatusMessage));
-    }
-
-    partial void OnIsSearchingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanSearch));
-    }
-
-    partial void OnLookupChanged(GameMetadataLookupResponse? value)
-    {
-        OnPropertyChanged(nameof(HasLookup));
-        OnPropertyChanged(nameof(IsLanguageMismatch));
-    }
-
-    partial void OnSelectedSearchResultChanged(GameMetadataSearchResult? value)
-    {
-        Lookup = null;
-        StatusMessage = null;
-        OnPropertyChanged(nameof(HasSearchResult));
-    }
-
-    partial void OnIsCustomSearchOpenChanged(bool value)
-    {
-        OnPropertyChanged(nameof(IsResultViewVisible));
-    }
-
-    public void Initialize(GameSourceLookupRequest lookupRequest, string languageTag, string lookupRegion)
-    {
-        ArgumentNullException.ThrowIfNull(lookupRequest);
-        request = lookupRequest;
-        SearchQuery = lookupRequest.GameName;
-        preferredLanguageTag = languageTag;
+        ArgumentNullException.ThrowIfNull(selectedGame);
+        game = selectedGame;
+        SearchQuery = selectedGame.Name;
+        languageTag = preferredLanguageTag;
         region = lookupRegion;
         SearchResults.Clear();
         SelectedSearchResult = null;
-        Lookup = null;
         StatusMessage = null;
         IsCustomSearchOpen = false;
         HasSearched = false;
     }
 
-    public Task SearchIfNeededAsync(CancellationToken cancellationToken = default)
+    partial void OnStatusMessageChanged(string? value) => OnPropertyChanged(nameof(HasStatusMessage));
+
+    partial void OnIsSearchingChanged(bool value) => OnPropertyChanged(nameof(CanSearch));
+
+    partial void OnSelectedSearchResultChanged(GameMetadata? value)
     {
-        return HasSearched ? Task.CompletedTask : SearchAsync(cancellationToken);
+        OnPropertyChanged(nameof(HasLookup));
+        OnPropertyChanged(nameof(HasSearchResult));
+        OnPropertyChanged(nameof(SelectedResultName));
     }
+
+    partial void OnIsCustomSearchOpenChanged(bool value) => OnPropertyChanged(nameof(IsResultViewVisible));
 
     [RelayCommand]
     public async Task SearchAsync(CancellationToken cancellationToken = default)
     {
-        if (IsSearching || string.IsNullOrWhiteSpace(SearchQuery))
+        if (!CanSearch)
         {
             return;
         }
 
         IsSearching = true;
         StatusMessage = null;
-        Lookup = null;
         try
         {
-            var lookupRequest = request ?? throw new InvalidOperationException("The metadata source has not been initialized.");
-            var response = await provider.SearchAsync(
-                lookupRequest with { GameName = SearchQuery.Trim() },
-                preferredLanguageTag,
-                region,
-                cancellationToken);
-            SearchResults = new ObservableCollection<GameMetadataSearchResult>(response.Results);
+            var sourceGame = game ?? throw new InvalidOperationException("The metadata source has not been initialized.");
+            var queryGame = new Game
+            {
+                Name = SearchQuery.Trim(),
+                SourceId = sourceGame.SourceId,
+                SourceGameId = sourceGame.SourceGameId,
+                Metadata = sourceGame.Metadata
+            };
+            var results = await provider.SearchAsync(queryGame, languageTag, region, cancellationToken);
+            SearchResults = new ObservableCollection<GameMetadata>(results);
             SelectedSearchResult = SearchResults.FirstOrDefault();
-            StatusMessage = response.ErrorMessage;
-            if (response.ErrorMessage is null && response.Results.Count == 0)
+            if (results.Count == 0)
             {
                 StatusMessage = Resources.MetadataSourceNoResults;
-            }
-
-            if (SelectedSearchResult is not null)
-            {
-                IsCustomSearchOpen = false;
-                await LoadDetailsAsync(cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -162,52 +131,20 @@ public partial class GameMetadataSourceViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenCustomSearch()
-    {
-        IsCustomSearchOpen = true;
-    }
+    private void OpenCustomSearch() => IsCustomSearchOpen = true;
 
     [RelayCommand]
-    private void CloseCustomSearch()
-    {
-        IsCustomSearchOpen = false;
-    }
-
-    private async Task LoadDetailsAsync(CancellationToken cancellationToken)
-    {
-        if (SelectedSearchResult is null)
-        {
-            return;
-        }
-
-        try
-        {
-            Lookup = await provider.GetDetailsAsync(
-                SelectedSearchResult,
-                preferredLanguageTag,
-                region,
-                cancellationToken);
-            StatusMessage = Lookup.ErrorMessage;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = exception.Message;
-        }
-    }
+    private void CloseCustomSearch() => IsCustomSearchOpen = false;
 
     [RelayCommand]
     private void Apply()
     {
-        if (Lookup?.Metadata is not GameMetadata metadata || SelectedSearchResult is null)
+        if (SelectedSearchResult is not { } metadata)
         {
             return;
         }
 
-        applyMetadata(SelectedSearchResult.Name, metadata);
+        applyMetadata(metadata);
         StatusMessage = Resources.MetadataSourceApplied;
     }
 }

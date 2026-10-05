@@ -5,10 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.Core.Enums.Stores;
-using Hatband.Core.Enums;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Models;
-using Hatband.Core.Services;
+using Hatband.Core.Enums.Host;
 
 namespace Hatband.App.ViewModels;
 
@@ -38,11 +35,9 @@ public partial class GameCardViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         Game = game;
         this.dateTimeDisplayFormatter = dateTimeDisplayFormatter;
-        platformCompatibilityStatus = HostPlatformCompatibilityResolver.Resolve(
-            game.Metadata.NativePlatforms,
-            hostSystemInfo.Platform);
-        coverSource = game.Metadata.Artwork.CoverImagePath;
-        backgroundSource = game.Metadata.Artwork.BackgroundImagePath;
+        platformCompatibilityStatus = game.GetHostPlatformCompatibilityStatus(hostSystemInfo.Platform);
+        coverSource = game.Artwork.CoverImagePath;
+        backgroundSource = game.Artwork.BackgroundImagePath;
         AccentBrush = new SolidColorBrush(Color.Parse("#11161C"));
     }
 
@@ -70,7 +65,7 @@ public partial class GameCardViewModel : ObservableObject
             {
                 HostPlatformCompatibilityStatus.Unknown => Resources.UnknownPlatformSupport,
                 HostPlatformCompatibilityStatus.Native => Resources.NativePlatformSupport,
-                HostPlatformCompatibilityStatus.RequiresProton => Resources.RequiresProton,
+                HostPlatformCompatibilityStatus.RequiresCompatibilityTool => Resources.RequiresCompatibilityTool,
                 HostPlatformCompatibilityStatus.Unsupported => Resources.UnsupportedPlatform,
                 _ => throw new ArgumentOutOfRangeException(nameof(platformCompatibilityStatus))
             };
@@ -94,7 +89,7 @@ public partial class GameCardViewModel : ObservableObject
             return platformCompatibilityStatus is
                 HostPlatformCompatibilityStatus.Unknown or
                 HostPlatformCompatibilityStatus.Native or
-                HostPlatformCompatibilityStatus.RequiresProton;
+                HostPlatformCompatibilityStatus.RequiresCompatibilityTool;
         }
     }
 
@@ -106,12 +101,7 @@ public partial class GameCardViewModel : ObservableObject
     {
         get
         {
-            if (Game.SourceId is not GameSourceId sourceId)
-            {
-                return string.Format(System.Globalization.CultureInfo.CurrentCulture, Resources.Unavailable, Resources.Source);
-            }
-
-            return sourceId switch
+            return Game.SourceId switch
             {
                 GameSourceId.Manual => Resources.ManualGame,
                 GameSourceId.Steam => "Steam",
@@ -120,7 +110,7 @@ public partial class GameCardViewModel : ObservableObject
         }
     }
 
-    public string InstallStateLabel => Game.IsInstalled
+    public string InstallStateLabel => Game.InstallationInfo is not null
         ? Resources.InstalledStatus
         : Resources.NotInstalledStatus;
 

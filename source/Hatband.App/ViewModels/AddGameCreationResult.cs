@@ -1,5 +1,3 @@
-using Hatband.Core.Models;
-
 namespace Hatband.App.ViewModels;
 
 public abstract record AddGameCreationResult

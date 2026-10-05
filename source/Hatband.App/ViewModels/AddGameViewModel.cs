@@ -1,12 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Hatband.Core.Abstractions;
-using Hatband.Core.Enums.Stores;
-using Hatband.Core.Models;
+using Hatband.Core.Models.Libraries;
 
 namespace Hatband.App.ViewModels;
 
-public partial class AddGameViewModel(IGameLibraryService gameLibraryService) : ViewModelBase
+public partial class AddGameViewModel(IGameRepository gameRepository, IGameLibraryRepository libraryRepository) : ViewModelBase
 {
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
@@ -36,17 +34,18 @@ public partial class AddGameViewModel(IGameLibraryService gameLibraryService) : 
         {
             Name = trimmedName,
             SourceId = GameSourceId.Manual,
-            InstallDirectory = trimmedInstallDirectory,
-            IsInstalled = trimmedInstallDirectory is not null
+            InstallationInfo = trimmedInstallDirectory is null
+                ? null
+                : new GameInstallationInfo { InstallDirectory = trimmedInstallDirectory }
         };
 
         if (!string.IsNullOrWhiteSpace(LaunchTarget))
         {
-            game.LaunchActions.Add(new GameLaunchAction
+            game.GameActions.Add(new GameAction
             {
                 Name = "Play",
                 Target = LaunchTarget.Trim(),
-                Type = GameLaunchActionType.Executable,
+                Type = GameActionType.Executable,
                 WorkingDirectory = trimmedInstallDirectory,
                 IsPrimary = true
             });
@@ -54,7 +53,15 @@ public partial class AddGameViewModel(IGameLibraryService gameLibraryService) : 
 
         try
         {
-            await gameLibraryService.AddGameAsync(game, cancellationToken);
+            var libraries = await libraryRepository.GetAllAsync(cancellationToken);
+            var library = libraries.FirstOrDefault();
+            if (library is null)
+            {
+                library = new GameLibrary();
+                await libraryRepository.AddAsync(library, cancellationToken);
+            }
+
+            await gameRepository.AddAsync(library.Id, game, cancellationToken);
             CreationCompleted?.Invoke(new AddGameCreationResult.Saved(game));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

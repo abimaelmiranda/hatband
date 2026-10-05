@@ -271,14 +271,6 @@ public partial class GameMetadataEditorScreenView : UserControl
         }
     }
 
-    private void OnRestoreMetadataClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel viewModel && sender is Button { Tag: string fieldName })
-        {
-            viewModel.GameMetadataEditor.RestoreMetadataFromStore(fieldName);
-        }
-    }
-
     private static GameArtworkSlot ParseArtworkSlot(string slotName)
     {
         return slotName switch

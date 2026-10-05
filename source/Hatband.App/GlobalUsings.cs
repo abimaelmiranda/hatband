@@ -1,0 +1,17 @@
+global using Hatband.Core.Abstractions.Archives;
+global using Hatband.Core.Abstractions.Compatibility;
+global using Hatband.Core.Abstractions.FileSystem;
+global using Hatband.Core.Abstractions.Games;
+global using Hatband.Core.Abstractions.Host;
+global using Hatband.Core.Abstractions.Integrations.HowLongToBeat;
+global using Hatband.Core.Abstractions.Repositories;
+global using Hatband.Core.Abstractions.Settings;
+global using Hatband.Core.Enums.Artwork;
+global using Hatband.Core.Enums.Games;
+global using Hatband.Core.Enums.Host;
+global using Hatband.Core.Enums.Stores;
+global using Hatband.Core.Models;
+global using Hatband.Core.Models.Compatibility;
+global using Hatband.Core.Models.Games;
+global using Hatband.Core.Models.Libraries;
+global using Hatband.Core.Models.Settings;

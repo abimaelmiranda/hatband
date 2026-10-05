@@ -10,23 +10,21 @@ using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.App.ViewModels.Settings;
-using Hatband.Core.Abstractions;
 using Hatband.Core.Abstractions.Authentication;
-using Hatband.Core.Enums;
-using Hatband.Core.Enums.Stores;
-using Hatband.Core.Models;
+using Hatband.Core.Abstractions.Settings;
 using Hatband.Core.Models.Settings;
+using Hatband.Integrations.Settings;
+using Hatband.Integrations.Steam.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace Hatband.App.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    private readonly IGameLibraryService gameLibraryService;
+    private readonly IGameRepository gameRepository;
     private readonly IGameLibrarySyncService gameLibrarySyncService;
-    private readonly IGameTimeToBeatSyncService gameTimeToBeatSyncService;
     private readonly IGameInstallationStateSyncService gameInstallationStateSyncService;
-    private readonly ISettingsStore settingsStore;
+    private readonly ISettingsApi settingsApi;
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly IGameManagementService gameManagementService;
     private readonly GameProcessSessionService gameProcessSessionService;
@@ -41,18 +39,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly Dictionary<Guid, bool> pendingInstallationStates = [];
     private readonly SemaphoreSlim installationStateRefreshGate = new(1, 1);
     private readonly Dictionary<Guid, GameCardViewModel> activeMonitoredGames = [];
+    private readonly Dictionary<Type, object> settingsByType = [];
     private CancellationTokenSource? installationPollingCancellation;
     private CancellationTokenSource? statusMessageTimeoutCancellation;
     private Task? installationPollingTask;
     private bool returnToMenuOnBack;
-    private bool hasLoadedSettings;
+    private bool settingsLoaded;
     private Guid? activeGameSessionId;
 
     [ObservableProperty]
     public partial ObservableCollection<GameCardViewModel> Games { get; set; } = [];
-
-    [ObservableProperty]
-    public partial HatbandSettings Settings { get; set; } = new();
 
     [ObservableProperty]
     public partial bool IsSteamSilentModeEnabled { get; set; }
@@ -86,22 +82,12 @@ public partial class MainWindowViewModel : ViewModelBase
         new(Resources.MenuLibrary, MenuAction.Library),
         new(Resources.MenuViewHiddenGames, MenuAction.HiddenGames),
         new(Resources.MenuAddGame, MenuAction.AddGame),
-        new(Resources.MenuConnectors, MenuAction.Connectors),
         new(Resources.MenuSettings, MenuAction.Settings),
         new(Resources.MenuExit, MenuAction.Exit)
     ];
 
     [ObservableProperty]
     public partial int SelectedMenuIndex { get; set; }
-
-    [ObservableProperty]
-    public partial ObservableCollection<ConnectorViewModel> Connectors { get; set; } = [];
-
-    [ObservableProperty]
-    public partial int SelectedConnectorIndex { get; set; }
-
-    [ObservableProperty]
-    public partial ConnectorViewModel? SelectedConnector { get; set; }
 
     [ObservableProperty]
     public partial bool IsMenuOpen { get; set; }
@@ -163,23 +149,28 @@ public partial class MainWindowViewModel : ViewModelBase
     public partial bool IsLibraryLoading { get; set; } = true;
 
     [ObservableProperty]
+    public partial bool IsSettingsLoading { get; set; } = true;
+
+    [ObservableProperty]
     public partial bool IsLibrarySyncRunning { get; set; }
+
+    public bool CanRefreshMetadata => !IsLibrarySyncRunning && !IsLibraryEnrichmentRunning;
 
     [ObservableProperty]
     public partial bool HasCompletedSteamSync { get; set; }
 
     public MainWindowViewModel(
-        IGameLibraryService gameLibraryService,
-        IGameTimeToBeatSyncService gameTimeToBeatSyncService,
-        ISettingsStore settingsStore,
+        IGameRepository gameRepository,
+        IGameLibraryRepository libraryRepository,
+        ISettingsApi settingsApi,
         ArtworkImageLoader artworkImageLoader,
         DateTimeDisplayFormatter dateTimeDisplayFormatter,
         IEnumerable<IQrCodeLoginProvider> qrLoginProviders,
-        IEnumerable<IGameStoreIntegration> storeIntegrations,
+        IEnumerable<IConnectorSessionProvider> connectorSessionProviders,
         IGameLibrarySyncService gameLibrarySyncService,
         IGameArtworkStorage artworkStorage,
-        IEnumerable<IGameMetadataSearchProvider> metadataSearchProviders,
-        IEnumerable<IGameArtworkSearchProvider> artworkSearchProviders,
+        IEnumerable<IGameMetadataProvider> metadataProviders,
+        IEnumerable<IGameArtworkProvider> artworkProviders,
         IHostSystemInfo hostSystemInfo,
         IGameManagementService gameManagementService,
         SettingsScreenViewModel settingsScreen,
@@ -187,21 +178,21 @@ public partial class MainWindowViewModel : ViewModelBase
         IGameInstallationStateSyncService gameInstallationStateSyncService,
         ILogger<MainWindowViewModel> logger)
     {
-        this.gameLibraryService = gameLibraryService;
+        this.gameRepository = gameRepository;
         this.hostSystemInfo = hostSystemInfo;
         this.gameManagementService = gameManagementService;
         this.settingsScreen = settingsScreen;
         this.gameProcessSessionService = gameProcessSessionService;
         this.logger = logger;
         this.gameInstallationStateSyncService = gameInstallationStateSyncService;
-        AddGame = new AddGameViewModel(gameLibraryService);
+        AddGame = new AddGameViewModel(gameRepository, libraryRepository);
         AddGame.PropertyChanged += OnAddGamePropertyChanged;
         AddGame.CreationCompleted += OnAddGameCreationCompleted;
         GameMetadataEditor = new GameMetadataEditorViewModel(
-            gameLibraryService,
+            gameRepository,
             artworkStorage,
-            metadataSearchProviders,
-            artworkSearchProviders,
+            metadataProviders,
+            artworkProviders,
             artworkImageLoader);
         GameMetadataEditor.Saved += OnGameMetadataEditorSaved;
         GameMetadataEditor.PropertyChanged += (_, args) =>
@@ -211,22 +202,18 @@ public partial class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(KeyboardHelpText));
             }
         };
-        this.settingsStore = settingsStore;
+        this.settingsApi = settingsApi;
         this.dateTimeDisplayFormatter = dateTimeDisplayFormatter;
         SettingsNavigation.PropertyChanged += OnSettingsNavigationPropertyChanged;
         this.gameLibrarySyncService = gameLibrarySyncService;
-        this.gameTimeToBeatSyncService = gameTimeToBeatSyncService;
-        librarySyncProgress = new LibrarySyncProgressViewModel(gameLibrarySyncService, gameTimeToBeatSyncService);
+        librarySyncProgress = new LibrarySyncProgressViewModel();
         librarySyncProgress.PropertyChanged += OnLibrarySyncProgressPropertyChanged;
-        librarySyncProgress.UpdatedGame += UpdateGameCard;
         librarySyncProgress.CompletionError += message => StatusMessage = message;
         this.artworkImageLoader = artworkImageLoader;
         LanguageOptions = CreateLanguageOptions();
         TimeZoneOptions = CreateTimeZoneOptions();
-        UpdateSelectedSettingsOptions();
         var steamQrLoginProvider = qrLoginProviders.Single(provider => provider.SourceId == GameSourceId.Steam);
-        var steamSessionProvider = storeIntegrations.OfType<IConnectorSessionProvider>()
-            .Single(provider => provider.SourceId == GameSourceId.Steam);
+        var steamSessionProvider = connectorSessionProviders.Single(provider => provider.SourceId == GameSourceId.Steam);
         steamConnectorLogin = new SteamConnectorLoginViewModel(
             steamQrLoginProvider,
             steamSessionProvider,
@@ -234,15 +221,6 @@ public partial class MainWindowViewModel : ViewModelBase
         steamConnectorLogin.ErrorOccurred += message => StatusMessage = message;
         steamConnectorLogin.Disconnected += message => StatusMessage = message;
         steamConnectorLogin.PropertyChanged += OnSteamConnectorLoginPropertyChanged;
-        var qrLoginSourceIds = qrLoginProviders.Select(provider => provider.SourceId).ToHashSet();
-        Connectors = new ObservableCollection<ConnectorViewModel>(
-            storeIntegrations
-                .OrderBy(integration => integration.DisplayName, StringComparer.CurrentCultureIgnoreCase)
-                .Select(integration => new ConnectorViewModel(
-                    integration.SourceId,
-                    integration.DisplayName,
-                    qrLoginSourceIds.Contains(integration.SourceId))));
-        UpdateConnectorSelection();
     }
 
     public event EventHandler? ExitRequested;
@@ -265,21 +243,21 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public int SelectedSettingsFieldIndex => SettingsNavigation.SelectedFieldIndex;
 
-    public bool IsGeneralSettingsSection => SettingsNavigation.IsGeneralSection;
+    public int SelectedSettingsFieldCount => SettingsNavigation.SelectedFieldCount;
+
+    public int SelectedSettingsTabIndex => SettingsNavigation.SelectedSettingsTabIndex;
+
+    public bool IsGeneralSettingsSection => SelectedSettingsSection.Descriptor?.SettingsType == typeof(GeneralSettings);
+
+    public bool IsConnectorsSettingsSection => SettingsNavigation.IsConnectorsSection;
 
     public bool IsCompatibilitySettingsSection => SettingsNavigation.IsCompatibilitySection;
 
-    public bool IsSettingsSectionPlaceholderVisible => SettingsNavigation.IsSectionPlaceholderVisible;
+    public bool IsSettingsDataSectionSelected => SettingsNavigation.IsSettingsDataSection;
 
     public SettingsSectionOptionViewModel SelectedSettingsSection => SettingsNavigation.SelectedSection;
 
-    public bool IsLanguageFieldSelected => SettingsNavigation.IsLanguageFieldSelected;
-
-    public bool IsTimeZoneFieldSelected => SettingsNavigation.IsTimeZoneFieldSelected;
-
-    public IBrush LanguageFieldBorderBrush => SettingsNavigation.LanguageFieldBorderBrush;
-
-    public IBrush TimeZoneFieldBorderBrush => SettingsNavigation.TimeZoneFieldBorderBrush;
+    public IBrush GetSettingsFieldBorderBrush(int index) => SettingsNavigation.GetFieldBorderBrush(index);
 
     public bool IsLibraryEnrichmentRunning => librarySyncProgress.IsLibraryEnrichmentRunning;
 
@@ -323,19 +301,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public int SettingsScreenZIndex => GetScreenZIndex(HatbandScreen.Settings);
 
-    public bool IsConnectorsScreen => CurrentScreen == HatbandScreen.Connectors;
-
-    public bool IsConnectorsBackgroundVisible => GetScreenZIndex(HatbandScreen.Connectors) >= 0;
-
-    public int ConnectorsScreenZIndex => GetScreenZIndex(HatbandScreen.Connectors);
-
     public int MenuOverlayZIndex => 3;
 
-    private bool IsDialogScreen => IsGameEditorScreen || IsAddGameScreen || IsSettingsScreen || IsConnectorsScreen;
+    private bool IsDialogScreen => IsGameEditorScreen || IsAddGameScreen || IsSettingsScreen;
 
-    private bool IsFullScreenNavigationScreen => IsGameEditorScreen || IsSettingsScreen || IsConnectorsScreen;
-
-    public bool IsConnectorLoginScreen => IsConnectorsScreen && SelectedConnector is not null;
+    private bool IsFullScreenNavigationScreen => IsGameEditorScreen || IsSettingsScreen;
 
     public bool IsConnectorConnected => ActiveConnectorAccountName is not null;
 
@@ -393,11 +363,6 @@ public partial class MainWindowViewModel : ViewModelBase
                 return Resources.KeyboardSettingsHelp;
             }
 
-            if (IsConnectorsScreen)
-            {
-                return Resources.KeyboardConnectorHelp;
-            }
-
             if (IsDetailsScreen)
             {
                 return Resources.KeyboardDetailsHelp;
@@ -418,7 +383,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsPrimaryGameActionInstall => SelectedGameCard?.Game is
     {
         SourceId: GameSourceId.Steam,
-        IsInstalled: false
+        InstallationInfo: null
     };
 
     public string PrimaryGameActionLabel => IsPrimaryGameActionInstall ? Resources.Install : Resources.Play;
@@ -426,7 +391,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool CanUninstallSelectedGame => SelectedGameCard?.Game is
     {
         SourceId: GameSourceId.Steam,
-        IsInstalled: true
+        InstallationInfo: not null
     };
 
     public bool IsSelectedGameUninstallPending =>
@@ -501,13 +466,104 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
 
-    public void ActivateSettingsSection() => settingsScreen.ActivateSection();
+    public void ActivateSettingsSection()
+    {
+        settingsScreen.ActivateSection();
+        if (!IsSettingsLoading && IsConnectorsSettingsSection)
+        {
+            steamConnectorLogin.RefreshConnectionStatus();
+        }
+    }
 
     public void DeactivateSettingsContent() => SettingsNavigation.DeactivateContent();
 
     public void SelectSettingsField(int index) => SettingsNavigation.SelectField(index);
 
+    public void SelectSettingsTab(int index) => SettingsNavigation.SelectSettingsTab(index);
+
     public void SelectSettingsSection(SettingsSectionOptionViewModel section) => settingsScreen.SelectSection(section);
+
+    public void SetSettingsField(
+        SettingsSectionOptionViewModel section,
+        IReadOnlyList<System.Reflection.PropertyInfo> propertyPath,
+        object? value)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+        ArgumentNullException.ThrowIfNull(propertyPath);
+        if (section.Descriptor is not { } descriptor || section.Settings is not { } settings ||
+            propertyPath.Count == 0 || propertyPath[0].DeclaringType != descriptor.SettingsType ||
+            propertyPath.Any(property => !property.CanRead || !property.CanWrite))
+        {
+            throw new InvalidOperationException("The selected settings field is not writable.");
+        }
+
+        var property = propertyPath[^1];
+        if (propertyPath.Count == 1 && descriptor.SettingsType == typeof(GeneralSettings) &&
+            property.Name == nameof(GeneralSettings.LanguageTag))
+        {
+            SelectedLanguageOption = FindOrAddLanguageOption((string)value!);
+            return;
+        }
+
+        if (propertyPath.Count == 1 && descriptor.SettingsType == typeof(GeneralSettings) &&
+            property.Name == nameof(GeneralSettings.TimeZoneId))
+        {
+            SelectedTimeZoneOption = FindOrAddTimeZoneOption((string)value!);
+            return;
+        }
+
+        object target = settings;
+        for (var index = 0; index < propertyPath.Count - 1; index++)
+        {
+            var nested = propertyPath[index].GetValue(target);
+            if (nested is null)
+            {
+                nested = Activator.CreateInstance(propertyPath[index].PropertyType)
+                    ?? throw new InvalidOperationException($"Settings object '{propertyPath[index].PropertyType.Name}' could not be created.");
+                propertyPath[index].SetValue(target, nested);
+            }
+
+            target = nested;
+        }
+
+        property.SetValue(target, value);
+        if (descriptor.SettingsType == typeof(ConnectorsSettings) &&
+            propertyPath.Count == 2 &&
+            propertyPath[0].Name == nameof(ConnectorsSettings.Steam) &&
+            property.Name == nameof(SteamSettings.SilentModeEnabled))
+        {
+            IsSteamSilentModeEnabled = (bool)value!;
+        }
+
+        _ = SaveSettingsSectionAsync(section);
+    }
+
+    private async Task SaveSettingsSectionAsync(SettingsSectionOptionViewModel section)
+    {
+        try
+        {
+            if (section.Descriptor is not { } descriptor || section.Settings is not { } settings)
+            {
+                throw new InvalidOperationException($"Settings section '{section.Id}' has not been loaded.");
+            }
+
+            await settingsApi.SaveSectionAsync(descriptor, settings);
+            StatusMessage = Resources.SettingsSaved;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.SaveSettingsError, exception.Message);
+        }
+    }
+
+    private TSettings GetSettings<TSettings>() where TSettings : class
+    {
+        if (settingsByType.TryGetValue(typeof(TSettings), out var settings))
+        {
+            return (TSettings)settings;
+        }
+        throw new InvalidOperationException($"Settings section for '{typeof(TSettings).Name}' is not registered.");
+    }
 
     private void OnSettingsNavigationPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
@@ -525,44 +581,25 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(SettingsNavigationViewModel.SelectedFieldIndex):
                 OnPropertyChanged(nameof(SelectedSettingsFieldIndex));
                 break;
-            case nameof(SettingsNavigationViewModel.IsGeneralSection):
-                OnPropertyChanged(nameof(IsGeneralSettingsSection));
-                break;
             case nameof(SettingsNavigationViewModel.IsCompatibilitySection):
                 OnPropertyChanged(nameof(IsCompatibilitySettingsSection));
                 break;
-            case nameof(SettingsNavigationViewModel.IsSectionPlaceholderVisible):
-                OnPropertyChanged(nameof(IsSettingsSectionPlaceholderVisible));
+            case nameof(SettingsNavigationViewModel.IsConnectorsSection):
+                OnPropertyChanged(nameof(IsConnectorsSettingsSection));
+                break;
+            case nameof(SettingsNavigationViewModel.IsSettingsDataSection):
+                OnPropertyChanged(nameof(IsSettingsDataSectionSelected));
                 break;
             case nameof(SettingsNavigationViewModel.SelectedSection):
                 OnPropertyChanged(nameof(SelectedSettingsSection));
+                OnPropertyChanged(nameof(IsGeneralSettingsSection));
                 break;
-            case nameof(SettingsNavigationViewModel.IsLanguageFieldSelected):
-                OnPropertyChanged(nameof(IsLanguageFieldSelected));
+            case nameof(SettingsNavigationViewModel.SelectedFieldCount):
+                OnPropertyChanged(nameof(SelectedSettingsFieldCount));
                 break;
-            case nameof(SettingsNavigationViewModel.IsTimeZoneFieldSelected):
-                OnPropertyChanged(nameof(IsTimeZoneFieldSelected));
+            case nameof(SettingsNavigationViewModel.SelectedSettingsTabIndex):
+                OnPropertyChanged(nameof(SelectedSettingsTabIndex));
                 break;
-            case nameof(SettingsNavigationViewModel.LanguageFieldBorderBrush):
-                OnPropertyChanged(nameof(LanguageFieldBorderBrush));
-                break;
-            case nameof(SettingsNavigationViewModel.TimeZoneFieldBorderBrush):
-                OnPropertyChanged(nameof(TimeZoneFieldBorderBrush));
-                break;
-        }
-    }
-
-    partial void OnSettingsChanged(HatbandSettings value)
-    {
-        UpdateSelectedSettingsOptions();
-    }
-
-    partial void OnIsSteamSilentModeEnabledChanged(bool value)
-    {
-        Settings.Steam.SilentModeEnabled = value;
-        if (hasLoadedSettings)
-        {
-            _ = SaveSettingsAsync();
         }
     }
 
@@ -580,24 +617,36 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedLanguageOptionChanged(SettingsOptionViewModel? value)
     {
-        if (value is null || Settings.General.LanguageTag == value.Value)
+        if (value is null || !settingsByType.TryGetValue(typeof(GeneralSettings), out var rawGeneralSettings))
         {
             return;
         }
 
-        Settings.General.LanguageTag = value.Value;
-        _ = SaveSettingsAsync(refreshMetadata: true);
+        var generalSettings = (GeneralSettings)rawGeneralSettings;
+        if (generalSettings.LanguageTag == value.Value)
+        {
+            return;
+        }
+
+        generalSettings.LanguageTag = value.Value;
+        _ = SaveSettingsAsync();
     }
 
     partial void OnSelectedTimeZoneOptionChanged(SettingsOptionViewModel? value)
     {
-        if (value is null || Settings.General.TimeZoneId == value.Value)
+        if (value is null || !settingsByType.TryGetValue(typeof(GeneralSettings), out var rawGeneralSettings))
+        {
+            return;
+        }
+
+        var generalSettings = (GeneralSettings)rawGeneralSettings;
+        if (generalSettings.TimeZoneId == value.Value)
         {
             return;
         }
 
         dateTimeDisplayFormatter.SetTimeZone(value.Value);
-        Settings.General.TimeZoneId = value.Value;
+        generalSettings.TimeZoneId = value.Value;
         foreach (var game in allGames)
         {
             game.RefreshTimeZoneDisplay();
@@ -628,10 +677,6 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSettingsScreen));
         OnPropertyChanged(nameof(IsSettingsBackgroundVisible));
         OnPropertyChanged(nameof(SettingsScreenZIndex));
-        OnPropertyChanged(nameof(IsConnectorsScreen));
-        OnPropertyChanged(nameof(IsConnectorsBackgroundVisible));
-        OnPropertyChanged(nameof(ConnectorsScreenZIndex));
-        OnPropertyChanged(nameof(IsConnectorLoginScreen));
         OnPropertyChanged(nameof(KeyboardHelpText));
     }
 
@@ -643,12 +688,6 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnIsGameOptionsOpenChanged(bool value)
     {
         OnPropertyChanged(nameof(KeyboardHelpText));
-    }
-
-    partial void OnSelectedConnectorChanged(ConnectorViewModel? value)
-    {
-        steamConnectorLogin.SelectConnector(value?.SourceId);
-        OnPropertyChanged(nameof(IsConnectorLoginScreen));
     }
 
     private void OnSteamConnectorLoginPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
@@ -683,6 +722,7 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnIsLibrarySyncRunningChanged(bool value)
     {
         SyncConnectedSteamLibraryCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanRefreshMetadata));
         OnPropertyChanged(nameof(CanSynchronizeSteamLibrary));
         OnPropertyChanged(nameof(LibraryBusyTitle));
         OnPropertyChanged(nameof(LibraryBusyMessage));
@@ -787,17 +827,40 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsLibraryLoading = true;
 
-        try
+        if (!settingsLoaded)
         {
-            var loadedSettings = await settingsStore.LoadAsync(cancellationToken);
-            dateTimeDisplayFormatter.SetTimeZone(loadedSettings.General.TimeZoneId);
-            Settings = loadedSettings;
-            IsSteamSilentModeEnabled = loadedSettings.Steam.SilentModeEnabled;
-            hasLoadedSettings = true;
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.LoadSettingsError, exception.Message);
+            IsSettingsLoading = true;
+            try
+            {
+                settingsByType.Clear();
+                foreach (var settingsSection in SettingsNavigation.Sections)
+                {
+                    if (settingsSection.Descriptor is not { } descriptor)
+                    {
+                        continue;
+                    }
+
+                    var settings = await settingsApi.GetSectionAsync(descriptor, cancellationToken);
+                    settingsSection.SetSettings(settings);
+                    settingsByType.Add(descriptor.SettingsType, settings);
+                }
+
+                var generalSettings = GetSettings<GeneralSettings>();
+                dateTimeDisplayFormatter.SetTimeZone(generalSettings.TimeZoneId);
+                UpdateSelectedSettingsOptions();
+                IsSteamSilentModeEnabled = settingsByType.TryGetValue(typeof(ConnectorsSettings), out var connectorSettings)
+                    ? ((ConnectorsSettings)connectorSettings).Steam.SilentModeEnabled
+                    : false;
+                settingsLoaded = true;
+            }
+            catch (Exception exception)
+            {
+                StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.LoadSettingsError, exception.Message);
+            }
+            finally
+            {
+                IsSettingsLoading = false;
+            }
         }
 
         try
@@ -818,7 +881,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     exception.Message);
             }
 
-            var savedGames = await gameLibraryService.GetGamesAsync(cancellationToken);
+            var savedGames = await gameRepository.GetAllAsync(cancellationToken);
             SetGames(savedGames.Select(game => new GameCardViewModel(game, dateTimeDisplayFormatter, hostSystemInfo)));
 
             await Task.WhenAll(allGames.Select(game => game.LoadCoverAsync(artworkImageLoader)));
@@ -834,39 +897,22 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (allGames.Count > 0)
         {
-            _ = SynchronizeLibraryDataAndHowLongToBeatAsync(cancellationToken);
         }
     }
 
-    private async Task SynchronizeLibraryDataAndHowLongToBeatAsync(CancellationToken cancellationToken)
+    private async Task SaveSettingsAsync()
     {
         try
         {
-            await gameLibrarySyncService.EnrichLibraryAsync(cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.LibraryEnrichmentError, exception.Message);
-        }
-
-        await SynchronizeTimeToBeatAsync(cancellationToken);
-    }
-
-    private async Task SaveSettingsAsync(bool refreshMetadata = false)
-    {
-        try
-        {
-            await settingsStore.SaveAsync(Settings);
-            StatusMessage = Resources.SettingsSaved;
-
-            if (refreshMetadata)
+            foreach (var settingsSection in SettingsNavigation.Sections)
             {
-                await gameLibrarySyncService.EnrichLibraryAsync();
+                if (settingsSection.Descriptor is { } descriptor && settingsSection.Settings is { } settings)
+                {
+                    await settingsApi.SaveSectionAsync(descriptor, settings);
+                }
             }
+
+            StatusMessage = Resources.SettingsSaved;
         }
         catch (Exception exception)
         {
@@ -876,8 +922,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void UpdateSelectedSettingsOptions()
     {
-        SelectedLanguageOption = FindOrAddLanguageOption(Settings.General.LanguageTag);
-        SelectedTimeZoneOption = FindOrAddTimeZoneOption(Settings.General.TimeZoneId);
+        var generalSettings = GetSettings<GeneralSettings>();
+        SelectedLanguageOption = FindOrAddLanguageOption(generalSettings.LanguageTag);
+        SelectedTimeZoneOption = FindOrAddTimeZoneOption(generalSettings.TimeZoneId);
     }
 
     private SettingsOptionViewModel FindOrAddLanguageOption(string languageTag)
@@ -985,7 +1032,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        GameMetadataEditor.Load(SelectedGameCard.Game, Settings.General.LanguageTag);
+        GameMetadataEditor.Load(SelectedGameCard.Game, GetSettings<GeneralSettings>().LanguageTag);
         IsGameOptionsOpen = false;
         NavigateTo(HatbandScreen.EditGame);
     }
@@ -1001,19 +1048,6 @@ public partial class MainWindowViewModel : ViewModelBase
         UpdateGameCard(game);
         ReturnToPreviousScreen();
         StatusMessage = Resources.GameDetailsSaved;
-        _ = EnrichLibraryAfterGameEditAsync();
-    }
-
-    private async Task EnrichLibraryAfterGameEditAsync()
-    {
-        try
-        {
-            await gameLibrarySyncService.EnrichLibraryAsync();
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.LibraryEnrichmentError, exception.Message);
-        }
     }
 
     [RelayCommand]
@@ -1028,8 +1062,8 @@ public partial class MainWindowViewModel : ViewModelBase
         var isHidden = !game.IsHidden;
         try
         {
-            await gameLibraryService.SetGameHiddenAsync(game.Id, isHidden, cancellationToken);
             game.IsHidden = isHidden;
+            await gameRepository.UpdateAsync(game, cancellationToken);
             IsGameOptionsOpen = false;
             ReturnToPreviousScreen();
             RefreshVisibleGames();
@@ -1041,6 +1075,37 @@ public partial class MainWindowViewModel : ViewModelBase
         catch (Exception exception)
         {
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.UpdateGameVisibilityError, exception.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshMetadataAsync(CancellationToken cancellationToken)
+    {
+        if (IsLibrarySyncRunning || IsLibraryEnrichmentRunning)
+        {
+            return;
+        }
+
+        IsLibrarySyncRunning = true;
+        librarySyncProgress.BeginSync(Resources.Brand);
+        try
+        {
+            await gameLibrarySyncService.RefreshMetadataAsync(cancellationToken);
+            await LoadGamesAsync(cancellationToken);
+            librarySyncProgress.CompleteSync(Resources.Brand);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            librarySyncProgress.CompleteSync(Resources.Brand, exception);
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.LibraryEnrichmentError, exception.Message);
+        }
+        finally
+        {
+            IsLibrarySyncRunning = false;
         }
     }
 
@@ -1328,13 +1393,12 @@ public partial class MainWindowViewModel : ViewModelBase
             }
 
             await gameInstallationStateSyncService.RefreshAsync(cancellationToken);
-            var refreshedGames = await gameLibraryService.GetGamesAsync(cancellationToken);
+            var refreshedGames = await gameRepository.GetAllAsync(cancellationToken);
             var gamesById = refreshedGames.ToDictionary(game => game.Id);
             foreach (var gameCard in allGames.ToArray())
             {
                 if (gamesById.TryGetValue(gameCard.Game.Id, out var refreshedGame) &&
-                    (gameCard.Game.IsInstalled != refreshedGame.IsInstalled ||
-                     gameCard.Game.InstallDirectory != refreshedGame.InstallDirectory))
+                    gameCard.Game.InstallationInfo != refreshedGame.InstallationInfo)
                 {
                     UpdateGameCard(refreshedGame);
                 }
@@ -1342,7 +1406,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             foreach (var (gameId, isInstalled) in pendingInstallationStates.ToArray())
             {
-                if (gamesById.TryGetValue(gameId, out var refreshedGame) && refreshedGame.IsInstalled == isInstalled)
+                if (gamesById.TryGetValue(gameId, out var refreshedGame) && (refreshedGame.InstallationInfo is not null) == isInstalled)
                 {
                     pendingInstallationStates.Remove(gameId);
                     OnPropertyChanged(nameof(IsSelectedGameUninstallPending));
@@ -1491,11 +1555,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 returnToMenuOnBack = true;
                 NavigateTo(HatbandScreen.Settings);
                 break;
-            case MenuAction.Connectors:
+            case MenuAction.OpenConnectorSettings:
                 returnToMenuOnBack = true;
-                SelectedConnector = null;
-                SelectedConnectorIndex = 0;
-                NavigateTo(HatbandScreen.Connectors);
+                settingsScreen.SelectConnectorsSection();
+                steamConnectorLogin.RefreshConnectionStatus();
+                NavigateTo(HatbandScreen.Settings);
                 break;
             case MenuAction.Exit:
                 ExitRequested?.Invoke(this, EventArgs.Empty);
@@ -1528,17 +1592,6 @@ public partial class MainWindowViewModel : ViewModelBase
                 CancelGameEditing();
                 break;
             case HatbandScreen.Settings:
-                steamConnectorLogin.CancelLogin();
-                ReturnToPreviousScreen();
-                break;
-            case HatbandScreen.Connectors:
-                if (SelectedConnector is not null)
-                {
-                    steamConnectorLogin.CancelAndReset();
-                    SelectedConnector = null;
-                    return;
-                }
-
                 steamConnectorLogin.CancelLogin();
                 ReturnToPreviousScreen();
                 break;
@@ -1593,8 +1646,6 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(AddGameScreenZIndex));
         OnPropertyChanged(nameof(IsSettingsBackgroundVisible));
         OnPropertyChanged(nameof(SettingsScreenZIndex));
-        OnPropertyChanged(nameof(IsConnectorsBackgroundVisible));
-        OnPropertyChanged(nameof(ConnectorsScreenZIndex));
     }
 
     private int GetScreenZIndex(HatbandScreen screen)
@@ -1605,34 +1656,6 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         return IsDialogScreen && !IsFullScreenNavigationScreen && IsPreviousScreen(screen) ? 1 : -1;
-    }
-
-    public void OpenConnector(ConnectorViewModel connector)
-    {
-        SelectConnector(connector);
-        SelectedConnector = connector;
-        steamConnectorLogin.RefreshConnectionStatus();
-    }
-
-    public void SelectConnector(ConnectorViewModel connector)
-    {
-        ArgumentNullException.ThrowIfNull(connector);
-        var connectorIndex = Connectors.IndexOf(connector);
-        if (connectorIndex < 0)
-        {
-            throw new ArgumentException("The connector does not belong to this view model.", nameof(connector));
-        }
-
-        SelectedConnectorIndex = connectorIndex;
-        UpdateConnectorSelection();
-    }
-
-    private void UpdateConnectorSelection()
-    {
-        for (var index = 0; index < Connectors.Count; index++)
-        {
-            Connectors[index].IsSelected = index == SelectedConnectorIndex;
-        }
     }
 
     [RelayCommand(CanExecute = nameof(CanSynchronizeSteamLibrary))]
@@ -1767,14 +1790,13 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            var savedGames = await gameLibraryService.GetGamesAsync();
+            var savedGames = await gameRepository.GetAllAsync();
             SetGames(savedGames.Select(savedGame => new GameCardViewModel(savedGame, dateTimeDisplayFormatter, hostSystemInfo)));
             SelectedGameCard = Games.FirstOrDefault(item => item.Game.Id == game.Id);
             await Task.WhenAll(allGames.Select(item => item.LoadCoverAsync(artworkImageLoader)));
             ClearNewGameForm();
             ReturnToPreviousScreen();
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameAdded, game.Name);
-            _ = SynchronizeLibraryDataAndHowLongToBeatAsync(CancellationToken.None);
         }
         catch (Exception exception)
         {
@@ -1785,6 +1807,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task<int> SynchronizeSteamLibraryAsync(CancellationToken cancellationToken)
     {
         IsLibrarySyncRunning = true;
+        librarySyncProgress.BeginSync("Steam");
         StatusMessage = null;
         try
         {
@@ -1793,7 +1816,13 @@ public partial class MainWindowViewModel : ViewModelBase
                 cancellationToken);
             await LoadGamesAsync(cancellationToken);
             HasCompletedSteamSync = true;
+            librarySyncProgress.CompleteSync("Steam");
             return games.Count;
+        }
+        catch (Exception exception)
+        {
+            librarySyncProgress.CompleteSync("Steam", exception);
+            throw;
         }
         finally
         {
@@ -1807,6 +1836,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             case nameof(LibrarySyncProgressViewModel.IsLibraryEnrichmentRunning):
                 OnPropertyChanged(nameof(IsLibraryEnrichmentRunning));
+                OnPropertyChanged(nameof(CanRefreshMetadata));
                 OnPropertyChanged(nameof(IsSyncActivityVisible));
                 OnPropertyChanged(nameof(IsSyncActivityIndeterminate));
                 OnPropertyChanged(nameof(SyncActivityStatus));
@@ -1834,21 +1864,6 @@ public partial class MainWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(TimeToBeatSyncProgressPercent));
                 OnPropertyChanged(nameof(SyncActivityProgressPercent));
                 break;
-        }
-    }
-
-    private async Task SynchronizeTimeToBeatAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await gameTimeToBeatSyncService.SynchronizeAsync(cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception exception)
-        {
-            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.HltbSyncError, exception.Message);
         }
     }
 
