@@ -25,7 +25,7 @@ public partial class LibraryScreenView : UserControl
 
     private void OnEmptyPrimaryActionClick(object? sender, RoutedEventArgs e)
     {
-        MenuActionRequested?.Invoke(MenuAction.Connectors);
+        MenuActionRequested?.Invoke(MenuAction.OpenConnectorSettings);
     }
 
     private void OnEmptyAddGameClick(object? sender, RoutedEventArgs e)

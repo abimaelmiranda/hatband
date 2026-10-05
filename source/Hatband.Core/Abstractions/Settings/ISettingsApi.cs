@@ -15,6 +15,11 @@ public interface ISettingsApi
     IReadOnlyList<ISettingsSection> GetSections();
 
     /// <summary>
+    /// Loads settings for a section discovered at runtime.
+    /// </summary>
+    Task<object> GetSectionAsync(ISettingsSection section, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Loads a section by its registered settings DTO type.
     /// </summary>
     Task<TSettings> GetSectionAsync<TSettings>(CancellationToken cancellationToken = default)
@@ -28,4 +33,12 @@ public interface ISettingsApi
         TSettings settings,
         CancellationToken cancellationToken = default)
         where TSettings : class;
+
+    /// <summary>
+    /// Persists settings for a section discovered at runtime.
+    /// </summary>
+    Task SaveSectionAsync(
+        ISettingsSection section,
+        object settings,
+        CancellationToken cancellationToken = default);
 }

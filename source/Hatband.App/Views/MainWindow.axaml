@@ -198,10 +198,6 @@
                                     IsVisible="{Binding IsSettingsBackgroundVisible}"
                                     Panel.ZIndex="{Binding SettingsScreenZIndex}" />
 
-        <screens:ConnectorsScreenView x:Name="ConnectorsScreenView"
-                                      IsVisible="{Binding IsConnectorsBackgroundVisible}"
-                                      Panel.ZIndex="{Binding ConnectorsScreenZIndex}" />
-
         <screens:MenuOverlayView x:Name="MenuOverlayView"
                                  IsVisible="{Binding IsMenuOpen}"
                                  Panel.ZIndex="{Binding MenuOverlayZIndex}" />

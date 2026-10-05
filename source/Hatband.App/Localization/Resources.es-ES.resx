@@ -18,9 +18,6 @@
   <data name="MenuAddGame" xml:space="preserve">
     <value>Añadir juego</value>
   </data>
-  <data name="MenuConnectors" xml:space="preserve">
-    <value>Conectores</value>
-  </data>
   <data name="MenuSettings" xml:space="preserve">
     <value>Configuración</value>
   </data>
@@ -60,8 +57,8 @@
   <data name="LibraryBreadcrumb" xml:space="preserve">
     <value>HATBAND  /  BIBLIOTECA</value>
   </data>
-  <data name="OpenConnectors" xml:space="preserve">
-    <value>CONECTORES</value>
+  <data name="ConnectStore" xml:space="preserve">
+    <value>CONECTAR UNA TIENDA</value>
   </data>
   <data name="AddManually" xml:space="preserve">
     <value>AÑADIR MANUALMENTE</value>
@@ -101,6 +98,9 @@
   </data>
   <data name="SteamSilentMode" xml:space="preserve">
     <value>Modo silencioso</value>
+  </data>
+  <data name="SteamAccount" xml:space="preserve">
+    <value>Cuenta de Steam</value>
   </data>
   <data name="SteamSilentModeDescription" xml:space="preserve">
     <value>Intenta cerrar Steam normalmente y ejecutar acciones mediante comandos. Si falla, usa el protocolo de Steam y vuelve a Hatband.</value>
@@ -453,6 +453,9 @@
   <data name="LoadSettingsError" xml:space="preserve">
     <value>No se pudo cargar la configuración: {0}</value>
   </data>
+  <data name="LoadingSettings" xml:space="preserve">
+    <value>Cargando configuración…</value>
+  </data>
   <data name="LoadLibraryError" xml:space="preserve">
     <value>No se pudo cargar la biblioteca: {0}</value>
   </data>
@@ -512,6 +515,9 @@
   </data>
   <data name="UpdateGames" xml:space="preserve">
     <value>Actualizando juegos…</value>
+  </data>
+  <data name="RefreshMetadata" xml:space="preserve">
+    <value>Actualizar metadatos de juegos</value>
   </data>
   <data name="SteamSyncActivity" xml:space="preserve">
     <value>Steam · sincronizando biblioteca…</value>
@@ -669,8 +675,8 @@
   <data name="NativePlatformSupport" xml:space="preserve">
     <value>Funciona de forma nativa</value>
   </data>
-  <data name="RequiresProton" xml:space="preserve">
-    <value>Requiere Proton</value>
+  <data name="RequiresCompatibilityTool" xml:space="preserve">
+    <value>Requiere una herramienta de compatibilidad</value>
   </data>
   <data name="UnsupportedPlatform" xml:space="preserve">
     <value>No compatible</value>

@@ -27,6 +27,9 @@ public interface ISettingsSection
     /// <summary>
     /// Settings DTO type. A UI can inspect its properties and use their types and annotations
     /// to choose controls, such as checkboxes for booleans and text fields for strings.
+    /// Property labels should use <see cref="System.ComponentModel.DataAnnotations.DisplayAttribute"/>.
+    /// Its resource-backed <c>Name</c> can be localized through <c>ResourceType</c>; when no label is
+    /// provided, the UI uses the property name as declared.
     /// </summary>
     Type SettingsType { get; }
 

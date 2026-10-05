@@ -1,14 +1,33 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Hatband.App.Localization;
+using Hatband.Core.Abstractions.Settings;
 
 namespace Hatband.App.ViewModels.Settings;
 
 public partial class SettingsNavigationViewModel : ObservableObject
 {
+    public SettingsNavigationViewModel(IEnumerable<ISettingsSection> sections)
+    {
+        ArgumentNullException.ThrowIfNull(sections);
+        var discoveredSections = sections
+            .OrderBy(section => section.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+            .Select(section => new SettingsSectionOptionViewModel(section));
+        Sections = new ObservableCollection<SettingsSectionOptionViewModel>(discoveredSections)
+        {
+            SettingsSectionOptionViewModel.CreateCompatibilitySection()
+        };
+        if (Sections.Count == 0)
+        {
+            throw new InvalidOperationException("At least one settings section must be available.");
+        }
+
+        var initialSection = Sections.FirstOrDefault(section => section.Id == SettingsSectionOptionViewModel.GeneralSectionId) ?? Sections[0];
+        SelectedSectionIndex = Sections.IndexOf(initialSection);
+    }
+
     [ObservableProperty]
-    public partial ObservableCollection<SettingsSectionOptionViewModel> Sections { get; set; } = CreateSections();
+    public partial ObservableCollection<SettingsSectionOptionViewModel> Sections { get; set; }
 
     [ObservableProperty]
     public partial int SelectedSectionIndex { get; set; }
@@ -19,11 +38,20 @@ public partial class SettingsNavigationViewModel : ObservableObject
     [ObservableProperty]
     public partial int SelectedFieldIndex { get; set; }
 
-    public bool IsGeneralSection => SelectedSection.Section == SettingsSection.General;
+    [ObservableProperty]
+    public partial int SelectedSettingsTabIndex { get; set; }
 
-    public bool IsCompatibilitySection => SelectedSection.Section == SettingsSection.Compatibility;
+    public SettingsSectionOptionViewModel SelectedSection => Sections[SelectedSectionIndex];
 
-    public bool IsSectionPlaceholderVisible => !IsGeneralSection && !IsCompatibilitySection;
+    public bool IsCompatibilitySection => SelectedSection.IsCompatibilitySection;
+
+    public bool IsConnectorsSection => SelectedSection.IsConnectorsSection;
+
+    public bool IsSettingsDataSection => !IsCompatibilitySection;
+
+    public int SelectedFieldCount => IsCompatibilitySection
+        ? compatibilityFieldCount
+        : SelectedSection.GetFieldCount(SelectedSettingsTabIndex);
 
     private int compatibilityFieldCount = 1;
 
@@ -31,21 +59,8 @@ public partial class SettingsNavigationViewModel : ObservableObject
     {
         ArgumentOutOfRangeException.ThrowIfNegative(fieldCount);
         compatibilityFieldCount = Math.Max(fieldCount, 1);
-        if (IsCompatibilitySection && SelectedFieldIndex >= compatibilityFieldCount)
-        {
-            SelectedFieldIndex = compatibilityFieldCount - 1;
-        }
+        NotifyFieldCountChanged();
     }
-
-    public SettingsSectionOptionViewModel SelectedSection => Sections[SelectedSectionIndex];
-
-    public bool IsLanguageFieldSelected => IsContentActive && IsGeneralSection && SelectedFieldIndex == 0;
-
-    public bool IsTimeZoneFieldSelected => IsContentActive && IsGeneralSection && SelectedFieldIndex == 1;
-
-    public IBrush LanguageFieldBorderBrush => GetFieldBorderBrush(IsLanguageFieldSelected);
-
-    public IBrush TimeZoneFieldBorderBrush => GetFieldBorderBrush(IsTimeZoneFieldSelected);
 
     public void ActivateSection()
     {
@@ -53,14 +68,11 @@ public partial class SettingsNavigationViewModel : ObservableObject
         SelectedFieldIndex = 0;
     }
 
-    public void DeactivateContent()
-    {
-        IsContentActive = false;
-    }
+    public void DeactivateContent() => IsContentActive = false;
 
     public void SelectField(int index)
     {
-        if (index < 0 || index >= GetFieldCount())
+        if (index < 0 || index >= Math.Max(SelectedFieldCount, 1))
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }
@@ -69,10 +81,20 @@ public partial class SettingsNavigationViewModel : ObservableObject
         SelectedFieldIndex = index;
     }
 
+    public void SelectSettingsTab(int index)
+    {
+        if (IsCompatibilitySection || SelectedSection.EditorDefinition?.HasTabs != true ||
+            index < 0 || index >= SelectedSection.EditorDefinition.Tabs.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+
+        SelectedSettingsTabIndex = index;
+    }
+
     public void SelectSection(SettingsSectionOptionViewModel section)
     {
         ArgumentNullException.ThrowIfNull(section);
-
         var index = Sections.IndexOf(section);
         if (index < 0)
         {
@@ -83,6 +105,10 @@ public partial class SettingsNavigationViewModel : ObservableObject
         SelectedSectionIndex = index;
     }
 
+    public IBrush GetFieldBorderBrush(int index) => IsContentActive && SelectedFieldIndex == index
+        ? new SolidColorBrush(Color.Parse("#72D9FF"))
+        : Brushes.Transparent;
+
     partial void OnSelectedSectionIndexChanged(int value)
     {
         for (var index = 0; index < Sections.Count; index++)
@@ -90,64 +116,25 @@ public partial class SettingsNavigationViewModel : ObservableObject
             Sections[index].IsSelected = index == value;
         }
 
+        SelectedFieldIndex = 0;
+        SelectedSettingsTabIndex = 0;
         OnPropertyChanged(nameof(SelectedSection));
-        OnPropertyChanged(nameof(IsGeneralSection));
         OnPropertyChanged(nameof(IsCompatibilitySection));
-        OnPropertyChanged(nameof(IsSectionPlaceholderVisible));
-        NotifyFieldSelectionChanged();
+        OnPropertyChanged(nameof(IsConnectorsSection));
+        OnPropertyChanged(nameof(IsSettingsDataSection));
+        NotifyFieldCountChanged();
     }
 
-    partial void OnIsContentActiveChanged(bool value)
+    partial void OnSelectedFieldIndexChanged(int value) => NotifyFieldCountChanged();
+
+    partial void OnSelectedSettingsTabIndexChanged(int value)
     {
-        NotifyFieldSelectionChanged();
+        SelectedFieldIndex = 0;
+        NotifyFieldCountChanged();
     }
 
-    partial void OnSelectedFieldIndexChanged(int value)
+    private void NotifyFieldCountChanged()
     {
-        NotifyFieldSelectionChanged();
-    }
-
-    private void NotifyFieldSelectionChanged()
-    {
-        OnPropertyChanged(nameof(IsLanguageFieldSelected));
-        OnPropertyChanged(nameof(IsTimeZoneFieldSelected));
-        OnPropertyChanged(nameof(LanguageFieldBorderBrush));
-        OnPropertyChanged(nameof(TimeZoneFieldBorderBrush));
-    }
-
-    private int GetFieldCount()
-    {
-        if (IsGeneralSection)
-        {
-            return 2;
-        }
-
-        if (IsCompatibilitySection)
-        {
-            return compatibilityFieldCount;
-        }
-
-        return 0;
-    }
-
-    private static ObservableCollection<SettingsSectionOptionViewModel> CreateSections()
-    {
-        var sections = new ObservableCollection<SettingsSectionOptionViewModel>
-        {
-            new(SettingsSection.General, Resources.General, "◉"),
-            new(SettingsSection.Compatibility, Resources.Compatibility, "⌁"),
-            new(SettingsSection.Appearance, Resources.Appearance, "◐"),
-            new(SettingsSection.Controls, Resources.Controls, "⌘"),
-            new(SettingsSection.Library, Resources.Library, "▦")
-        };
-        sections[0].IsSelected = true;
-        return sections;
-    }
-
-    private static IBrush GetFieldBorderBrush(bool isSelected)
-    {
-        return isSelected
-            ? new SolidColorBrush(Color.Parse("#72D9FF"))
-            : Brushes.Transparent;
+        OnPropertyChanged(nameof(SelectedFieldCount));
     }
 }

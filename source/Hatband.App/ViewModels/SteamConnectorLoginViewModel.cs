@@ -6,7 +6,6 @@ using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
 using Hatband.Core.Abstractions.Authentication;
 using Hatband.Core.Models.Authentication;
-using Hatband.Core.Enums.Stores;
 using QRCoder;
 
 namespace Hatband.App.ViewModels;
@@ -132,28 +131,16 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
         }
     }
 
-    public void CancelAndReset()
-    {
-        loginCancellation?.Cancel();
-        ConnectionStatus = Resources.NotConnected;
-        SetQrCode(null);
-    }
-
     public void CancelLogin()
     {
         loginCancellation?.Cancel();
     }
 
-    public void SelectConnector(GameSourceId? sourceId)
-    {
-        ActiveAccountName = sourceId == GameSourceId.Steam
-            ? sessionProvider.CurrentAccount?.DisplayName
-            : null;
-    }
-
     public void RefreshConnectionStatus()
     {
-        ConnectionStatus = sessionProvider.CurrentAccount is { } account
+        var account = sessionProvider.CurrentAccount;
+        ActiveAccountName = account?.DisplayName;
+        ConnectionStatus = account is not null
             ? string.Format(CultureInfo.CurrentCulture, Resources.ConnectedAs, account.DisplayName)
             : Resources.NotConnected;
     }

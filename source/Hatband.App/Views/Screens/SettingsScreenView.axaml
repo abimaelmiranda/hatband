@@ -4,6 +4,7 @@
              xmlns:lang="using:Hatband.App.Localization"
              xmlns:settings="using:Hatband.App.ViewModels.Settings"
              xmlns:components="using:Hatband.App.Views.Components"
+             xmlns:screens="using:Hatband.App.Views.Screens"
              x:Class="Hatband.App.Views.Screens.SettingsScreenView"
              x:DataType="vm:MainWindowViewModel">
     <components:FullScreenNavigationLayout IsMainContentActive="{Binding IsSettingsContentActive}">
@@ -36,63 +37,23 @@
 
         <components:FullScreenNavigationLayout.MainContent>
                         <Grid>
-                            <StackPanel IsVisible="{Binding IsGeneralSettingsSection}" Spacing="16">
-                                <TextBlock Text="{x:Static lang:Resources.General}"
-                                           FontSize="19"
-                                           FontWeight="SemiBold" />
-                                <Border Height="1" Background="#39454F" />
-                                <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto" RowSpacing="10">
-                                    <Border Padding="9,7"
-                                            CornerRadius="5"
-                                            BorderThickness="1"
-                                            BorderBrush="{Binding LanguageFieldBorderBrush}">
-                                        <Grid ColumnDefinitions="170,*" ColumnSpacing="12">
-                                            <TextBlock Text="{x:Static lang:Resources.InterfaceLanguage}"
-                                                       FontSize="13"
-                                                       VerticalAlignment="Center" />
-                                            <StackPanel Grid.Column="1" Spacing="4">
-                                                <ComboBox x:Name="LanguageComboBox"
-                                                          GotFocus="OnLanguageSettingsGotFocus"
-                                                          ItemsSource="{Binding LanguageOptions}"
-                                                          SelectedItem="{Binding SelectedLanguageOption, Mode=TwoWay}"
-                                                          MinHeight="38">
-                                                    <ComboBox.ItemTemplate>
-                                                        <DataTemplate x:DataType="settings:SettingsOptionViewModel">
-                                                            <TextBlock Text="{Binding Label}" />
-                                                        </DataTemplate>
-                                                    </ComboBox.ItemTemplate>
-                                                </ComboBox>
-                                                <TextBlock Text="{x:Static lang:Resources.LanguageRestartHint}"
-                                                           Foreground="#9EABB5"
-                                                           FontSize="10" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-
-                                    <Border Grid.Row="1"
-                                            Padding="9,7"
-                                            CornerRadius="5"
-                                            BorderThickness="1"
-                                            BorderBrush="{Binding TimeZoneFieldBorderBrush}">
-                                        <Grid ColumnDefinitions="170,*" ColumnSpacing="12">
-                                            <TextBlock Text="{x:Static lang:Resources.TimeZone}"
-                                                       FontSize="13"
-                                                       VerticalAlignment="Center" />
-                                            <ComboBox x:Name="TimeZoneComboBox"
-                                                      GotFocus="OnTimeZoneSettingsGotFocus"
-                                                      Grid.Column="1"
-                                                      ItemsSource="{Binding TimeZoneOptions}"
-                                                      SelectedItem="{Binding SelectedTimeZoneOption, Mode=TwoWay}"
-                                                      MinHeight="38">
-                                                <ComboBox.ItemTemplate>
-                                                    <DataTemplate x:DataType="settings:SettingsOptionViewModel">
-                                                        <TextBlock Text="{Binding Label}" />
-                                                    </DataTemplate>
-                                                </ComboBox.ItemTemplate>
-                                            </ComboBox>
-                                        </Grid>
-                                    </Border>
-                                </Grid>
+                            <Grid IsVisible="{Binding !IsSettingsLoading}">
+                            <StackPanel IsVisible="{Binding IsSettingsDataSectionSelected}" Spacing="16">
+                                <screens:SettingsSectionEditorView x:Name="SettingsSectionEditor"
+                                                                  Section="{Binding SelectedSettingsSection}" />
+                                <TextBlock Text="{x:Static lang:Resources.SteamSilentModeDescription}"
+                                           IsVisible="{Binding IsConnectorsSettingsSection}"
+                                           Foreground="#AEBBC5"
+                                           FontSize="11"
+                                           TextWrapping="Wrap" />
+                                <screens:SteamConnectorSettingsView x:Name="SteamConnectorSettings"
+                                                                    IsVisible="{Binding IsConnectorsSettingsSection}" />
+                                <Button Content="{x:Static lang:Resources.RefreshMetadata}"
+                                        Classes="subtle-action"
+                                        HorizontalAlignment="Left"
+                                        Command="{Binding RefreshMetadataCommand}"
+                                        IsEnabled="{Binding CanRefreshMetadata}"
+                                        IsVisible="{Binding IsGeneralSettingsSection}" />
                             </StackPanel>
 
                             <ScrollViewer IsVisible="{Binding IsCompatibilitySettingsSection}"
@@ -254,16 +215,16 @@
                                     </StackPanel>
                                 </StackPanel>
                             </ScrollViewer>
+                            </Grid>
 
-                            <StackPanel IsVisible="{Binding IsSettingsSectionPlaceholderVisible}"
+                            <StackPanel IsVisible="{Binding IsSettingsLoading}"
+                                        HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
-                                        Spacing="8">
-                                <TextBlock Text="{Binding SelectedSettingsSection.Title}"
-                                           FontSize="19"
-                                           FontWeight="SemiBold" />
-                                <TextBlock Text="{x:Static lang:Resources.SettingsSectionComingSoon}"
+                                        Spacing="12">
+                                <ProgressBar IsIndeterminate="True" Width="260" MinHeight="4" />
+                                <TextBlock Text="{x:Static lang:Resources.LoadingSettings}"
                                            Foreground="#AEBBC5"
-                                           FontSize="13" />
+                                           HorizontalAlignment="Center" />
                             </StackPanel>
                         </Grid>
         </components:FullScreenNavigationLayout.MainContent>

@@ -14,43 +14,27 @@ public partial class SettingsScreenView : UserControl
         InitializeComponent();
     }
 
-    public ComboBox LanguageComboBoxControl => LanguageComboBox;
-
-    public ComboBox TimeZoneComboBoxControl => TimeZoneComboBox;
-
     public bool IsSectionNavigationFocused => SettingsSectionList.GetVisualDescendants()
         .OfType<Button>()
         .Any(button => button.IsFocused);
 
     public void FocusSelectedSettingField()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not MainWindowViewModel viewModel || viewModel.IsSettingsLoading)
         {
             return;
         }
 
-        if (viewModel.SelectedSettingsFieldIndex == 0)
+        if (viewModel.IsCompatibilitySettingsSection)
         {
-            if (viewModel.IsGeneralSettingsSection)
-            {
-                DirectionalFocusNavigator.Focus(LanguageComboBox);
-            }
-            else
-            {
-                FocusSelectedCompatibilityField(viewModel.SelectedSettingsFieldIndex);
-            }
-
+            FocusSelectedCompatibilityField(viewModel.SelectedSettingsFieldIndex);
             return;
         }
 
-        if (viewModel.IsGeneralSettingsSection)
-        {
-            DirectionalFocusNavigator.Focus(TimeZoneComboBox);
-            return;
-        }
-
-        FocusSelectedCompatibilityField(viewModel.SelectedSettingsFieldIndex);
+        SettingsSectionEditor.FocusField(viewModel.SelectedSettingsFieldIndex);
     }
+
+    public void FocusConnectorsPrimaryAction() => SteamConnectorSettings.FocusPrimaryAction();
 
     public void FocusCompatibilityRefreshButton()
     {
@@ -66,27 +50,30 @@ public partial class SettingsScreenView : UserControl
         FocusSelectedCompatibilityField(refreshButtonIndex);
     }
 
-    public void OpenSelectedComboBox()
+    public bool OpenSelectedComboBox()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not MainWindowViewModel viewModel || viewModel.IsCompatibilitySettingsSection)
         {
-            return;
+            return false;
         }
 
-        if (viewModel.SelectedSettingsFieldIndex == 0)
-        {
-            if (viewModel.IsGeneralSettingsSection)
-            {
-                LanguageComboBox.IsDropDownOpen = true;
-            }
+        return SettingsSectionEditor.OpenSelectedComboBox(viewModel.SelectedSettingsFieldIndex);
+    }
 
-            return;
+    public bool HasOpenComboBox() => SettingsSectionEditor.HasOpenComboBox();
+
+    public bool CloseOpenComboBox()
+    {
+        var comboBox = SettingsSectionEditor.GetVisualDescendants()
+            .OfType<ComboBox>()
+            .FirstOrDefault(item => item.IsDropDownOpen);
+        if (comboBox is null)
+        {
+            return false;
         }
 
-        if (viewModel.IsGeneralSettingsSection)
-        {
-            TimeZoneComboBox.IsDropDownOpen = true;
-        }
+        comboBox.IsDropDownOpen = false;
+        return true;
     }
 
     public void FocusSelectedSection()
@@ -119,22 +106,6 @@ public partial class SettingsScreenView : UserControl
             sender is ConsoleNavigationItemView { DataContext: SettingsSectionOptionViewModel section })
         {
             viewModel.SelectSettingsSection(section);
-        }
-    }
-
-    private void OnLanguageSettingsGotFocus(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel viewModel)
-        {
-            viewModel.SelectSettingsField(0);
-        }
-    }
-
-    private void OnTimeZoneSettingsGotFocus(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel viewModel)
-        {
-            viewModel.SelectSettingsField(1);
         }
     }
 
@@ -247,25 +218,4 @@ public partial class SettingsScreenView : UserControl
     private static bool IsFocusable(Control control) =>
         control.IsVisible && control.IsEnabled && control.Focusable && control.IsTabStop;
 
-    public bool CloseOpenComboBox()
-    {
-        if (TimeZoneComboBox.IsDropDownOpen)
-        {
-            TimeZoneComboBox.IsDropDownOpen = false;
-            return true;
-        }
-
-        if (LanguageComboBox.IsDropDownOpen)
-        {
-            LanguageComboBox.IsDropDownOpen = false;
-            return true;
-        }
-
-        return false;
-    }
-
-    public bool HasOpenComboBox()
-    {
-        return LanguageComboBox.IsDropDownOpen || TimeZoneComboBox.IsDropDownOpen;
-    }
 }

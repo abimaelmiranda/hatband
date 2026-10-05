@@ -23,7 +23,6 @@ public partial class MainWindow : Window
         LibraryScreenView.MenuOpened += FocusMenuOverlay;
         MenuOverlayView.MenuActionRequested += ActivateMenuOptionFromScreen;
         GameDetailsScreenView.EditRequested += FocusGameEditor;
-        ConnectorsScreenView.ConnectorOpened += OnConnectorOpened;
         AddHandler(InputElement.KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
         Activated += OnWindowActivated;
         Closed += OnWindowClosed;
@@ -230,7 +229,6 @@ public partial class MainWindow : Window
             var menuWasOpen = viewModel.IsMenuOpen;
             var gameEditorWasOpen = viewModel.IsGameEditorScreen;
             var gameOptionsWereOpen = viewModel.IsDetailsScreen && viewModel.IsGameOptionsOpen;
-            var connectorDetailsWereOpen = viewModel.IsConnectorsScreen && viewModel.SelectedConnector is not null;
             viewModel.GoBack();
             if (viewModel.IsMenuOpen)
             {
@@ -247,10 +245,6 @@ public partial class MainWindow : Window
             else if (gameOptionsWereOpen)
             {
                 FocusWhenVisible(GameDetailsScreenView.OptionsButtonControl);
-            }
-            else if (connectorDetailsWereOpen && viewModel.IsConnectorsScreen)
-            {
-                FocusWhenVisible(ConnectorsScreenView, ConnectorsScreenView.FocusSelectedConnector);
             }
             else if (viewModel.IsLibraryScreen)
             {
@@ -359,10 +353,10 @@ public partial class MainWindow : Window
         if (viewModel.IsSettingsScreen && e.Key == Key.Enter)
         {
             if (viewModel.IsSettingsContentActive &&
-                viewModel.IsGeneralSettingsSection &&
-                !SettingsScreenView.HasOpenComboBox())
+                viewModel.IsSettingsDataSectionSelected &&
+                !SettingsScreenView.HasOpenComboBox() &&
+                SettingsScreenView.OpenSelectedComboBox())
             {
-                SettingsScreenView.OpenSelectedComboBox();
                 e.Handled = true;
                 return;
             }
@@ -370,7 +364,7 @@ public partial class MainWindow : Window
             if (!viewModel.IsSettingsContentActive && SettingsScreenView.IsSectionNavigationFocused)
             {
                 viewModel.ActivateSettingsSection();
-                if (viewModel.IsGeneralSettingsSection)
+                if (viewModel.IsSettingsDataSectionSelected)
                 {
                     FocusWhenVisible(SettingsScreenView, SettingsScreenView.FocusSelectedSettingField);
                 }
@@ -384,38 +378,6 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-        }
-
-        if (viewModel.IsConnectorsScreen &&
-            (viewModel.SelectedConnector is null || ConnectorsScreenView.IsConnectorListItemFocused) &&
-            e.Key == Key.Enter)
-        {
-            if (viewModel.Connectors.Count > 0)
-            {
-                ConnectorsScreenView.ActivateConnectorContent();
-                viewModel.OpenConnector(viewModel.Connectors[viewModel.SelectedConnectorIndex]);
-                FocusConnectorAction(viewModel);
-            }
-
-            e.Handled = true;
-            return;
-        }
-
-        if (viewModel.IsConnectorsScreen && e.Key == Key.Right && ConnectorsScreenView.IsConnectorListItemFocused)
-        {
-            ConnectorsScreenView.ActivateConnectorContent();
-            if (viewModel.SelectedConnector is null && viewModel.Connectors.Count > 0)
-            {
-                viewModel.OpenConnector(viewModel.Connectors[viewModel.SelectedConnectorIndex]);
-            }
-
-            if (viewModel.SelectedConnector is not null)
-            {
-                FocusConnectorAction(viewModel);
-            }
-
-            e.Handled = true;
-            return;
         }
 
         if (viewModel.IsGameEditorScreen && !viewModel.GameMetadataEditor.IsArtworkPickerOpen)
@@ -522,7 +484,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnGameMetadataEditorSaved(object? sender, Hatband.Core.Models.Game game)
+    private void OnGameMetadataEditorSaved(object? sender, Game game)
     {
         FocusWhenVisible(GameDetailsScreenView.OptionsButtonControl);
     }
@@ -570,18 +532,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (viewModel.IsConnectorsScreen)
-        {
-            if (viewModel.SelectedConnector is null)
-            {
-                ConnectorsScreenView.FocusSelectedConnector();
-                return;
-            }
-
-            FocusConnectorAction(viewModel);
-            return;
-        }
-
         if (viewModel.IsGameEditorScreen)
         {
             FocusWhenVisible(GameMetadataEditorScreenView, GameMetadataEditorScreenView.FocusSelectedEditorSection);
@@ -601,12 +551,10 @@ public partial class MainWindow : Window
         {
             DirectionalFocusNavigator.Focus(AddGameScreenView.GameNameInput);
         }
-        else if (action == MenuAction.Connectors)
+        else if (action == MenuAction.OpenConnectorSettings)
         {
-            if (viewModel.Connectors.Count > 0)
-            {
-                FocusWhenVisible(ConnectorsScreenView, ConnectorsScreenView.FocusSelectedConnector);
-            }
+            viewModel.ActivateSettingsSection();
+            FocusWhenVisible(SettingsScreenView, SettingsScreenView.FocusConnectorsPrimaryAction);
         }
         else if (action == MenuAction.Settings)
         {
@@ -624,22 +572,6 @@ public partial class MainWindow : Window
         {
             ActivateMenuOption(viewModel, action);
         }
-    }
-
-    private void OnConnectorOpened(ConnectorViewModel connector)
-    {
-        if (connector.SupportsQrLogin && DataContext is MainWindowViewModel viewModel)
-        {
-            FocusConnectorAction(viewModel);
-        }
-    }
-
-    private void FocusConnectorAction(MainWindowViewModel viewModel)
-    {
-        FocusWhenVisible(
-            ConnectorsScreenView.GetConnectorAction(
-                viewModel.IsConnectorConnected,
-                viewModel.SelectedConnector?.IsSteam == true));
     }
 
     private void FocusLibraryScreenTarget(MainWindowViewModel viewModel)
@@ -734,11 +666,6 @@ public partial class MainWindow : Window
         if (viewModel.IsSettingsScreen)
         {
             return SettingsScreenView;
-        }
-
-        if (viewModel.IsConnectorsScreen)
-        {
-            return ConnectorsScreenView;
         }
 
         if (viewModel.IsDetailsScreen)

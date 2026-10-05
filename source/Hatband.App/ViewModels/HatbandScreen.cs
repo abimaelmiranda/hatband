@@ -6,6 +6,5 @@ public enum HatbandScreen
     Details,
     EditGame,
     AddGame,
-    Connectors,
     Settings
 }

@@ -54,8 +54,6 @@ public partial class MenuOptionViewModel : ObservableObject
                 return "▦";
             case MenuAction.AddGame:
                 return "+";
-            case MenuAction.Connectors:
-                return "⇄";
             case MenuAction.Settings:
                 return "⚙";
             case MenuAction.Exit:

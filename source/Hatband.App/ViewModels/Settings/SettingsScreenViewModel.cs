@@ -1,11 +1,15 @@
+using Hatband.Core.Abstractions.Settings;
+
 namespace Hatband.App.ViewModels.Settings;
 
 public sealed class SettingsScreenViewModel
 {
-    public SettingsScreenViewModel(ProtonManagementViewModel protonManagement)
+    public SettingsScreenViewModel(ISettingsApi settingsApi, ProtonManagementViewModel protonManagement)
     {
+        ArgumentNullException.ThrowIfNull(settingsApi);
         ArgumentNullException.ThrowIfNull(protonManagement);
         ProtonManagement = protonManagement;
+        Navigation = new SettingsNavigationViewModel(settingsApi.GetSections());
         ProtonManagement.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(ProtonManagementViewModel.NavigationFieldCount))
@@ -15,7 +19,7 @@ public sealed class SettingsScreenViewModel
         };
     }
 
-    public SettingsNavigationViewModel Navigation { get; } = new();
+    public SettingsNavigationViewModel Navigation { get; }
 
     public ProtonManagementViewModel ProtonManagement { get; }
 
@@ -35,5 +39,12 @@ public sealed class SettingsScreenViewModel
         {
             ProtonManagement.RefreshCommand.Execute(null);
         }
+    }
+
+    public void SelectConnectorsSection()
+    {
+        var section = Navigation.Sections.SingleOrDefault(option => option.IsConnectorsSection)
+            ?? throw new InvalidOperationException("The connectors settings section is not registered.");
+        Navigation.SelectSection(section);
     }
 }

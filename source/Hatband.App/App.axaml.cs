@@ -6,8 +6,9 @@ using Hatband.App.Services;
 using Hatband.App.ViewModels;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.Views;
-using Hatband.Core.Abstractions;
+using Hatband.Core.Models.Settings;
 using Hatband.Infrastructure.DependencyInjection;
+using Hatband.Infrastructure.FileSystem;
 using Hatband.Infrastructure.Persistence;
 using Hatband.Infrastructure.Host;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,9 +45,9 @@ public partial class App : Application
             services.AddSingleton<MainWindowViewModel>();
 
             var serviceProvider = services.BuildServiceProvider();
-            serviceProvider.GetRequiredService<GameLibraryService>().InitializeDatabase();
+            serviceProvider.GetRequiredService<DatabaseInitializer>().InitializeAsync().GetAwaiter().GetResult();
             ApplySavedLanguage(
-                serviceProvider.GetRequiredService<ISettingsStore>(),
+                serviceProvider.GetRequiredService<ISettingsApi>(),
                 serviceProvider.GetRequiredService<ILogger<App>>());
 
             desktop.MainWindow = new MainWindow
@@ -59,14 +60,14 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static void ApplySavedLanguage(ISettingsStore settingsStore, ILogger logger)
+    private static void ApplySavedLanguage(ISettingsApi settingsApi, ILogger logger)
     {
         var languageTag = "en-US";
 
         try
         {
-            var settings = Task.Run(() => settingsStore.LoadAsync()).GetAwaiter().GetResult();
-            languageTag = settings.General.LanguageTag;
+            var settings = Task.Run(() => settingsApi.GetSectionAsync<GeneralSettings>()).GetAwaiter().GetResult();
+            languageTag = settings.LanguageTag;
         }
         catch (Exception exception)
         {

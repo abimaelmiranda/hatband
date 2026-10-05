@@ -1,14 +1,21 @@
-using Hatband.Core.Abstractions;
+using Hatband.Core.Models.Settings;
+using Hatband.Infrastructure.Archives;
+using Hatband.Infrastructure.FileSystem;
 using Hatband.Infrastructure.Host;
 using Hatband.Infrastructure.Persistence;
-using Hatband.Infrastructure.Services;
+using Hatband.Infrastructure.Persistence.Repositories;
+using Hatband.Infrastructure.Services.CompatibilityTools;
+using Hatband.Infrastructure.Services.Games;
+using Hatband.Infrastructure.Settings;
+using Hatband.Infrastructure.Storage.Artwork;
 using Hatband.Integrations;
 using Hatband.Integrations.Steam;
 using Hatband.Integrations.Steam.Abstractions;
+using Hatband.Integrations.Settings;
 using Hatband.Integrations.HowLongToBeat;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Hatband.Infrastructure.DependencyInjection;
 
@@ -24,39 +31,37 @@ public static class InfrastructureServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
 
         services.AddLogging();
-
-        var options = new DbContextOptionsBuilder<HatbandDbContext>()
-            .UseSqlite(connectionString)
-            .Options;
-
-        services.AddSingleton(options);
+        services.AddDbContextFactory<HatbandDbContext>(options => options.UseSqlite(connectionString));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(25) });
-        services.AddSingleton<GameLibraryService>();
-        services.AddSingleton<IGameLibraryService>(provider =>
-            provider.GetRequiredService<GameLibraryService>());
-        services.AddSingleton<IGameArtworkStorage>(
-            new FileSystemGameArtworkStorage(appDataFileSystem));
-        services.AddSingleton<ISettingsStore>(
-            new JsonSettingsStore(appDataFileSystem));
+        services.AddSingleton(appDataFileSystem);
+        services.TryAddSingleton<IHostSystemInfo, HostSystemInfo>();
+        services.AddSingleton<DatabaseInitializer>();
+        services.AddSingleton<IGameRepository, GameRepository>();
+        services.AddSingleton<IGameLibraryRepository, GameLibraryRepository>();
+        services.AddSingleton<IGameArtworkStorage>(provider => new FileSystemGameArtworkStorage(appDataFileSystem));
+        services.AddSingleton<ISettingsSection, GeneralSettingsSection>();
+        services.AddSingleton<ISettingsSection, ConnectorsSettingsSection>();
+        services.AddSingleton<ISettingsApi, JsonSettingsApi>();
         services.AddSingleton<IArchiveExtractionService, SharpCompressArchiveExtractionService>();
-        services.AddSingleton<IProtonReleaseCatalogService, ProtonReleaseCatalogService>();
-        services.AddSingleton<IProtonToolDiscoveryService, ProtonToolDiscoveryService>();
-        services.AddSingleton<IProtonToolInstallationService, ProtonToolInstallationService>();
+        services.AddSingleton<ICompatibilityToolReleaseCatalogService, CompatibilityToolReleaseCatalogService>();
+        services.AddSingleton<ICompatibilityToolDiscoveryService, CompatibilityToolDiscoveryService>();
+        services.AddSingleton<ICompatibilityToolInstallationService, CompatibilityToolInstallationService>();
         services.AddSingleton<IGameManagementService, GameManagementService>();
+        services.AddKeyedSingleton<IGameManagementService, SteamGameManagementProvider>(GameSourceId.Steam);
         services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
-        services.AddSingleton<IGameTimeToBeatSyncService, GameTimeToBeatSyncService>();
         services.AddSingleton<ISteamPlayerService, SteamPlayerService>();
         services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
+
         services.Scan(scan => scan
             .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IProtonReleaseProvider>())
-            .As<IProtonReleaseProvider>()
+            .AddClasses(classes => classes.AssignableTo<ICompatibilityToolReleaseProvider>())
+            .As<ICompatibilityToolReleaseProvider>()
             .WithSingletonLifetime());
         services.Scan(scan => scan
             .FromAssemblyOf<IntegrationAssemblyMarker>()
@@ -72,21 +77,6 @@ public static class InfrastructureServiceCollectionExtensions
             .FromAssemblyOf<IntegrationAssemblyMarker>()
             .AddClasses(classes => classes.AssignableTo<IGameArtworkProvider>())
             .As<IGameArtworkProvider>()
-            .WithSingletonLifetime());
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IGameMetadataSearchProvider>())
-            .As<IGameMetadataSearchProvider>()
-            .WithSingletonLifetime());
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IGameArtworkSearchProvider>())
-            .As<IGameArtworkSearchProvider>()
-            .WithSingletonLifetime());
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IGameManagementProvider>())
-            .As<IGameManagementProvider>()
             .WithSingletonLifetime());
         services.Scan(scan => scan
             .FromAssemblyOf<IntegrationAssemblyMarker>()

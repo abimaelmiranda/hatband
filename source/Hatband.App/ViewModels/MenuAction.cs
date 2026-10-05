@@ -5,7 +5,7 @@ public enum MenuAction
     Library,
     HiddenGames,
     AddGame,
-    Connectors,
+    OpenConnectorSettings,
     Settings,
     Exit
 }
