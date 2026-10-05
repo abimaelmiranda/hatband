@@ -6,6 +6,7 @@ public enum GameManagementResult
     FallbackProtocolOpened,
     FallbackStoreClientOpened,
     FallbackUnavailable,
+    GameActionStarted,
     SilentCommandStarted,
     StoreClientOpened,
     Unavailable,

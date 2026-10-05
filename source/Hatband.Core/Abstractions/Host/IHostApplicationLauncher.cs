@@ -9,6 +9,12 @@ public interface IHostApplicationLauncher
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken = default);
 
+    Task<bool> TryLaunchApplicationAsync(
+        string executable,
+        string? arguments,
+        string? workingDirectory,
+        CancellationToken cancellationToken = default);
+
     bool IsProcessRunning(string processName);
 
     Task<bool> TryCloseProcessGracefullyAsync(string processName, CancellationToken cancellationToken = default);

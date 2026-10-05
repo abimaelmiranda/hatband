@@ -1160,7 +1160,9 @@ public partial class MainWindowViewModel : ViewModelBase
             StatusMessage = GetGameManagementStatus(result, action);
 
             if (processWatchTarget is not null &&
-                result is GameManagementResult.ProtocolOpened or GameManagementResult.SilentCommandStarted)
+                result is GameManagementResult.ProtocolOpened or
+                    GameManagementResult.SilentCommandStarted or
+                    GameManagementResult.GameActionStarted)
             {
                 StartGameProcessMonitoring(gameCard, processWatchTarget);
             }
@@ -1489,6 +1491,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         return result switch
         {
+            GameManagementResult.GameActionStarted when action == GameManagementAction.Launch => Resources.GameLaunchStarted,
             GameManagementResult.ProtocolOpened or
             GameManagementResult.FallbackProtocolOpened or
             GameManagementResult.SilentCommandStarted => action switch

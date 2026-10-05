@@ -50,6 +50,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICompatibilityToolDiscoveryService, CompatibilityToolDiscoveryService>();
         services.AddSingleton<ICompatibilityToolInstallationService, CompatibilityToolInstallationService>();
         services.AddSingleton<IGameManagementService, GameManagementService>();
+        services.AddKeyedSingleton<IGameManagementService, ManualGameManagementProvider>(GameSourceId.Manual);
         services.AddKeyedSingleton<IGameManagementService, SteamGameManagementProvider>(GameSourceId.Steam);
         services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();

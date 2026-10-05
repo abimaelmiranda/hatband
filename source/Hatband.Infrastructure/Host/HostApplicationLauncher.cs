@@ -43,6 +43,36 @@ public sealed class HostApplicationLauncher : IHostApplicationLauncher
         }
     }
 
+    public Task<bool> TryLaunchApplicationAsync(
+        string executable,
+        string? arguments,
+        string? workingDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            var startInfo = new ProcessStartInfo(executable)
+            {
+                Arguments = arguments ?? string.Empty,
+                UseShellExecute = false
+            };
+
+            if (!string.IsNullOrWhiteSpace(workingDirectory))
+            {
+                startInfo.WorkingDirectory = workingDirectory;
+            }
+
+            return Task.FromResult(Process.Start(startInfo) is not null);
+        }
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or ArgumentException)
+        {
+            return Task.FromResult(false);
+        }
+    }
+
     public bool IsProcessRunning(string processName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(processName);

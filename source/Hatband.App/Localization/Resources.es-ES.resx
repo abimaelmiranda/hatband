@@ -315,6 +315,9 @@
   <data name="OptionalFolder" xml:space="preserve">
     <value>Carpeta opcional</value>
   </data>
+  <data name="GameLaunchStarted" xml:space="preserve">
+    <value>Se inició el lanzamiento del juego.</value>
+  </data>
   <data name="KeyboardAddGame" xml:space="preserve">
     <value>TAB   SIGUIENTE       ENTER   ACTIVAR</value>
   </data>

@@ -315,6 +315,9 @@
   <data name="OptionalFolder" xml:space="preserve">
     <value>Optional folder</value>
   </data>
+  <data name="GameLaunchStarted" xml:space="preserve">
+    <value>Game launch started.</value>
+  </data>
   <data name="KeyboardAddGame" xml:space="preserve">
     <value>TAB   NEXT       ENTER   ACTIVATE</value>
   </data>
