@@ -1,17 +1,19 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
+using Hatband.App.Navigation;
 using Hatband.App.Services;
+using Hatband.App.ViewModels.Navigation;
 using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Models.Games;
 using Hatband.Core.Models.Libraries;
 
 namespace Hatband.App.ViewModels;
 
-public partial class AddGameViewModel : ViewModelBase
+/// <summary>Owns manual game creation state, including provider-backed metadata and artwork lookup.</summary>
+public partial class AddGameViewModel : ScreenViewModel
 {
     public const string GameSectionId = "game";
     public const string ActionsSectionId = "actions";
@@ -21,6 +23,7 @@ public partial class AddGameViewModel : ViewModelBase
     private readonly IGameLibraryRepository _libraryRepository;
     private readonly IGameArtworkStorage _artworkStorage;
     private readonly IReadOnlyList<IGameMetadataProvider> _metadataProviders;
+    private readonly IModalService _modalService;
     private string _preferredLanguageTag = "en-US";
     private string? _metadataStoreName;
     private string? _metadataStoreGameId;
@@ -28,6 +31,7 @@ public partial class AddGameViewModel : ViewModelBase
     private GamePlatform? _nativePlatforms;
     private GameArtworkImage? _selectedCoverImage;
     private GameArtworkImage? _selectedBackgroundImage;
+    private CancellationTokenSource? _metadataSearchCancellation;
 
     public AddGameViewModel(
         IGameRepository gameRepository,
@@ -35,12 +39,21 @@ public partial class AddGameViewModel : ViewModelBase
         IGameArtworkStorage artworkStorage,
         IEnumerable<IGameMetadataProvider> metadataProviders,
         IEnumerable<IGameArtworkProvider> artworkProviders,
-        ArtworkImageLoader artworkImageLoader)
+        ArtworkImageLoader artworkImageLoader,
+        IModalService modalService)
     {
+        ArgumentNullException.ThrowIfNull(gameRepository);
+        ArgumentNullException.ThrowIfNull(libraryRepository);
+        ArgumentNullException.ThrowIfNull(artworkStorage);
+        ArgumentNullException.ThrowIfNull(metadataProviders);
+        ArgumentNullException.ThrowIfNull(artworkProviders);
+        ArgumentNullException.ThrowIfNull(artworkImageLoader);
+        ArgumentNullException.ThrowIfNull(modalService);
         _gameRepository = gameRepository;
         _libraryRepository = libraryRepository;
         _artworkStorage = artworkStorage;
         _metadataProviders = metadataProviders.ToArray();
+        _modalService = modalService;
         ArtworkPicker = new GameArtworkPickerViewModel(artworkProviders, artworkImageLoader);
         Sections =
         [
@@ -84,18 +97,6 @@ public partial class AddGameViewModel : ViewModelBase
     public partial ObservableCollection<GameMetadataSourceViewModel> MetadataSources { get; set; } = [];
 
     [ObservableProperty]
-    public partial string MetadataSearchQuery { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial int SelectedMetadataSourceIndex { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsMetadataSearchOpen { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsSearchingMetadata { get; set; }
-
-    [ObservableProperty]
     public partial string SteamArtworkAssociationStatus { get; private set; } = Resources.SteamArtworkNeedsMetadata;
 
     [ObservableProperty]
@@ -127,21 +128,18 @@ public partial class AddGameViewModel : ViewModelBase
 
     public bool CanOpenMetadataSearch => HasMetadataSources;
 
-    public bool CanSearchMetadata => !IsSearchingMetadata &&
-                                     !string.IsNullOrWhiteSpace(MetadataSearchQuery) &&
-                                     HasMetadataSources;
-
-    public GameMetadataSourceViewModel? SelectedMetadataSource =>
-        SelectedMetadataSourceIndex >= 0 && SelectedMetadataSourceIndex < MetadataSources.Count
-            ? MetadataSources[SelectedMetadataSourceIndex]
-            : null;
-
-    public bool CanApplySelectedMetadata => !IsSearchingMetadata &&
-        SelectedMetadataSource is { HasLookup: true, IsSearching: false };
-
     public GameArtworkPickerViewModel ArtworkPicker { get; }
 
+    /// <summary>Publishes the saved game or validation/storage failure for shell-level navigation handling.</summary>
     public event Action<AddGameCreationResult>? CreationCompleted;
+
+    /// <summary>Requests that the shell discard this screen through global navigation.</summary>
+    public event Action? CancelRequested;
+
+    [ObservableProperty]
+    public partial string? StatusMessage { get; set; }
+
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
 
     [RelayCommand]
     private void AddAction()
@@ -240,69 +238,72 @@ public partial class AddGameViewModel : ViewModelBase
         {
             var source = new GameMetadataSourceViewModel(provider, ApplyMetadata);
             source.Initialize(searchGame, languageTag, region);
-            source.PropertyChanged += OnMetadataSourcePropertyChanged;
             sources.Add(source);
         }
 
         MetadataSources = sources;
-        SelectedMetadataSourceIndex = 0;
     }
 
-    private void OnMetadataSourcePropertyChanged(object? sender, PropertyChangedEventArgs args)
-    {
-        if (args.PropertyName is nameof(GameMetadataSourceViewModel.SelectedSearchResult) or
-            nameof(GameMetadataSourceViewModel.IsSearching))
-        {
-            OnPropertyChanged(nameof(CanApplySelectedMetadata));
-        }
-    }
-
-    public void OpenMetadataSearch()
+    /// <summary>Opens metadata lookup as an owned modal and applies its confirmed result to this draft.</summary>
+    public async Task OpenMetadataSearchAsync()
     {
         if (!CanOpenMetadataSearch)
         {
             return;
         }
 
-        MetadataSearchQuery = Name.Trim();
-        SelectedMetadataSourceIndex = 0;
-        IsMetadataSearchOpen = true;
-    }
-
-    public void CloseMetadataSearch() => IsMetadataSearchOpen = false;
-
-    public void ApplySelectedMetadata()
-    {
-        if (!CanApplySelectedMetadata || SelectedMetadataSource is not { } source)
-        {
-            return;
-        }
-
-        source.ApplyCommand.Execute(null);
-    }
-
-    public async Task SearchMetadataAsync(CancellationToken cancellationToken = default)
-    {
-        if (!CanSearchMetadata)
-        {
-            return;
-        }
-
-        IsSearchingMetadata = true;
+        using var cancellation = new CancellationTokenSource();
+        _metadataSearchCancellation = cancellation;
+        var modal = new MetadataSearchModalViewModel(
+            MetadataSources,
+            Name.Trim(),
+            (query, token) => SearchMetadataAsync(query, token));
+        Task initialSearchTask = Task.CompletedTask;
         try
         {
-            var query = MetadataSearchQuery.Trim();
-            foreach (var source in MetadataSources)
+            if (modal.CanSearch)
             {
-                source.SearchQuery = query;
+                initialSearchTask = modal.SearchAsync(cancellation.Token);
             }
 
-            await Task.WhenAll(MetadataSources.Select(source => source.SearchAsync(cancellationToken)));
+            var completion = await _modalService.ShowAsync(modal, this);
+            if (completion.Outcome == ModalOutcome.Confirmed)
+            {
+                var selectedSource = completion.GetConfirmedValue();
+                selectedSource.ApplyCommand.Execute(null);
+            }
         }
         finally
         {
-            IsSearchingMetadata = false;
+            cancellation.Cancel();
+            try
+            {
+                await initialSearchTask;
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+            }
+
+            if (ReferenceEquals(_metadataSearchCancellation, cancellation))
+            {
+                _metadataSearchCancellation = null;
+            }
         }
+    }
+
+    public async Task SearchMetadataAsync(string query, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return;
+        }
+
+        foreach (var source in MetadataSources)
+        {
+            source.SearchQuery = query.Trim();
+        }
+
+        await Task.WhenAll(MetadataSources.Select(source => source.SearchAsync(cancellationToken)));
     }
 
     public Task SearchArtworkAsync(GameArtworkSlot slot, CancellationToken cancellationToken = default)
@@ -341,6 +342,7 @@ public partial class AddGameViewModel : ViewModelBase
 
     public void CloseArtworkSearch() => ArtworkPicker.Close();
 
+    /// <summary>Clears the draft after the shell finishes handling a successful creation result.</summary>
     public void Reset()
     {
         Name = string.Empty;
@@ -350,9 +352,7 @@ public partial class AddGameViewModel : ViewModelBase
         Publisher = string.Empty;
         Genre = string.Empty;
         ReleaseDate = string.Empty;
-        MetadataSearchQuery = string.Empty;
-        SelectedMetadataSourceIndex = 0;
-        IsMetadataSearchOpen = false;
+        _metadataSearchCancellation?.Cancel();
         CoverArtworkSelection = null;
         BackgroundArtworkSelection = null;
         _metadataStoreName = null;
@@ -363,13 +363,8 @@ public partial class AddGameViewModel : ViewModelBase
         _selectedBackgroundImage = null;
         ArtworkPicker.Close();
         ArtworkPicker.InvalidateSearch();
-        foreach (var source in MetadataSources)
-        {
-            source.PropertyChanged -= OnMetadataSourcePropertyChanged;
-        }
-
         MetadataSources = [];
-        IsSearchingMetadata = false;
+        StatusMessage = null;
         SteamArtworkAssociationStatus = Resources.SteamArtworkNeedsMetadata;
         Actions.Clear();
         SelectedSectionIndex = Sections.IndexOf(Sections.Single(section => section.Id == GameSectionId));
@@ -453,7 +448,6 @@ public partial class AddGameViewModel : ViewModelBase
         }
 
         ArtworkPicker.Initialize(CreateArtworkSearchGame(), _preferredLanguageTag);
-        CloseMetadataSearch();
     }
 
     partial void OnSelectedSectionIndexChanged(int value)
@@ -475,32 +469,17 @@ public partial class AddGameViewModel : ViewModelBase
         ArtworkPicker.InvalidateSearch();
     }
 
-    partial void OnIsSearchingMetadataChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanSearchMetadata));
-        OnPropertyChanged(nameof(CanApplySelectedMetadata));
-    }
-
-    partial void OnMetadataSearchQueryChanged(string value) => OnPropertyChanged(nameof(CanSearchMetadata));
-
-    partial void OnSelectedMetadataSourceIndexChanged(int value)
-    {
-        OnPropertyChanged(nameof(SelectedMetadataSource));
-        OnPropertyChanged(nameof(CanApplySelectedMetadata));
-    }
+    partial void OnStatusMessageChanged(string? value) => OnPropertyChanged(nameof(HasStatusMessage));
 
     partial void OnMetadataSourcesChanged(ObservableCollection<GameMetadataSourceViewModel> value)
     {
         OnPropertyChanged(nameof(HasMetadataSources));
         OnPropertyChanged(nameof(HasNoMetadataSources));
         OnPropertyChanged(nameof(CanOpenMetadataSearch));
-        OnPropertyChanged(nameof(CanSearchMetadata));
-        OnPropertyChanged(nameof(SelectedMetadataSource));
-        OnPropertyChanged(nameof(CanApplySelectedMetadata));
     }
 
     [RelayCommand]
-    private Task SearchMetadata() => SearchMetadataAsync();
+    private void Cancel() => CancelRequested?.Invoke();
 
     [RelayCommand]
     private async Task SaveGameAsync(CancellationToken cancellationToken)

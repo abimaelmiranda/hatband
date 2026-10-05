@@ -1,14 +1,19 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
+using Hatband.App.Views;
 using Hatband.App.Views.Components;
+using Hatband.App.Views.Navigation;
 using Hatband.Core.Enums.Artwork;
 
 namespace Hatband.App.Views.Screens;
 
-public partial class GameMetadataEditorScreenView : UserControl
+/// <summary>Hosts the metadata editor and keeps section, content, and modal navigation scoped locally.</summary>
+public partial class GameMetadataEditorScreenView : FullScreenView
 {
     private readonly ConsoleNavigationItemView[] sectionItems;
     private int selectedSectionIndex;
@@ -21,14 +26,7 @@ public partial class GameMetadataEditorScreenView : UserControl
         UpdateSectionSelection();
     }
 
-    public Control ArtworkPickerNavigationRoot => ArtworkPickerOverlay;
-
     public bool IsEditorSectionFocused => sectionItems.Any(item => item.HasKeyboardFocus);
-
-    public bool IsArtworkOptionFocused => GetActiveArtworkList() is { } activeList &&
-        (activeList.IsFocused || activeList.GetVisualDescendants()
-            .OfType<ListBoxItem>()
-            .Any(item => item.IsFocused));
 
     public void FocusSelectedEditorSection()
     {
@@ -61,76 +59,105 @@ public partial class GameMetadataEditorScreenView : UserControl
 
     public void SearchSelectedMetadataSource()
     {
-        if (isSectionContentActive && selectedSectionIndex == 2 && DataContext is MainWindowViewModel viewModel)
+        if (isSectionContentActive && selectedSectionIndex == 2 &&
+            DataContext is GameMetadataEditorViewModel viewModel)
         {
-            _ = viewModel.GameMetadataEditor.SearchMetadataSourcesAsync();
+            _ = viewModel.SearchMetadataSourcesAsync();
         }
     }
 
-    public void FocusSelectedArtworkOption()
+    public override NavigationActionHandling HandleNavigationAction(
+        NavigationAction action,
+        KeyEventArgs originalEvent)
     {
-        var activeList = GetActiveArtworkList();
-        if (activeList is null)
+        if (action == NavigationAction.Back)
         {
-            return;
+            return TryHandleBack(originalEvent)
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Unhandled;
         }
 
-        DirectionalFocusNavigator.Focus(activeList);
-        Dispatcher.UIThread.Post(() =>
+        if ((action is NavigationAction.Confirm or NavigationAction.Right) && IsEditorSectionFocused)
         {
-            if (activeList.SelectedItem is not GameArtworkSourceOption selectedOption)
+            originalEvent.Handled = true;
+            ActivateSectionContent();
+            FocusEditorSectionContent();
+            if (action == NavigationAction.Confirm && selectedSectionIndex == 2)
             {
-                return;
+                SearchSelectedMetadataSource();
             }
 
-            var selectedItem = activeList.GetVisualDescendants()
-                .OfType<ListBoxItem>()
-                .FirstOrDefault(item => ReferenceEquals(item.DataContext, selectedOption));
-            if (selectedItem is not null)
-            {
-                DirectionalFocusNavigator.Focus(selectedItem);
-            }
-        }, DispatcherPriority.Background);
+            return NavigationActionHandling.Handled;
+        }
+
+        return base.HandleNavigationAction(action, originalEvent);
     }
 
-    public void FocusActiveArtworkSearchButton()
+    public override bool TryHandleBack(KeyEventArgs originalEvent)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not GameMetadataEditorViewModel viewModel)
         {
-            return;
+            return false;
         }
 
-        FocusArtworkSearchButton(viewModel.GameMetadataEditor.ArtworkPicker.ActiveArtworkSlot);
+        originalEvent.Handled = true;
+        if (isSectionContentActive)
+        {
+            FocusSelectedEditorSection();
+            return true;
+        }
+
+        viewModel.CancelCommand.Execute(null);
+        return true;
+    }
+
+    protected override Control? GetInitialFocusTarget()
+    {
+        if (!isSectionContentActive)
+        {
+            return sectionItems[selectedSectionIndex].GetVisualDescendants()
+                .OfType<Button>()
+                .FirstOrDefault();
+        }
+
+        return GetSelectedSectionContent().GetVisualDescendants()
+            .OfType<Control>()
+            .FirstOrDefault(control => control.Focusable &&
+                                       control.IsTabStop &&
+                                       control.IsEffectivelyVisible &&
+                                       control.Bounds.Width > 0 &&
+                                       control.Bounds.Height > 0);
+    }
+
+    protected override void OnViewActivated()
+    {
+        base.OnViewActivated();
+        UpdateSectionSelection();
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel)
+        e.Handled = true;
+        if (DataContext is GameMetadataEditorViewModel viewModel)
         {
-            viewModel.CancelGameEditing();
+            viewModel.CancelCommand.Execute(null);
         }
     }
 
-    private void OnMetadataSectionActivated(object? sender, EventArgs e)
-    {
-        ActivateSection(0);
-    }
+    private void OnMetadataSectionActivated(object? sender, EventArgs e) => ActivateSection(0);
 
     private void OnMetadataSectionFocusEntered(object? sender, EventArgs e) => SelectSection(0);
 
-    private void OnArtworkSectionActivated(object? sender, EventArgs e)
-    {
-        ActivateSection(1);
-    }
+    private void OnArtworkSectionActivated(object? sender, EventArgs e) => ActivateSection(1);
 
     private void OnArtworkSectionFocusEntered(object? sender, EventArgs e) => SelectSection(1);
 
     private async void OnSourcesSectionActivated(object? sender, EventArgs e)
     {
         ActivateSection(2);
-        if (DataContext is MainWindowViewModel viewModel)
+        if (DataContext is GameMetadataEditorViewModel viewModel)
         {
-            await viewModel.GameMetadataEditor.SearchMetadataSourcesAsync();
+            await viewModel.SearchMetadataSourcesAsync();
         }
     }
 
@@ -138,12 +165,13 @@ public partial class GameMetadataEditorScreenView : UserControl
 
     private async void OnMetadataSourceSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (!isSectionContentActive || selectedSectionIndex != 2 || DataContext is not MainWindowViewModel viewModel)
+        if (!isSectionContentActive || selectedSectionIndex != 2 ||
+            DataContext is not GameMetadataEditorViewModel viewModel)
         {
             return;
         }
 
-        await viewModel.GameMetadataEditor.SearchMetadataSourcesAsync();
+        await viewModel.SearchMetadataSourcesAsync();
     }
 
     private void ActivateSection(int sectionIndex)
@@ -193,65 +221,25 @@ public partial class GameMetadataEditorScreenView : UserControl
 
     private async void OnSearchArtworkClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel && sender is Button { Tag: string slotName })
-        {
-            await viewModel.GameMetadataEditor.OpenArtworkPickerAsync(ParseArtworkSlot(slotName));
-            FocusSelectedArtworkOption();
-        }
-    }
-
-    private void OnUseSelectedArtworkClick(object? sender, RoutedEventArgs e)
-    {
-        ApplySelectedArtworkAndRestoreFocus();
-    }
-
-    public void UseFocusedArtworkOption()
-    {
-        ApplySelectedArtworkAndRestoreFocus();
-    }
-
-    private void ApplySelectedArtworkAndRestoreFocus()
-    {
-        if (DataContext is not MainWindowViewModel viewModel ||
-            !viewModel.GameMetadataEditor.ArtworkPicker.CanApplyActiveArtwork)
+        if (DataContext is not GameMetadataEditorViewModel viewModel ||
+            sender is not Button { Tag: string slotName })
         {
             return;
         }
 
-        var slot = viewModel.GameMetadataEditor.ArtworkPicker.ActiveArtworkSlot;
-        viewModel.GameMetadataEditor.ApplySelectedArtwork();
-        Dispatcher.UIThread.Post(() => FocusArtworkSearchButton(slot), DispatcherPriority.Background);
+        e.Handled = true;
+        var slot = ParseArtworkSlot(slotName);
+        await viewModel.OpenArtworkPickerAsync(slot);
+        FocusArtworkSearchButton(slot);
     }
 
-    private void OnCloseArtworkPickerClick(object? sender, RoutedEventArgs e)
+    private void OnRestoreArtworkClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel)
+        e.Handled = true;
+        if (DataContext is GameMetadataEditorViewModel viewModel &&
+            sender is Button { Tag: string slotName })
         {
-            var slot = viewModel.GameMetadataEditor.ArtworkPicker.ActiveArtworkSlot;
-            viewModel.GameMetadataEditor.CloseArtworkPicker();
-            Dispatcher.UIThread.Post(() => FocusArtworkSearchButton(slot), DispatcherPriority.Background);
-        }
-    }
-
-    private ListBox? GetActiveArtworkList()
-    {
-        if (DataContext is not MainWindowViewModel viewModel)
-        {
-            return null;
-        }
-
-        return viewModel.GameMetadataEditor.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
-            ? CoverArtworkList
-            : BackgroundArtworkList;
-    }
-
-    private void OnArtworkOptionGotFocus(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel viewModel &&
-            viewModel.GameMetadataEditor.ArtworkPicker.IsArtworkPickerOpen &&
-            e.Source is ListBoxItem { DataContext: GameArtworkSourceOption option })
-        {
-            viewModel.GameMetadataEditor.ArtworkPicker.SelectedActiveArtworkOption = option;
+            viewModel.RestoreArtwork(ParseArtworkSlot(slotName));
         }
     }
 
@@ -263,14 +251,6 @@ public partial class GameMetadataEditorScreenView : UserControl
         DirectionalFocusNavigator.Focus(button);
     }
 
-    private void OnRestoreArtworkClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainWindowViewModel viewModel && sender is Button { Tag: string slotName })
-        {
-            viewModel.GameMetadataEditor.RestoreArtwork(ParseArtworkSlot(slotName));
-        }
-    }
-
     private static GameArtworkSlot ParseArtworkSlot(string slotName)
     {
         return slotName switch
@@ -278,7 +258,7 @@ public partial class GameMetadataEditorScreenView : UserControl
             "Cover" => GameArtworkSlot.Cover,
             "Background" => GameArtworkSlot.Background,
             "Icon" => GameArtworkSlot.Icon,
-            _ => throw new ArgumentOutOfRangeException(nameof(slotName))
+            _ => throw new ArgumentOutOfRangeException(nameof(slotName), slotName, "Unknown artwork slot.")
         };
     }
 }

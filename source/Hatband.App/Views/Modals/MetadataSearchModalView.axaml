@@ -1,0 +1,135 @@
+<navigation:ModalView xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:navigation="using:Hatband.App.Views.Navigation"
+             xmlns:core="using:Hatband.Core.Models.Games"
+             xmlns:lang="using:Hatband.App.Localization"
+             x:Class="Hatband.App.Views.Modals.MetadataSearchModalView"
+             x:DataType="vm:MetadataSearchModalViewModel">
+    <Border Margin="24"
+            MaxWidth="1080"
+            MaxHeight="740"
+            Padding="22"
+            CornerRadius="14"
+            Background="#202932"
+            BorderBrush="#46535D"
+            BorderThickness="1"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="18">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{x:Static lang:Resources.MetadataSearchTitle}"
+                               FontSize="24"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{x:Static lang:Resources.MetadataSearchPrompt}"
+                               Foreground="#AFC0CC"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <Button x:Name="CloseMetadataSearchButton"
+                        Grid.Column="1"
+                        Content="✕"
+                        FocusAdorner="{x:Null}"
+                        Classes="subtle-action"
+                        Command="{Binding CancelSearchCommand}" />
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBox x:Name="MetadataSearchQueryBox"
+                         Text="{Binding SearchQuery}"
+                         PlaceholderText="{x:Static lang:Resources.MetadataSearchQueryPlaceholder}" />
+                <Button x:Name="MetadataSearchRunButton"
+                        Grid.Column="1"
+                        Content="{x:Static lang:Resources.MetadataSearchRunButton}"
+                        Classes="subtle-action"
+                        Command="{Binding SearchCommand}"
+                        IsEnabled="{Binding CanSearch}" />
+            </Grid>
+
+            <TabControl x:Name="MetadataSearchSourceTabs"
+                        Grid.Row="2"
+                        ItemsSource="{Binding Sources}"
+                        SelectedIndex="{Binding SelectedSourceIndex, Mode=TwoWay}">
+                <TabControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GameMetadataSourceViewModel">
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                </TabControl.ItemTemplate>
+                <TabControl.ContentTemplate>
+                    <DataTemplate x:DataType="vm:GameMetadataSourceViewModel">
+                        <Grid ColumnDefinitions="330,*" ColumnSpacing="24" Margin="4,18,4,4">
+                            <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*" RowSpacing="10">
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsSearching}">
+                                    <ProgressBar IsIndeterminate="True" Width="64" Height="6" />
+                                    <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearching}"
+                                               Foreground="#AFC0CC" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding StatusMessage}"
+                                           Grid.Row="1"
+                                           Foreground="#AFC0CC"
+                                           TextWrapping="Wrap"
+                                           IsVisible="{Binding HasStatusMessage}" />
+                                <ListBox x:Name="MetadataSearchResultsList"
+                                         ItemsSource="{Binding SearchResults}"
+                                         Grid.Row="2"
+                                         SelectedItem="{Binding SelectedSearchResult}"
+                                         IsEnabled="{Binding !IsSearching}"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="core:GameMetadata">
+                                            <TextBlock Text="{Binding StoreName}"
+                                                       Margin="8,7"
+                                                       TextWrapping="Wrap" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+
+                            <ScrollViewer Grid.Column="1"
+                                          VerticalScrollBarVisibility="Auto"
+                                          IsVisible="{Binding HasLookup}">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="{Binding SelectedSearchResult.StoreName}"
+                                               FontSize="22"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding SelectedSearchResult.Description}"
+                                               TextWrapping="Wrap" />
+                                    <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto"
+                                          ColumnSpacing="12" RowSpacing="8">
+                                        <TextBlock Text="{x:Static lang:Resources.Developer}" Foreground="#AFC0CC" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SelectedSearchResult.Developer}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="1" Text="{x:Static lang:Resources.Publisher}" Foreground="#AFC0CC" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedSearchResult.Publisher}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="2" Text="{x:Static lang:Resources.Genre}" Foreground="#AFC0CC" />
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedSearchResult.Genre}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="3" Text="{x:Static lang:Resources.ReleaseDate}" Foreground="#AFC0CC" />
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedSearchResult.ReleaseDate}" />
+                                    </Grid>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </DataTemplate>
+                </TabControl.ContentTemplate>
+            </TabControl>
+
+            <StackPanel Grid.Row="3"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="10">
+                <Button x:Name="CancelMetadataSearchButton"
+                        Content="{x:Static lang:Resources.Cancel}"
+                        FocusAdorner="{x:Null}"
+                        Classes="subtle-action standard-action"
+                        Command="{Binding CancelSearchCommand}" />
+                <Button x:Name="ApplyMetadataSearchButton"
+                        Content="{x:Static lang:Resources.MetadataSourceApply}"
+                        FocusAdorner="{x:Null}"
+                        Width="260"
+                        Classes="console-action standard-action"
+                        IsEnabled="{Binding CanApplySelectedResult}"
+                        Command="{Binding ApplySelectedResultCommand}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</navigation:ModalView>

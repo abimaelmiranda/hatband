@@ -2,18 +2,23 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Hatband.App.Navigation;
 using Hatband.App.Localization;
 using Hatband.App.Services;
+using Hatband.App.ViewModels.Navigation;
 using Hatband.Core.Extensions;
 using Hatband.Core.Enums.Stores;
 
 namespace Hatband.App.ViewModels;
 
-public partial class GameMetadataEditorViewModel : ViewModelBase
+/// <summary>Owns editable game metadata and routes artwork selection through the global modal host.</summary>
+public partial class GameMetadataEditorViewModel : ScreenViewModel
 {
     private readonly IGameRepository gameRepository;
     private readonly IGameArtworkStorage artworkStorage;
     private readonly IReadOnlyList<IGameMetadataProvider> metadataProviders;
+    private readonly IModalService _modalService;
+    private CancellationTokenSource? _artworkSearchCancellation;
     private Game? game;
     private GameArtworkImage? selectedCoverImage;
     private GameArtworkImage? selectedBackgroundImage;
@@ -64,35 +69,35 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
         IGameArtworkStorage artworkStorage,
         IEnumerable<IGameMetadataProvider> metadataProviders,
         IEnumerable<IGameArtworkProvider> artworkProviders,
-        ArtworkImageLoader artworkImageLoader)
+        ArtworkImageLoader artworkImageLoader,
+        IModalService modalService)
     {
         ArgumentNullException.ThrowIfNull(gameRepository);
         ArgumentNullException.ThrowIfNull(artworkStorage);
         ArgumentNullException.ThrowIfNull(metadataProviders);
+        ArgumentNullException.ThrowIfNull(artworkProviders);
+        ArgumentNullException.ThrowIfNull(artworkImageLoader);
+        ArgumentNullException.ThrowIfNull(modalService);
         this.gameRepository = gameRepository;
         this.artworkStorage = artworkStorage;
         this.metadataProviders = metadataProviders.ToArray();
+        _modalService = modalService;
         ArtworkPicker = new GameArtworkPickerViewModel(artworkProviders, artworkImageLoader);
-        ArtworkPicker.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(GameArtworkPickerViewModel.IsArtworkPickerOpen))
-            {
-                OnPropertyChanged(nameof(IsArtworkPickerOpen));
-            }
-        };
     }
 
     public GameArtworkPickerViewModel ArtworkPicker { get; }
 
+    /// <summary>Publishes the updated game so the shell can refresh selection and return to its prior screen.</summary>
     public event EventHandler<Game>? Saved;
+
+    /// <summary>Requests that the shell cancel editing through global navigation.</summary>
+    public event Action? CancelRequested;
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
     public bool HasMetadataSources => MetadataSources.Count > 0;
 
     public bool HasNoMetadataSources => !HasMetadataSources;
-
-    public bool IsArtworkPickerOpen => ArtworkPicker.IsArtworkPickerOpen;
 
     public bool CanRestoreCover => game?.DefaultArtwork?.CoverImagePath is not null;
 
@@ -147,10 +152,42 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
         SelectedMetadataSource = MetadataSources.FirstOrDefault();
     }
 
-    public Task OpenArtworkPickerAsync(GameArtworkSlot slot, CancellationToken cancellationToken = default) =>
-        ArtworkPicker.OpenAsync(slot, Name, cancellationToken);
+    /// <summary>Shows the shared artwork picker modally and imports the confirmed preview into the edit draft.</summary>
+    public async Task OpenArtworkPickerAsync(GameArtworkSlot slot, CancellationToken cancellationToken = default)
+    {
+        _artworkSearchCancellation?.Cancel();
+        using var searchCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _artworkSearchCancellation = searchCancellation;
+        Task artworkSearchTask = Task.CompletedTask;
+        try
+        {
+            artworkSearchTask = ArtworkPicker.OpenAsync(slot, Name, searchCancellation.Token);
+            var modal = new ArtworkPickerModalViewModel(ArtworkPicker);
+            var completion = await _modalService.ShowAsync(modal, this);
+            if (completion.Outcome == ModalOutcome.Confirmed)
+            {
+                ArtworkPicker.SelectedActiveArtworkOption = completion.GetConfirmedValue();
+                ApplySelectedArtwork();
+            }
+        }
+        finally
+        {
+            searchCancellation.Cancel();
+            ArtworkPicker.Close();
+            try
+            {
+                await artworkSearchTask;
+            }
+            catch (OperationCanceledException) when (searchCancellation.IsCancellationRequested)
+            {
+            }
 
-    public void CloseArtworkPicker() => ArtworkPicker.Close();
+            if (ReferenceEquals(_artworkSearchCancellation, searchCancellation))
+            {
+                _artworkSearchCancellation = null;
+            }
+        }
+    }
 
     public void ApplySelectedArtwork()
     {
@@ -310,7 +347,7 @@ public partial class GameMetadataEditorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Cancel() => ErrorMessage = null;
+    private void Cancel() => CancelRequested?.Invoke();
 
     private static string? Normalize(string value)
     {

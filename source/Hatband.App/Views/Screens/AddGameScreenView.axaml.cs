@@ -4,14 +4,17 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
 using Hatband.App.Views.Components;
+using Hatband.App.Views.Navigation;
 using Hatband.Core.Models.Games;
 using AppResources = Hatband.App.Localization.Resources;
 
 namespace Hatband.App.Views.Screens;
 
-public partial class AddGameScreenView : UserControl
+/// <summary>Hosts manual game entry and keeps section/content focus within the editor.</summary>
+public partial class AddGameScreenView : FullScreenView
 {
     public AddGameScreenView()
     {
@@ -23,23 +26,6 @@ public partial class AddGameScreenView : UserControl
         .Any(button => button.IsFocused);
 
     public Control ArtworkPickerNavigationRoot => ImagesPanel;
-
-    public Control MetadataSearchNavigationRoot => MetadataSearchOverlay;
-
-    private bool IsMetadataSearchQueryFocused => MetadataSearchQueryBox.IsFocused;
-
-    private bool IsMetadataSearchRunButtonFocused => MetadataSearchRunButton.IsFocused;
-
-    private bool IsMetadataSearchApplyButtonFocused => ApplyMetadataSearchButton.IsFocused;
-
-    private bool IsMetadataSearchCloseButtonFocused => CloseMetadataSearchButton.IsFocused;
-
-    private bool IsMetadataSearchCancelButtonFocused => CancelMetadataSearchButton.IsFocused;
-
-    private bool IsMetadataSearchResultsFocused => GetMetadataSearchResultsList() is { } listBox &&
-        (listBox.IsFocused || listBox.GetVisualDescendants()
-            .OfType<Control>()
-            .Any(control => control.IsFocused));
 
     public bool IsArtworkOptionFocused => GetActiveArtworkList() is { } activeList &&
         (activeList.IsFocused || activeList.GetVisualDescendants()
@@ -74,200 +60,142 @@ public partial class AddGameScreenView : UserControl
 
     public void FocusActiveArtworkSearchButton()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not AddGameViewModel viewModel)
         {
             return;
         }
 
-        var button = viewModel.AddGame.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
+        var button = viewModel.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
             ? SearchCoverArtworkButton
             : SearchBackgroundArtworkButton;
         DirectionalFocusNavigator.Focus(button);
     }
 
-    private void FocusMetadataSearchQuery() =>
-        Dispatcher.UIThread.Post(() => DirectionalFocusNavigator.Focus(MetadataSearchQueryBox));
-
-    private void FocusMetadataSearchButton() => DirectionalFocusNavigator.Focus(OpenMetadataSearchButton);
-
-    internal async Task<bool> HandleMetadataSearchKeyAsync(KeyEventArgs e, DirectionalFocusNavigator focusNavigator)
-    {
-        if (DataContext is not MainWindowViewModel viewModel || !viewModel.AddGame.IsMetadataSearchOpen)
-        {
-            return false;
-        }
-
-        if (e.Key == Key.Escape)
-        {
-            e.Handled = true;
-            CloseMetadataSearchFromInput();
-            return true;
-        }
-
-        if (e.Key == Key.Enter)
-        {
-            e.Handled = true;
-            if (IsMetadataSearchQueryFocused || IsMetadataSearchRunButtonFocused)
-            {
-                await viewModel.AddGame.SearchMetadataAsync();
-            }
-            else if (IsMetadataSearchResultsFocused)
-            {
-                DirectionalFocusNavigator.Focus(ApplyMetadataSearchButton);
-            }
-            else if (IsMetadataSearchApplyButtonFocused)
-            {
-                ApplySelectedMetadataFromInput();
-            }
-            else if (IsMetadataSearchCloseButtonFocused || IsMetadataSearchCancelButtonFocused)
-            {
-                CloseMetadataSearchFromInput();
-            }
-
-            return true;
-        }
-
-        if (!DirectionalFocusNavigator.IsArrowKey(e.Key) ||
-            DirectionalFocusNavigator.IsTextInput(e.Source, e.Key))
-        {
-            return true;
-        }
-
-        if (MoveMetadataSearchFocus(e.Key))
-        {
-            e.Handled = true;
-            return true;
-        }
-
-        if (IsMetadataSearchResultsFocused && (e.Key is Key.Up or Key.Down))
-        {
-            return true;
-        }
-
-        e.Handled = true;
-        focusNavigator.MoveFocus(MetadataSearchOverlay, e.Key, useNativeArrowBehavior: false);
-        return true;
-    }
-
-    private bool MoveMetadataSearchFocus(Key key)
-    {
-        var focusedElement = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
-        var sourceTabsFocused = ReferenceEquals(focusedElement, MetadataSearchSourceTabs);
-        if (focusedElement is Control focusedControl)
-        {
-            var focusedTab = focusedControl as TabItem ?? focusedControl.GetVisualAncestors()
-                .OfType<TabItem>()
-                .FirstOrDefault();
-            if (focusedTab is not null && focusedTab.GetVisualAncestors().Contains(MetadataSearchSourceTabs))
-            {
-                sourceTabsFocused = true;
-            }
-        }
-
-        if (sourceTabsFocused && (key is Key.Left or Key.Right))
-        {
-            var indexOffset = key == Key.Right ? 1 : -1;
-            var selectedIndex = MetadataSearchSourceTabs.SelectedIndex + indexOffset;
-            if ((uint)selectedIndex < (uint)MetadataSearchSourceTabs.Items.Count)
-            {
-                MetadataSearchSourceTabs.SelectedIndex = selectedIndex;
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (MetadataSearchSourceTabs.ContainerFromIndex(selectedIndex) is TabItem selectedTab)
-                    {
-                        DirectionalFocusNavigator.Focus(selectedTab);
-                    }
-                });
-            }
-
-            return true;
-        }
-
-        if (sourceTabsFocused && key == Key.Down)
-        {
-            FocusSelectedMetadataSearchResult();
-            return true;
-        }
-
-        var resultsList = GetMetadataSearchResultsList();
-        if (IsMetadataSearchResultsFocused && resultsList is not null)
-        {
-            if (key == Key.Right ||
-                key == Key.Down && resultsList.SelectedIndex == resultsList.Items.Count - 1)
-            {
-                DirectionalFocusNavigator.Focus(ApplyMetadataSearchButton);
-                return true;
-            }
-        }
-
-        if (ApplyMetadataSearchButton.IsFocused && (key is Key.Left or Key.Up))
-        {
-            FocusSelectedMetadataSearchResult();
-            return true;
-        }
-
-        if (CancelMetadataSearchButton.IsFocused && key == Key.Right)
-        {
-            DirectionalFocusNavigator.Focus(ApplyMetadataSearchButton);
-            return true;
-        }
-
-        return false;
-    }
-
-    private void ApplySelectedMetadataFromInput()
-    {
-        if (DataContext is not MainWindowViewModel viewModel || !viewModel.AddGame.CanApplySelectedMetadata)
-        {
-            return;
-        }
-
-        viewModel.AddGame.ApplySelectedMetadata();
-        Dispatcher.UIThread.Post(FocusMetadataSearchButton);
-    }
-
-    private void CloseMetadataSearchFromInput()
-    {
-        if (DataContext is not MainWindowViewModel viewModel)
-        {
-            return;
-        }
-
-        viewModel.AddGame.CloseMetadataSearch();
-        Dispatcher.UIThread.Post(FocusMetadataSearchButton);
-    }
-
     public void FocusSelectedSection()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not AddGameViewModel viewModel)
         {
             return;
         }
 
         var section = AddGameSectionList.GetVisualDescendants()
             .OfType<ConsoleNavigationItemView>()
-            .FirstOrDefault(item => ReferenceEquals(item.DataContext, viewModel.AddGame.SelectedSection));
+            .FirstOrDefault(item => ReferenceEquals(item.DataContext, viewModel.SelectedSection));
         section?.FocusItem();
     }
 
     public void FocusSelectedField()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not AddGameViewModel viewModel)
         {
             return;
         }
 
         var fields = GetFocusableEditorFields();
-        var fieldIndex = viewModel.AddGame.SelectedFieldIndex;
+        var fieldIndex = viewModel.SelectedFieldIndex;
         if ((uint)fieldIndex < (uint)fields.Count)
         {
             DirectionalFocusNavigator.Focus(fields[fieldIndex]);
         }
     }
 
+    /// <summary>Handles local Back transitions and leaves inline artwork arrows to the selected list.</summary>
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent)
+    {
+        if (action == NavigationAction.Back)
+        {
+            return TryHandleBack(originalEvent)
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Unhandled;
+        }
+
+        if (action == NavigationAction.Confirm &&
+            DataContext is AddGameViewModel addGameViewModel &&
+            addGameViewModel.ArtworkPicker.IsArtworkPickerOpen &&
+            IsArtworkOptionFocused)
+        {
+            originalEvent.Handled = true;
+            UseFocusedArtworkOption();
+            return NavigationActionHandling.Handled;
+        }
+
+        if ((action is NavigationAction.Confirm or NavigationAction.Right) &&
+            DataContext is AddGameViewModel sectionViewModel &&
+            !sectionViewModel.IsContentActive && IsSectionNavigationFocused)
+        {
+            originalEvent.Handled = true;
+            sectionViewModel.ActivateContent();
+            FocusSelectedField();
+            return NavigationActionHandling.Handled;
+        }
+
+        if ((action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right) &&
+            DataContext is AddGameViewModel viewModel &&
+            viewModel.ArtworkPicker.IsArtworkPickerOpen &&
+            GetActiveArtworkList() is not null)
+        {
+            return NavigationActionHandling.Native;
+        }
+
+        return base.HandleNavigationAction(action, originalEvent);
+    }
+
+    /// <summary>Moves from editor fields to the section rail before requesting shell cancellation.</summary>
+    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    {
+        if (DataContext is not AddGameViewModel viewModel)
+        {
+            return false;
+        }
+
+        originalEvent.Handled = true;
+        if (viewModel.ArtworkPicker.IsArtworkPickerOpen)
+        {
+            var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
+            viewModel.CloseArtworkSearch();
+            DirectionalFocusNavigator.Focus(slot == GameArtworkSlot.Cover
+                ? SearchCoverArtworkButton
+                : SearchBackgroundArtworkButton);
+            return true;
+        }
+
+        if (viewModel.IsContentActive)
+        {
+            viewModel.DeactivateContent();
+            FocusSelectedSection();
+            return true;
+        }
+
+        viewModel.CancelCommand.Execute(null);
+        return true;
+    }
+
+    protected override Control? GetInitialFocusTarget()
+    {
+        if (DataContext is not AddGameViewModel viewModel)
+        {
+            return null;
+        }
+
+        if (viewModel.IsContentActive)
+        {
+            var fields = GetFocusableEditorFields();
+            if ((uint)viewModel.SelectedFieldIndex < (uint)fields.Count)
+            {
+                return fields[viewModel.SelectedFieldIndex];
+            }
+        }
+
+        var selectedSectionItem = AddGameSectionList.GetVisualDescendants()
+            .OfType<ConsoleNavigationItemView>()
+            .FirstOrDefault(item => ReferenceEquals(item.DataContext, viewModel.SelectedSection));
+        return selectedSectionItem?.GetVisualDescendants().OfType<Button>().FirstOrDefault();
+    }
+
     private async void OnChooseExecutableClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel || sender is not Control { DataContext: AddGameActionViewModel action })
+        if (DataContext is not AddGameViewModel viewModel ||
+            sender is not Control { DataContext: AddGameActionViewModel action })
         {
             return;
         }
@@ -302,7 +230,7 @@ public partial class AddGameScreenView : UserControl
             action.Type = GameActionType.Executable;
             action.Target = executablePath;
             action.WorkingDirectory ??= Path.GetDirectoryName(executablePath);
-            viewModel.AddGame.InstallDirectory ??= Path.GetDirectoryName(executablePath);
+            viewModel.InstallDirectory ??= Path.GetDirectoryName(executablePath);
             viewModel.StatusMessage = null;
         }
         catch (Exception exception)
@@ -313,7 +241,7 @@ public partial class AddGameScreenView : UserControl
 
     private async void OnChooseFolderClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not AddGameViewModel viewModel)
         {
             return;
         }
@@ -351,7 +279,7 @@ public partial class AddGameScreenView : UserControl
             }
             else
             {
-                viewModel.AddGame.InstallDirectory = folderPath;
+                viewModel.InstallDirectory = folderPath;
             }
 
             viewModel.StatusMessage = null;
@@ -364,88 +292,46 @@ public partial class AddGameScreenView : UserControl
 
     private void OnSectionFocusEntered(object? sender, EventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel &&
+        if (DataContext is AddGameViewModel viewModel &&
             sender is ConsoleNavigationItemView { DataContext: AddGameSectionViewModel section })
         {
-            viewModel.AddGame.SelectSection(section);
+            viewModel.SelectSection(section);
+        }
+    }
+
+    private void OnSectionActivated(object? sender, EventArgs e)
+    {
+        if (DataContext is AddGameViewModel viewModel &&
+            sender is ConsoleNavigationItemView { DataContext: AddGameSectionViewModel section })
+        {
+            viewModel.SelectSection(section);
+            viewModel.ActivateContent();
+            FocusSelectedField();
         }
     }
 
     private async void OnOpenMetadataSearchClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is AddGameViewModel viewModel)
         {
-            return;
-        }
-
-        viewModel.AddGame.OpenMetadataSearch();
-        FocusMetadataSearchQuery();
-        if (viewModel.AddGame.CanSearchMetadata)
-        {
-            await viewModel.AddGame.SearchMetadataAsync();
+            e.Handled = true;
+            await viewModel.OpenMetadataSearchAsync();
+            FocusMetadataSearchButton();
         }
     }
 
-    private void OnCloseMetadataSearchClick(object? sender, RoutedEventArgs e)
-    {
-        CloseMetadataSearchFromInput();
-    }
-
-    private void OnApplySelectedMetadataClick(object? sender, RoutedEventArgs e)
-    {
-        ApplySelectedMetadataFromInput();
-    }
-
-    private void FocusSelectedMetadataSearchResult()
-    {
-        var resultsList = GetMetadataSearchResultsList();
-        if (resultsList is null)
-        {
-            return;
-        }
-
-        DirectionalFocusNavigator.Focus(resultsList);
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (resultsList.SelectedItem is not { } selectedResult)
-            {
-                return;
-            }
-
-            var selectedItem = resultsList.GetVisualDescendants()
-                .OfType<ListBoxItem>()
-                .FirstOrDefault(item => ReferenceEquals(item.DataContext, selectedResult));
-            if (selectedItem is not null)
-            {
-                DirectionalFocusNavigator.Focus(selectedItem);
-            }
-        });
-    }
-
-    private ListBox? GetMetadataSearchResultsList() => MetadataSearchOverlay.GetVisualDescendants()
-        .OfType<ListBox>()
-        .FirstOrDefault(listBox => listBox.IsEffectivelyVisible);
-
-    private void OnSectionActivated(object? sender, EventArgs e)
-    {
-        if (DataContext is MainWindowViewModel viewModel &&
-            sender is ConsoleNavigationItemView { DataContext: AddGameSectionViewModel section })
-        {
-            viewModel.AddGame.SelectSection(section);
-            viewModel.AddGame.ActivateContent();
-            FocusSelectedField();
-        }
-    }
+    private void FocusMetadataSearchButton() =>
+        DirectionalFocusNavigator.Focus(OpenMetadataSearchButton);
 
     private void OnAddActionClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not AddGameViewModel viewModel)
         {
             return;
         }
 
-        viewModel.AddGame.AddActionCommand.Execute(null);
-        var addedAction = viewModel.AddGame.Actions.Last();
+        viewModel.AddActionCommand.Execute(null);
+        var addedAction = viewModel.Actions.Last();
         Dispatcher.UIThread.Post(() =>
         {
             var nameInput = ActionsPanel.GetVisualDescendants()
@@ -460,7 +346,7 @@ public partial class AddGameScreenView : UserControl
 
     private void OnEditorFieldGotFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel || e.Source is not Control focusedControl)
+        if (DataContext is not AddGameViewModel viewModel || e.Source is not Control focusedControl)
         {
             return;
         }
@@ -469,23 +355,23 @@ public partial class AddGameScreenView : UserControl
         var focusedField = fields.IndexOf(focusedControl);
         if (focusedField >= 0)
         {
-            viewModel.AddGame.SelectField(focusedField);
+            viewModel.SelectField(focusedField);
         }
     }
 
     private List<Control> GetFocusableEditorFields()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not AddGameViewModel viewModel)
         {
             return [];
         }
 
-        var activePanel = viewModel.AddGame.SelectedSection.Id switch
+        var activePanel = viewModel.SelectedSection.Id switch
         {
             AddGameViewModel.GameSectionId => GamePanel,
             AddGameViewModel.ActionsSectionId => ActionsPanel,
             AddGameViewModel.ImagesSectionId => ImagesPanel,
-            _ => throw new InvalidOperationException($"Unknown add-game section '{viewModel.AddGame.SelectedSection.Id}'.")
+            _ => throw new InvalidOperationException($"Unknown add-game section '{viewModel.SelectedSection.Id}'.")
         };
         return activePanel.GetVisualDescendants()
             .OfType<Control>()
@@ -498,7 +384,8 @@ public partial class AddGameScreenView : UserControl
 
     private async void OnSearchArtworkClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel || sender is not Button { Tag: string slotName })
+        if (DataContext is not AddGameViewModel viewModel ||
+            sender is not Button { Tag: string slotName })
         {
             return;
         }
@@ -509,53 +396,54 @@ public partial class AddGameScreenView : UserControl
             "Background" => GameArtworkSlot.Background,
             _ => throw new ArgumentOutOfRangeException(nameof(slotName), slotName, "Unknown artwork slot.")
         };
-        await viewModel.AddGame.SearchArtworkAsync(slot);
+        e.Handled = true;
+        await viewModel.SearchArtworkAsync(slot);
         FocusSelectedArtworkOption();
     }
 
     private void OnUseSelectedArtworkClick(object? sender, RoutedEventArgs e)
     {
+        e.Handled = true;
         UseFocusedArtworkOption();
     }
 
+    /// <summary>Applies the preview selected in the inline image section and returns focus to its search button.</summary>
     public void UseFocusedArtworkOption()
     {
-        if (DataContext is not MainWindowViewModel viewModel || !viewModel.AddGame.ArtworkPicker.CanApplyActiveArtwork)
+        if (DataContext is not AddGameViewModel viewModel ||
+            !viewModel.ArtworkPicker.CanApplyActiveArtwork)
         {
             return;
         }
 
-        viewModel.AddGame.ApplySelectedArtwork();
+        viewModel.ApplySelectedArtwork();
         FocusActiveArtworkSearchButton();
     }
 
     private void OnCloseArtworkPickerClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel viewModel)
+        if (DataContext is not AddGameViewModel viewModel)
         {
             return;
         }
 
-        var slot = viewModel.AddGame.ArtworkPicker.ActiveArtworkSlot;
-        viewModel.AddGame.CloseArtworkSearch();
-        if (slot == GameArtworkSlot.Cover)
-        {
-            DirectionalFocusNavigator.Focus(SearchCoverArtworkButton);
-        }
-        else
-        {
-            DirectionalFocusNavigator.Focus(SearchBackgroundArtworkButton);
-        }
+        e.Handled = true;
+        var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
+        viewModel.CloseArtworkSearch();
+        DirectionalFocusNavigator.Focus(slot == GameArtworkSlot.Cover
+            ? SearchCoverArtworkButton
+            : SearchBackgroundArtworkButton);
     }
 
     private ListBox? GetActiveArtworkList()
     {
-        if (DataContext is not MainWindowViewModel viewModel || !viewModel.AddGame.ArtworkPicker.IsArtworkPickerOpen)
+        if (DataContext is not AddGameViewModel viewModel ||
+            !viewModel.ArtworkPicker.IsArtworkPickerOpen)
         {
             return null;
         }
 
-        return viewModel.AddGame.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
+        return viewModel.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
             ? CoverArtworkOptions
             : BackgroundArtworkOptions;
     }

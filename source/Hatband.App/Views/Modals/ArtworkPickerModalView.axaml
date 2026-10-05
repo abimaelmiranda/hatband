@@ -1,0 +1,146 @@
+<navigation:ModalView xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:navigation="using:Hatband.App.Views.Navigation"
+             xmlns:lang="using:Hatband.App.Localization"
+             x:Class="Hatband.App.Views.Modals.ArtworkPickerModalView"
+             x:DataType="vm:ArtworkPickerModalViewModel">
+    <UserControl.Resources>
+        <DataTemplate x:Key="CoverArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
+            <StackPanel Width="170" Spacing="8" Margin="6">
+                <Border Height="220" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}"
+                                   Foreground="#AFC0CC"
+                                   FontSize="12"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding IsPreviewUnavailable}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding DisplayName}"
+                           FontSize="13"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="BackgroundArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
+            <StackPanel Width="290" Spacing="8" Margin="6">
+                <Border Height="180" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}"
+                                   Foreground="#AFC0CC"
+                                   FontSize="12"
+                                   TextAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding IsPreviewUnavailable}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding DisplayName}"
+                           FontSize="13"
+                           TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+    <Border Width="760"
+            Height="760"
+            MaxWidth="780"
+            MaxHeight="780"
+            Padding="26"
+            CornerRadius="14"
+            Background="#202932"
+            BorderBrush="#46535D"
+            BorderThickness="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="14">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{x:Static lang:Resources.ArtworkPickerTitle}"
+                               FontSize="24"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding ArtworkPicker.ActiveArtworkTitle}"
+                               Foreground="#AFC0CC"
+                               FontSize="16" />
+                    <TextBlock Text="{x:Static lang:Resources.ArtworkPickerHint}"
+                               Foreground="#8496A2"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <Button x:Name="CloseArtworkPickerButton"
+                        Grid.Column="1"
+                        Content="✕"
+                        FocusAdorner="{x:Null}"
+                        Classes="subtle-action"
+                        Command="{Binding ClosePickerCommand}" />
+            </Grid>
+
+            <TextBlock Grid.Row="1"
+                       Text="{Binding ArtworkPicker.ArtworkSourcesStatus}"
+                       Foreground="#AFC0CC"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding ArtworkPicker.HasArtworkSourcesStatus}" />
+
+            <Grid Grid.Row="2">
+                <ListBox x:Name="CoverArtworkList"
+                         Height="470"
+                         ItemsSource="{Binding ArtworkPicker.ActiveArtworkOptions}"
+                         SelectedItem="{Binding ArtworkPicker.SelectedActiveArtworkOption}"
+                         ItemTemplate="{StaticResource CoverArtworkPreviewTemplate}"
+                         GotFocus="OnArtworkOptionGotFocus"
+                         IsVisible="{Binding ArtworkPicker.IsCoverPickerActive}"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem:selected">
+                            <Setter Property="Background" Value="#35434E" />
+                            <Setter Property="BorderBrush" Value="#64D7F5" />
+                            <Setter Property="BorderThickness" Value="2" />
+                            <Setter Property="Padding" Value="4" />
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+                <ListBox x:Name="BackgroundArtworkList"
+                         Height="470"
+                         ItemsSource="{Binding ArtworkPicker.ActiveArtworkOptions}"
+                         SelectedItem="{Binding ArtworkPicker.SelectedActiveArtworkOption}"
+                         ItemTemplate="{StaticResource BackgroundArtworkPreviewTemplate}"
+                         GotFocus="OnArtworkOptionGotFocus"
+                         IsVisible="{Binding ArtworkPicker.IsBackgroundPickerActive}"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem:selected">
+                            <Setter Property="Background" Value="#35434E" />
+                            <Setter Property="BorderBrush" Value="#64D7F5" />
+                            <Setter Property="BorderThickness" Value="2" />
+                            <Setter Property="Padding" Value="4" />
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+            </Grid>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button x:Name="CancelArtworkPickerButton"
+                        Content="{x:Static lang:Resources.Cancel}"
+                        FocusAdorner="{x:Null}"
+                        Classes="subtle-action standard-action"
+                        Command="{Binding ClosePickerCommand}" />
+                <Button x:Name="ApplyArtworkButton"
+                        Content="{x:Static lang:Resources.UseArtwork}"
+                        FocusAdorner="{x:Null}"
+                        Classes="console-action standard-action"
+                        IsEnabled="{Binding ArtworkPicker.CanApplyActiveArtwork}"
+                        Command="{Binding ApplySelectedArtworkCommand}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</navigation:ModalView>
