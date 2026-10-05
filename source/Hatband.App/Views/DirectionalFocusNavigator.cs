@@ -19,14 +19,10 @@ internal sealed class DirectionalFocusNavigator
         var focusedControl = navigationRoot.GetVisualDescendants()
             .OfType<Control>()
             .FirstOrDefault(control => control.IsFocused);
-        if (focusedControl is null || (useNativeArrowBehavior && IsNativeArrowControl(focusedControl)))
+        if (focusedControl is not null && useNativeArrowBehavior && IsNativeArrowControl(focusedControl))
         {
             return false;
         }
-
-        var resolvedNavigationRoot = ResolveNavigationScope(navigationRoot, focusedControl);
-        var isInsideNavigationScope = !ReferenceEquals(navigationRoot, resolvedNavigationRoot);
-        navigationRoot = resolvedNavigationRoot;
 
         var direction = GetArrowDirection(key);
         if (direction is null)
@@ -40,6 +36,15 @@ internal sealed class DirectionalFocusNavigator
             return false;
         }
 
+        if (focusedControl is null)
+        {
+            return FocusFirstInDirection(navigationRoot, direction.Value == NavigationDirection.Up);
+        }
+
+        var resolvedNavigationRoot = ResolveNavigationScope(navigationRoot, focusedControl);
+        var isInsideNavigationScope = !ReferenceEquals(navigationRoot, resolvedNavigationRoot);
+        navigationRoot = resolvedNavigationRoot;
+
         var nextElement = focusManager.FindNextElement(
             direction.Value,
             new FindNextElementOptions
@@ -49,12 +54,13 @@ internal sealed class DirectionalFocusNavigator
                 NavigationStrategyOverride = XYFocusNavigationStrategy.Projection
             });
 
-        if (nextElement is null)
+        if (nextElement is not null &&
+            focusManager.Focus(nextElement, NavigationMethod.Directional, KeyModifiers.None))
         {
-            return isInsideNavigationScope;
+            return true;
         }
 
-        return focusManager.Focus(nextElement, NavigationMethod.Directional, KeyModifiers.None) ||
+        return FocusAdjacentInTabOrder(navigationRoot, focusedControl, direction.Value == NavigationDirection.Up) ||
                isInsideNavigationScope;
     }
 
@@ -116,6 +122,46 @@ internal sealed class DirectionalFocusNavigator
 
         var parentComboBox = control.GetVisualAncestors().OfType<ComboBox>().FirstOrDefault();
         return parentComboBox?.IsDropDownOpen == true;
+    }
+
+    private static bool FocusFirstInDirection(Control navigationRoot, bool reverse)
+    {
+        var candidates = GetFocusableControls(navigationRoot);
+        if (candidates.Count == 0)
+        {
+            return false;
+        }
+
+        return Focus(reverse ? candidates[^1] : candidates[0]);
+    }
+
+    private static bool FocusAdjacentInTabOrder(Control navigationRoot, Control focusedControl, bool reverse)
+    {
+        var candidates = GetFocusableControls(navigationRoot);
+        var focusedIndex = candidates.IndexOf(focusedControl);
+        if (focusedIndex < 0 || candidates.Count < 2)
+        {
+            return false;
+        }
+
+        var nextIndex = focusedIndex + (reverse ? -1 : 1);
+        if (nextIndex < 0 || nextIndex >= candidates.Count)
+        {
+            return false;
+        }
+
+        return Focus(candidates[nextIndex]);
+    }
+
+    private static List<Control> GetFocusableControls(Control navigationRoot)
+    {
+        return navigationRoot.GetVisualDescendants()
+            .OfType<Control>()
+            .Where(control => control.Focusable &&
+                              control.IsTabStop &&
+                              control.IsEffectivelyVisible &&
+                              control.IsEffectivelyEnabled)
+            .ToList();
     }
 
     private static NavigationDirection? GetArrowDirection(Key key) => key switch
