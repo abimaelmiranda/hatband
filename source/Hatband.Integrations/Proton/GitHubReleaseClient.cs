@@ -4,8 +4,15 @@ using Hatband.Integrations.Proton.Models;
 
 namespace Hatband.Integrations.Proton;
 
-internal sealed class GitHubReleaseClient(IHttpClientFactory httpClientFactory)
+internal sealed class GitHubReleaseClient
 {
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public GitHubReleaseClient(IHttpClientFactory httpClientFactory)
+    {
+        _httpClientFactory = httpClientFactory;
+    }
+
     public async Task<IReadOnlyList<GitHubRelease>> GetLatestReleasesAsync(
         Uri releasesUri,
         CancellationToken cancellationToken)
@@ -14,7 +21,7 @@ internal sealed class GitHubReleaseClient(IHttpClientFactory httpClientFactory)
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Hatband", "1.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
 
-        using var httpClient = httpClientFactory.CreateClient();
+        using var httpClient = _httpClientFactory.CreateClient();
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
 

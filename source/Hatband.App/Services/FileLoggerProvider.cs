@@ -62,8 +62,17 @@ internal sealed class FileLoggerProvider : ILoggerProvider
         }
     }
 
-    private sealed class FileLogger(FileLoggerProvider provider, string categoryName) : ILogger
+    private sealed class FileLogger : ILogger
     {
+        private readonly FileLoggerProvider _provider;
+        private readonly string _categoryName;
+
+        public FileLogger(FileLoggerProvider provider, string categoryName)
+        {
+            _provider = provider;
+            _categoryName = categoryName;
+        }
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull
         {
             return null;
@@ -84,7 +93,7 @@ internal sealed class FileLoggerProvider : ILoggerProvider
             }
 
             ArgumentNullException.ThrowIfNull(formatter);
-            provider.Write(categoryName, logLevel, eventId, state, exception, formatter);
+            _provider.Write(_categoryName, logLevel, eventId, state, exception, formatter);
         }
     }
 }

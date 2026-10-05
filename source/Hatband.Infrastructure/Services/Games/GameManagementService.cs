@@ -2,8 +2,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Hatband.Infrastructure.Services.Games;
 
-public sealed class GameManagementService(IServiceProvider services) : IGameManagementService
+public sealed class GameManagementService : IGameManagementService
 {
+    private readonly IServiceProvider _services;
+
+    public GameManagementService(IServiceProvider services)
+    {
+        _services = services;
+    }
+
     public Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default) =>
         TryGetService(game)?.GetInstallLocationsAsync(game, cancellationToken)
             ?? Task.FromResult<IReadOnlyList<GameInstallLocation>>([]);
@@ -28,6 +35,6 @@ public sealed class GameManagementService(IServiceProvider services) : IGameMana
     private IGameManagementService? TryGetService(Game game)
     {
         ArgumentNullException.ThrowIfNull(game);
-        return services.GetKeyedService<IGameManagementService>(game.SourceId);
+        return _services.GetKeyedService<IGameManagementService>(game.SourceId);
     }
 }

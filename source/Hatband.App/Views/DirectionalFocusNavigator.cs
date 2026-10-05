@@ -5,8 +5,15 @@ using Hatband.App.Views.Components;
 
 namespace Hatband.App.Views;
 
-internal sealed class DirectionalFocusNavigator(Window window)
+internal sealed class DirectionalFocusNavigator
 {
+    private readonly Window _window;
+
+    public DirectionalFocusNavigator(Window window)
+    {
+        _window = window;
+    }
+
     public bool MoveFocus(Control navigationRoot, Key key, bool useNativeArrowBehavior = true)
     {
         var focusedControl = navigationRoot.GetVisualDescendants()
@@ -27,7 +34,7 @@ internal sealed class DirectionalFocusNavigator(Window window)
             return false;
         }
 
-        var focusManager = TopLevel.GetTopLevel(window)?.FocusManager;
+        var focusManager = TopLevel.GetTopLevel(_window)?.FocusManager;
         if (focusManager is null)
         {
             return false;

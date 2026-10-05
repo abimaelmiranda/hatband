@@ -3,11 +3,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hatband.Infrastructure.Persistence;
 
-public sealed class DatabaseInitializer(IDbContextFactory<HatbandDbContext> contextFactory)
+public sealed class DatabaseInitializer
 {
+    private readonly IDbContextFactory<HatbandDbContext> _contextFactory;
+
+    public DatabaseInitializer(IDbContextFactory<HatbandDbContext> contextFactory)
+    {
+        _contextFactory = contextFactory;
+    }
+
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         await context.Database.MigrateAsync(cancellationToken);
         if (!await context.Libraries.AnyAsync(cancellationToken))
         {

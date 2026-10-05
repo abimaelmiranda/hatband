@@ -4,8 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hatband.Infrastructure.Persistence;
 
-public sealed class HatbandDbContext(DbContextOptions<HatbandDbContext> options) : DbContext(options)
+public sealed class HatbandDbContext : DbContext
 {
+    public HatbandDbContext(DbContextOptions<HatbandDbContext> options)
+        : base(options)
+    {
+    }
+
     public DbSet<GameLibrary> Libraries => Set<GameLibrary>();
 
     public DbSet<Game> Games => Set<Game>();

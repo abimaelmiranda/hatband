@@ -2,13 +2,19 @@ using System.Reflection;
 
 namespace Hatband.App.ViewModels.Settings.Fields;
 
-internal sealed class SettingsEditorDefinition(
-    SettingsPanelDefinition? singlePanel,
-    IReadOnlyList<SettingsEditorDefinition.Tab> tabs)
+internal sealed class SettingsEditorDefinition
 {
-    public SettingsPanelDefinition? SinglePanel { get; } = singlePanel;
+    public SettingsEditorDefinition(
+        SettingsPanelDefinition? singlePanel,
+        IReadOnlyList<Tab> tabs)
+    {
+        SinglePanel = singlePanel;
+        Tabs = tabs;
+    }
 
-    public IReadOnlyList<Tab> Tabs { get; } = tabs;
+    public SettingsPanelDefinition? SinglePanel { get; }
+
+    public IReadOnlyList<Tab> Tabs { get; }
 
     public bool HasTabs => Tabs.Count > 0;
 

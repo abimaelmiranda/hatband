@@ -5,12 +5,20 @@ using Microsoft.Extensions.Logging;
 
 namespace Hatband.App.Services;
 
-public sealed class GameProcessSessionService(
-    IGameProcessMonitor gameProcessMonitor,
-    ILogger<GameProcessSessionService> logger)
+public sealed class GameProcessSessionService
 {
-    private readonly Dictionary<Guid, CancellationTokenSource> watchers = [];
-    private bool stopped;
+    private readonly IGameProcessMonitor _gameProcessMonitor;
+    private readonly ILogger<GameProcessSessionService> _logger;
+    private readonly Dictionary<Guid, CancellationTokenSource> _watchers = [];
+    private bool _stopped;
+
+    public GameProcessSessionService(
+        IGameProcessMonitor gameProcessMonitor,
+        ILogger<GameProcessSessionService> logger)
+    {
+        _gameProcessMonitor = gameProcessMonitor;
+        _logger = logger;
+    }
 
     public void Watch(
         Guid gameId,
@@ -20,20 +28,20 @@ public sealed class GameProcessSessionService(
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(monitorEventHandler);
 
-        if (stopped || watchers.ContainsKey(gameId))
+        if (_stopped || _watchers.ContainsKey(gameId))
         {
             return;
         }
 
         var cancellation = new CancellationTokenSource();
-        watchers.Add(gameId, cancellation);
+        _watchers.Add(gameId, cancellation);
         _ = Task.Run(() => ObserveAsync(gameId, target, monitorEventHandler, cancellation));
     }
 
     public void Stop()
     {
-        stopped = true;
-        foreach (var cancellation in watchers.Values)
+        _stopped = true;
+        foreach (var cancellation in _watchers.Values)
         {
             cancellation.Cancel();
         }
@@ -47,7 +55,7 @@ public sealed class GameProcessSessionService(
     {
         try
         {
-            await foreach (var monitorEvent in gameProcessMonitor.WatchAsync(target, cancellation.Token))
+            await foreach (var monitorEvent in _gameProcessMonitor.WatchAsync(target, cancellation.Token))
             {
                 await PublishAsync(monitorEventHandler, monitorEvent);
             }
@@ -57,17 +65,17 @@ public sealed class GameProcessSessionService(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Could not monitor the process for game {GameId}.", gameId);
+            _logger.LogError(exception, "Could not monitor the process for game {GameId}.", gameId);
             await PublishAsync(monitorEventHandler, GameProcessMonitorEvent.Failed);
         }
         finally
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (watchers.TryGetValue(gameId, out var currentCancellation) &&
+                if (_watchers.TryGetValue(gameId, out var currentCancellation) &&
                     ReferenceEquals(currentCancellation, cancellation))
                 {
-                    watchers.Remove(gameId);
+                    _watchers.Remove(gameId);
                 }
 
                 cancellation.Dispose();

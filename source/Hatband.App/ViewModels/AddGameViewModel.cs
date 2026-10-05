@@ -4,8 +4,17 @@ using Hatband.Core.Models.Libraries;
 
 namespace Hatband.App.ViewModels;
 
-public partial class AddGameViewModel(IGameRepository gameRepository, IGameLibraryRepository libraryRepository) : ViewModelBase
+public partial class AddGameViewModel : ViewModelBase
 {
+    private readonly IGameRepository _gameRepository;
+    private readonly IGameLibraryRepository _libraryRepository;
+
+    public AddGameViewModel(IGameRepository gameRepository, IGameLibraryRepository libraryRepository)
+    {
+        _gameRepository = gameRepository;
+        _libraryRepository = libraryRepository;
+    }
+
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
 
@@ -53,15 +62,15 @@ public partial class AddGameViewModel(IGameRepository gameRepository, IGameLibra
 
         try
         {
-            var libraries = await libraryRepository.GetAllAsync(cancellationToken);
+            var libraries = await _libraryRepository.GetAllAsync(cancellationToken);
             var library = libraries.FirstOrDefault();
             if (library is null)
             {
                 library = new GameLibrary();
-                await libraryRepository.AddAsync(library, cancellationToken);
+                await _libraryRepository.AddAsync(library, cancellationToken);
             }
 
-            await gameRepository.AddAsync(library.Id, game, cancellationToken);
+            await _gameRepository.AddAsync(library.Id, game, cancellationToken);
             CreationCompleted?.Invoke(new AddGameCreationResult.Saved(game));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
