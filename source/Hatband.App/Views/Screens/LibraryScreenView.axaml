@@ -1,21 +1,22 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<navigation:FullScreenView xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:navigation="using:Hatband.App.Views.Navigation"
              xmlns:lang="using:Hatband.App.Localization"
              xmlns:models="using:Hatband.App.ViewModels"
              xmlns:components="using:Hatband.App.Views.Components"
              x:Class="Hatband.App.Views.Screens.LibraryScreenView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:LibraryScreenViewModel">
     <Grid RowDefinitions="Auto,*,Auto">
             <Image Grid.RowSpan="3"
                    Classes="background-art"
-                   Source="{Binding PreviousBackgroundImage}"
-                   Opacity="{Binding PreviousBackgroundImageOpacity}"
+                   Source="{Binding Session.PreviousBackgroundImage}"
+                   Opacity="{Binding Session.PreviousBackgroundImageOpacity}"
                    Stretch="UniformToFill" />
             <Image Grid.RowSpan="3"
                    Classes="background-art"
-                   Source="{Binding BackgroundImage}"
-                   Opacity="{Binding BackgroundImageOpacity}"
+                   Source="{Binding Session.BackgroundImage}"
+                   Opacity="{Binding Session.BackgroundImageOpacity}"
                    Stretch="UniformToFill" />
             <Border Grid.RowSpan="3" Background="#24000000" />
             <Border Grid.RowSpan="3">
@@ -48,8 +49,8 @@
             <ListBox x:Name="GameCarousel"
                      Grid.Row="2"
                      Classes="game-carousel"
-                     ItemsSource="{Binding Games}"
-                     SelectedItem="{Binding SelectedGameCard, Mode=TwoWay}"
+                     ItemsSource="{Binding Session.Games}"
+                     SelectedItem="{Binding Session.SelectedGameCard, Mode=TwoWay}"
                      SelectionMode="Single"
                      HorizontalAlignment="Center"
                      MaxWidth="1600"
@@ -85,7 +86,7 @@
 
             <Grid Grid.Row="1"
                   Grid.RowSpan="3"
-                  IsVisible="{Binding IsLibraryEmpty}"
+                  IsVisible="{Binding Session.IsLibraryEmpty}"
                   Margin="54,12,54,28">
                 <Border MaxWidth="1120"
                         Width="780"
@@ -104,17 +105,17 @@
                                    Stretch="Uniform"
                                    VerticalAlignment="Center" />
                             <StackPanel VerticalAlignment="Center" Spacing="3">
-                                <TextBlock Text="{Binding LibraryEmptyBreadcrumb}"
+                                <TextBlock Text="{Binding Session.LibraryEmptyBreadcrumb}"
                                            Foreground="#AFC0CB"
                                            FontSize="10"
                                            FontWeight="SemiBold"
                                            LetterSpacing="1" />
-                                <TextBlock Text="{Binding EmptyLibraryTitle}"
+                                <TextBlock Text="{Binding Session.EmptyLibraryTitle}"
                                            FontSize="26"
                                            FontWeight="Bold" />
                             </StackPanel>
                         </StackPanel>
-                        <TextBlock Text="{Binding EmptyLibraryMessage}"
+                        <TextBlock Text="{Binding Session.EmptyLibraryMessage}"
                                    Foreground="#BDCAD3"
                                    FontSize="15"
                                    MaxWidth="700"
@@ -123,17 +124,17 @@
                             <Button x:Name="EmptyConnectButton"
                                     Content="{x:Static lang:Resources.ConnectStore}"
                                     Classes="console-action"
-                                    IsVisible="{Binding HasEmptyLibraryActions}"
+                                    IsVisible="{Binding Session.HasEmptyLibraryActions}"
                                     Click="OnEmptyPrimaryActionClick" />
                             <Button x:Name="EmptyAddButton"
                                     Content="{x:Static lang:Resources.AddManually}"
                                     Classes="subtle-action"
-                                    IsVisible="{Binding HasEmptyLibraryActions}"
+                                    IsVisible="{Binding Session.HasEmptyLibraryActions}"
                                     Click="OnEmptyAddGameClick" />
                             <Button x:Name="EmptyShowAllButton"
                                     Content="{x:Static lang:Resources.MenuShowAllGames}"
                                     Classes="console-action"
-                                    IsVisible="{Binding IsShowingHiddenGames}"
+                                    IsVisible="{Binding Session.IsShowingHiddenGames}"
                                     Click="OnEmptyShowAllGamesClick" />
                         </StackPanel>
                     </StackPanel>
@@ -142,7 +143,7 @@
 
             <Grid Grid.Row="1"
                   Grid.RowSpan="3"
-                  IsVisible="{Binding IsLibraryBusy}"
+                  IsVisible="{Binding Session.IsLibraryBusy}"
                   Margin="54,12,54,28"
                   IsHitTestVisible="False">
                 <Border Width="500"
@@ -159,11 +160,11 @@
                                Height="68"
                                HorizontalAlignment="Center"
                                Stretch="Uniform" />
-                        <TextBlock Text="{Binding LibraryBusyTitle}"
+                        <TextBlock Text="{Binding Session.LibraryBusyTitle}"
                                    FontSize="25"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Center" />
-                        <TextBlock Text="{Binding LibraryBusyMessage}"
+                        <TextBlock Text="{Binding Session.LibraryBusyMessage}"
                                    Foreground="#BDCAD3"
                                    FontSize="14"
                                    HorizontalAlignment="Center" />
@@ -176,4 +177,4 @@
                 </Border>
             </Grid>
         </Grid>
-</UserControl>
+</navigation:FullScreenView>

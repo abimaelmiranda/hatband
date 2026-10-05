@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using System.Globalization;
 using Hatband.App.Services;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.Views;
@@ -42,6 +43,14 @@ public partial class App : Application
             services.AddSingleton<GameProcessSessionService>();
             services.AddSingleton<ProtonManagementViewModel>();
             services.AddSingleton<SettingsScreenViewModel>();
+            services.AddSingleton<NavigationCoordinator>();
+            services.AddSingleton<IScreenNavigation>(provider => provider.GetRequiredService<NavigationCoordinator>());
+            services.AddSingleton<IModalService>(provider => provider.GetRequiredService<NavigationCoordinator>());
+            services.AddSingleton<LibrarySessionViewModel>();
+            services.AddSingleton<LibraryScreenViewModel>();
+            services.AddSingleton<GameDetailsScreenViewModel>();
+            services.AddSingleton<AddGameViewModel>();
+            services.AddSingleton<GameMetadataEditorViewModel>();
             services.AddSingleton<MainWindowViewModel>();
 
             var serviceProvider = services.BuildServiceProvider();

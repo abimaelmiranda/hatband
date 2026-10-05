@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Hatband.App.ViewModels"
         xmlns:models="using:Hatband.App.ViewModels"
-        xmlns:screens="using:Hatband.App.Views.Screens"
+        xmlns:navigation="using:Hatband.App.Views.Navigation"
         xmlns:components="using:Hatband.App.Views.Components"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -178,35 +178,17 @@
     </Window.Styles>
 
     <Grid Background="#11161C">
-        <screens:LibraryScreenView x:Name="LibraryScreenView"
-                                   IsVisible="{Binding IsLibraryBackgroundVisible}"
-                                   Panel.ZIndex="{Binding LibraryScreenZIndex}" />
+        <navigation:ScreenHost x:Name="ScreenHost"
+                               Coordinator="{Binding Navigation}" />
+        <navigation:ModalHost x:Name="ModalHost"
+                              Coordinator="{Binding Navigation}"
+                              ZIndex="10" />
 
-        <screens:GameDetailsScreenView x:Name="GameDetailsScreenView"
-                                       IsVisible="{Binding IsDetailsBackgroundVisible}"
-                                       Panel.ZIndex="{Binding DetailsScreenZIndex}" />
+        <components:SyncActivityIndicatorView DataContext="{Binding Session}" ZIndex="20" />
+        <components:StatusMessageView DataContext="{Binding Session}" ZIndex="20" />
+        <components:GameSessionOverlayView DataContext="{Binding Session}" ZIndex="30" />
 
-        <screens:GameMetadataEditorScreenView x:Name="GameMetadataEditorScreenView"
-                                              IsVisible="{Binding IsGameEditorBackgroundVisible}"
-                                              Panel.ZIndex="{Binding GameEditorScreenZIndex}" />
-
-        <screens:AddGameScreenView x:Name="AddGameScreenView"
-                                   IsVisible="{Binding IsAddGameBackgroundVisible}"
-                                   Panel.ZIndex="{Binding AddGameScreenZIndex}" />
-
-        <screens:SettingsScreenView x:Name="SettingsScreenView"
-                                    IsVisible="{Binding IsSettingsBackgroundVisible}"
-                                    Panel.ZIndex="{Binding SettingsScreenZIndex}" />
-
-        <screens:MenuOverlayView x:Name="MenuOverlayView"
-                                 IsVisible="{Binding IsMenuOpen}"
-                                 Panel.ZIndex="{Binding MenuOverlayZIndex}" />
-
-        <components:SyncActivityIndicatorView />
-        <components:StatusMessageView />
-        <components:GameSessionOverlayView />
-
-        <Border Panel.ZIndex="{Binding MenuOverlayZIndex}"
+        <Border ZIndex="20"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Bottom"
                 Margin="24"

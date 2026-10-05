@@ -2,7 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Hatband.App.ViewModels"
              x:Class="Hatband.App.Views.Components.StatusMessageView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:LibrarySessionViewModel">
     <Border IsVisible="{Binding HasStatusMessage}"
             HorizontalAlignment="Center"
             VerticalAlignment="Bottom"

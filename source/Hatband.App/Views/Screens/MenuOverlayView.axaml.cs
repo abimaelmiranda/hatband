@@ -1,38 +1,43 @@
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using Hatband.App.ViewModels;
-using Hatband.App.Views.Components;
+using Hatband.App.Views.Navigation;
 
 namespace Hatband.App.Views.Screens;
 
-public partial class MenuOverlayView : UserControl
+/// <summary>
+/// Presents the application menu as a modal and returns actions without managing screen history.
+/// </summary>
+public partial class MenuOverlayView : ModalView
 {
     public MenuOverlayView()
     {
         InitializeComponent();
     }
 
-    public event Action<MenuAction>? MenuActionRequested;
-
-    public void FocusSelectedOption()
+    protected override Control? GetInitialFocusTarget()
     {
-        if (DataContext is not MainWindowViewModel viewModel)
-        {
-            return;
-        }
-
-        var option = ItemsHost.GetVisualDescendants()
-            .OfType<ConsoleNavigationItemView>()
-            .FirstOrDefault(item => item.DataContext is MenuOptionViewModel menuOption &&
-                                    ReferenceEquals(menuOption, viewModel.MenuOptions[viewModel.SelectedMenuIndex]));
-        option?.FocusItem();
+        return ItemsHost.GetVisualDescendants().OfType<Button>().FirstOrDefault();
     }
 
     private void OnMenuOptionClick(object? sender, EventArgs e)
     {
-        if (sender is ConsoleNavigationItemView { DataContext: MenuOptionViewModel option })
+        if (DataContext is MainMenuViewModel viewModel &&
+            sender is Control { DataContext: MenuOptionViewModel option })
         {
-            MenuActionRequested?.Invoke(option.Action);
+            viewModel.Activate(option.Action);
+        }
+    }
+
+    private void OnMenuOptionFocusEntered(object? sender, EventArgs e)
+    {
+        if (DataContext is MainMenuViewModel viewModel &&
+            sender is Control { DataContext: MenuOptionViewModel selected })
+        {
+            foreach (var option in viewModel.MenuOptions)
+            {
+                option.IsSelected = ReferenceEquals(option, selected);
+            }
         }
     }
 }

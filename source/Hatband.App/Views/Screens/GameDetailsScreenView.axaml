@@ -1,18 +1,19 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<navigation:FullScreenView xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:navigation="using:Hatband.App.Views.Navigation"
              xmlns:lang="using:Hatband.App.Localization"
              xmlns:components="using:Hatband.App.Views.Components"
              x:Class="Hatband.App.Views.Screens.GameDetailsScreenView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:GameDetailsScreenViewModel">
     <Grid>
         <Image Classes="background-art"
-               Source="{Binding BackgroundImage}"
-               Opacity="{Binding BackgroundImageOpacity}"
+               Source="{Binding Session.BackgroundImage}"
+               Opacity="{Binding Session.BackgroundImageOpacity}"
                Stretch="UniformToFill" />
         <Image Classes="background-art"
-               Source="{Binding PreviousBackgroundImage}"
-               Opacity="{Binding PreviousBackgroundImageOpacity}"
+               Source="{Binding Session.PreviousBackgroundImage}"
+               Opacity="{Binding Session.PreviousBackgroundImageOpacity}"
                Stretch="UniformToFill" />
         <Border>
             <Border.Background>
@@ -38,38 +39,38 @@
                             <components:GameArtworkView Width="118"
                                                         Height="168"
                                                         ShowTitle="False"
-                                                        DataContext="{Binding SelectedGameCard}"
+                                                        DataContext="{Binding Session.SelectedGameCard}"
                                                         VerticalAlignment="Top" />
                             <StackPanel Grid.Column="1" Spacing="7" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding SelectedGameCard.Name}"
+                                <TextBlock Text="{Binding Session.SelectedGameCard.Name}"
                                            FontSize="30"
                                            FontWeight="Bold"
                                            TextWrapping="Wrap"
                                            MaxLines="2" />
                                 <StackPanel Orientation="Horizontal" Spacing="7">
-                                    <TextBlock Text="{Binding SelectedGameCard.ReleaseYear}"
+                                    <TextBlock Text="{Binding Session.SelectedGameCard.ReleaseYear}"
                                                Foreground="#D2D9DF"
                                                FontSize="12" />
                                     <TextBlock Text="·"
                                                Foreground="#D2D9DF"
                                                FontSize="12" />
-                                    <TextBlock Text="{Binding SelectedGameCard.Genre}"
+                                    <TextBlock Text="{Binding Session.SelectedGameCard.Genre}"
                                                Foreground="#D2D9DF"
                                                FontSize="12" />
                                 </StackPanel>
                                 <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8" Margin="0,2,0,0">
                                     <Button x:Name="PlayButton"
-                                            Content="{Binding PrimaryGameActionLabel}"
+                                            Content="{Binding Session.PrimaryGameActionLabel}"
                                             Classes="console-action details-action"
-                                            IsEnabled="{Binding IsPrimaryGameActionEnabled}"
-                                            IsVisible="{Binding !IsSelectedGameManagementPending}"
-                                            Click="OnPlayButtonClick" />
+                                            IsEnabled="{Binding Session.IsPrimaryGameActionEnabled}"
+                                            IsVisible="{Binding !Session.IsSelectedGameManagementPending}"
+                                            Command="{Binding ActivatePrimaryActionCommand}" />
                                     <ProgressBar Grid.ColumnSpan="2"
                                                  Width="152"
                                                  Height="6"
                                                  VerticalAlignment="Center"
                                                  IsIndeterminate="True"
-                                                 IsVisible="{Binding IsSelectedGameManagementPending}"
+                                                 IsVisible="{Binding Session.IsSelectedGameManagementPending}"
                                                  Background="#394650"
                                                  Foreground="#91C7F2" />
                                     <Button x:Name="OptionsButton"
@@ -77,8 +78,8 @@
                                             Content="…"
                                             Classes="subtle-action details-options-action"
                                             ToolTip.Tip="{x:Static lang:Resources.GameOptionsTooltip}"
-                                            IsVisible="{Binding !IsSelectedGameManagementPending}"
-                                            Click="OnOptionsButtonClick" />
+                                            IsVisible="{Binding !Session.IsSelectedGameManagementPending}"
+                                            Command="{Binding OpenOptionsCommand}" />
                                 </Grid>
                             </StackPanel>
                         </Grid>
@@ -89,7 +90,7 @@
                                        FontSize="12"
                                        FontWeight="SemiBold" />
                             <ScrollViewer MaxHeight="170" VerticalScrollBarVisibility="Auto">
-                                <TextBlock Text="{Binding SelectedGameCard.Description}"
+                                <TextBlock Text="{Binding Session.SelectedGameCard.Description}"
                                            Foreground="#E2E6EA"
                                            FontSize="13"
                                            TextWrapping="Wrap" />
@@ -112,16 +113,16 @@
                                        FontWeight="SemiBold" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="14">
                                 <components:GameDetailStatView Label="{x:Static lang:Resources.PlaytimeLabel}"
-                                                               Value="{Binding SelectedGameCard.PlaytimeSummary}" />
+                                                               Value="{Binding Session.SelectedGameCard.PlaytimeSummary}" />
                                 <components:GameDetailStatView Grid.Column="1"
                                                                Label="{x:Static lang:Resources.LastActivityLabel}"
-                                                               Value="{Binding SelectedGameCard.LastActivitySummary}" />
+                                                               Value="{Binding Session.SelectedGameCard.LastActivitySummary}" />
                                 <components:GameDetailStatView Grid.Row="1"
                                                                Label="{x:Static lang:Resources.Installation}"
-                                                               Value="{Binding SelectedGameCard.InstallStateLabel}" />
+                                                               Value="{Binding Session.SelectedGameCard.InstallStateLabel}" />
                                 <components:GameDetailStatView Grid.Row="1" Grid.Column="1"
                                                                Label="{x:Static lang:Resources.FavoriteLabel}"
-                                                               Value="{Binding SelectedGameCard.FavoriteLabel}" />
+                                                               Value="{Binding Session.SelectedGameCard.FavoriteLabel}" />
                             </Grid>
                         </StackPanel>
 
@@ -138,16 +139,16 @@
                                        FontWeight="SemiBold" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="14">
                                 <components:GameDetailStatView Label="{x:Static lang:Resources.Genre}"
-                                                               Value="{Binding SelectedGameCard.Genre}" />
+                                                               Value="{Binding Session.SelectedGameCard.Genre}" />
                                 <components:GameDetailStatView Grid.Column="1"
                                                                Label="{x:Static lang:Resources.Developer}"
-                                                               Value="{Binding SelectedGameCard.Developer}" />
+                                                               Value="{Binding Session.SelectedGameCard.Developer}" />
                                 <components:GameDetailStatView Grid.Row="1"
                                                                Label="{x:Static lang:Resources.Publisher}"
-                                                               Value="{Binding SelectedGameCard.Publisher}" />
+                                                               Value="{Binding Session.SelectedGameCard.Publisher}" />
                                 <components:GameDetailStatView Grid.Row="1" Grid.Column="1"
                                                                Label="{x:Static lang:Resources.ReleaseDate}"
-                                                               Value="{Binding SelectedGameCard.ReleaseDateDisplay}" />
+                                                               Value="{Binding Session.SelectedGameCard.ReleaseDateDisplay}" />
                                 <StackPanel Grid.Row="2" Spacing="3">
                                     <TextBlock Text="{x:Static lang:Resources.NativePlatforms}"
                                                Foreground="#AFC0CC"
@@ -158,33 +159,33 @@
                                                Height="17"
                                                Stretch="Uniform"
                                                ToolTip.Tip="Windows"
-                                               IsVisible="{Binding SelectedGameCard.SupportsWindows}" />
+                                               IsVisible="{Binding Session.SelectedGameCard.SupportsWindows}" />
                                         <Image Source="avares://Hatband.App/Assets/Icons/Platforms/macos.png"
                                                Width="17"
                                                Height="17"
                                                Stretch="Uniform"
                                                ToolTip.Tip="macOS"
-                                               IsVisible="{Binding SelectedGameCard.SupportsMacOS}" />
+                                               IsVisible="{Binding Session.SelectedGameCard.SupportsMacOS}" />
                                         <Image Source="avares://Hatband.App/Assets/Icons/Platforms/linux.png"
                                                Width="17"
                                                Height="17"
                                                Stretch="Uniform"
                                                ToolTip.Tip="Linux"
-                                               IsVisible="{Binding SelectedGameCard.SupportsLinux}" />
+                                               IsVisible="{Binding Session.SelectedGameCard.SupportsLinux}" />
                                         <TextBlock Text="—"
                                                    Foreground="#AFC0CC"
                                                    FontSize="14"
-                                                   IsVisible="{Binding SelectedGameCard.HasNoNativePlatforms}" />
+                                                   IsVisible="{Binding Session.SelectedGameCard.HasNoNativePlatforms}" />
                                         <TextBlock Text="?"
                                                    Foreground="#AFC0CC"
                                                    FontSize="14"
                                                    ToolTip.Tip="{x:Static lang:Resources.UnknownPlatformSupport}"
-                                                   IsVisible="{Binding SelectedGameCard.HasUnknownNativePlatforms}" />
+                                                   IsVisible="{Binding Session.SelectedGameCard.HasUnknownNativePlatforms}" />
                                     </StackPanel>
                                 </StackPanel>
                                 <components:GameDetailStatView Grid.Row="2" Grid.Column="1"
                                                                Label="{x:Static lang:Resources.PlatformCompatibility}"
-                                                               Value="{Binding SelectedGameCard.PlatformCompatibilityLabel}" />
+                                                               Value="{Binding Session.SelectedGameCard.PlatformCompatibilityLabel}" />
                             </Grid>
                         </StackPanel>
                     </Grid>
@@ -201,160 +202,29 @@
                                FontSize="11"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"
-                               IsVisible="{Binding SelectedGameCard.HasTimeToBeat}" />
+                               IsVisible="{Binding Session.SelectedGameCard.HasTimeToBeat}" />
                     <TextBlock Grid.Column="1"
-                               Text="{Binding SelectedGameCard.TimeToBeatSummary}"
+                               Text="{Binding Session.SelectedGameCard.TimeToBeatSummary}"
                                Foreground="#E2E6EA"
                                FontSize="12"
                                TextWrapping="Wrap"
                                VerticalAlignment="Center"
-                               IsVisible="{Binding SelectedGameCard.HasTimeToBeat}" />
+                               IsVisible="{Binding Session.SelectedGameCard.HasTimeToBeat}" />
                     <Image Grid.Column="2"
                            Source="avares://Hatband.App/Assets/Stores/steam-wordmark-white.png"
                            Width="76"
                            Height="20"
                            Stretch="Uniform"
-                           IsVisible="{Binding SelectedGameCard.IsSteamSource}" />
+                           IsVisible="{Binding Session.SelectedGameCard.IsSteamSource}" />
                     <TextBlock Grid.Column="2"
-                               Text="{Binding SelectedGameCard.SourceDisplayName}"
+                               Text="{Binding Session.SelectedGameCard.SourceDisplayName}"
                                Foreground="#D2D9DF"
                                FontSize="11"
                                VerticalAlignment="Center"
-                               IsVisible="{Binding SelectedGameCard.IsNonSteamSource}" />
+                               IsVisible="{Binding Session.SelectedGameCard.IsNonSteamSource}" />
                 </Grid>
             </Border>
         </Grid>
 
-        <Border IsVisible="{Binding IsGameOptionsOpen}"
-                Background="Transparent"
-                x:Name="GameOptionsOverlay">
-            <Border Classes="simple-modal-frame">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                        <GradientStop Color="#F21C252F" Offset="0" />
-                        <GradientStop Color="#F20F151C" Offset="1" />
-                    </LinearGradientBrush>
-                </Border.Background>
-                <Grid RowDefinitions="Auto,*" RowSpacing="15">
-                    <StackPanel Spacing="3">
-                        <TextBlock Text="{x:Static lang:Resources.GameOptions}"
-                                   Foreground="#AFC0CC"
-                                   FontSize="12" />
-                        <TextBlock Text="{Binding SelectedGameCard.Name}"
-                                   FontSize="25"
-                                   FontWeight="Bold"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-
-                    <Grid Grid.Row="1">
-                        <StackPanel x:Name="GameOptionList" Spacing="4">
-                            <components:ConsoleNavigationItemView x:Name="EditGameOptionItem"
-                                                                  TitleFontSize="13"
-                                                                  Symbol="✎"
-                                                                  Title="{x:Static lang:Resources.EditGame}"
-                                                                  Activated="OnEditGameOptionActivated" />
-                            <components:ConsoleNavigationItemView x:Name="HiddenGameOptionItem"
-                                                                  TitleFontSize="13"
-                                                                  Symbol="◉"
-                                                                  Title="{Binding SelectedGameHiddenActionLabel}"
-                                                                  Activated="OnHiddenGameOptionActivated" />
-                            <components:ConsoleNavigationItemView x:Name="UninstallGameOptionItem"
-                                                                  TitleFontSize="13"
-                                                                  Symbol="⌫"
-                                                                  Title="{x:Static lang:Resources.UninstallGame}"
-                                                                  IsVisible="{Binding CanUninstallSelectedGame}"
-                                                                  Activated="OnUninstallGameOptionActivated" />
-                            <components:ConsoleNavigationItemView x:Name="CompatibilityOptionItem"
-                                                                  TitleFontSize="13"
-                                                                  Symbol="⚙"
-                                                                  Title="{x:Static lang:Resources.Compatibility}"
-                                                                  Activated="OnCompatibilityOptionActivated" />
-                        </StackPanel>
-                    </Grid>
-
-                </Grid>
-            </Border>
-        </Border>
-
-        <Border x:Name="UninstallConfirmationOverlay"
-                IsVisible="False"
-                Background="#B3000000">
-            <Border Width="460"
-                    Padding="24"
-                    CornerRadius="12"
-                    Background="#F21C252F"
-                    BorderBrush="#526B7884"
-                    BorderThickness="1"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                <StackPanel Spacing="14">
-                    <TextBlock Text="{x:Static lang:Resources.UninstallConfirmationTitle}"
-                               FontSize="22"
-                               FontWeight="Bold" />
-                    <TextBlock Text="{Binding SelectedGameCard.Name}"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{x:Static lang:Resources.UninstallConfirmationMessage}"
-                               Foreground="#CFD7DE"
-                               FontSize="14"
-                               TextWrapping="Wrap" />
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right"
-                                Spacing="10"
-                                Margin="0,8,0,0">
-                        <Button x:Name="CancelUninstallButton"
-                                Content="{x:Static lang:Resources.Cancel}"
-                                Classes="subtle-action confirmation-action"
-                                Click="OnCancelUninstallClick" />
-                        <Button x:Name="ConfirmUninstallButton"
-                                Content="{x:Static lang:Resources.UninstallGame}"
-                                Classes="danger-action confirmation-action"
-                                Click="OnConfirmUninstallClick" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </Border>
-
-        <Border x:Name="InstallLocationPickerOverlay"
-                IsVisible="{Binding IsInstallLocationPickerOpen}"
-                Background="#B3000000">
-            <Border Width="560"
-                    Padding="24"
-                    CornerRadius="12"
-                    Background="#F21C252F"
-                    BorderBrush="#526B7884"
-                    BorderThickness="1"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center">
-                <StackPanel Spacing="14">
-                    <TextBlock Text="{x:Static lang:Resources.InstallLocationTitle}"
-                               FontSize="22"
-                               FontWeight="Bold" />
-                    <TextBlock Text="{x:Static lang:Resources.InstallLocationMessage}"
-                               Foreground="#CFD7DE"
-                               FontSize="14"
-                               TextWrapping="Wrap" />
-                    <ComboBox x:Name="InstallLocationComboBox"
-                              ItemsSource="{Binding InstallLocations}"
-                              SelectedItem="{Binding SelectedInstallLocation, Mode=TwoWay}"
-                              DisplayMemberBinding="{Binding DisplayName}"
-                              Classes="settings-select" />
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right"
-                                Spacing="10"
-                                Margin="0,8,0,0">
-                        <Button x:Name="CancelInstallButton"
-                                Content="{x:Static lang:Resources.Cancel}"
-                                Classes="subtle-action confirmation-action"
-                                Click="OnCancelInstallClick" />
-                        <Button x:Name="ConfirmInstallButton"
-                                Content="{x:Static lang:Resources.Install}"
-                                Classes="console-action confirmation-action"
-                                Click="OnConfirmInstallClick" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-        </Border>
     </Grid>
-</UserControl>
+</navigation:FullScreenView>

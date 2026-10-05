@@ -2,10 +2,47 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Hatband.App.App"
              xmlns:local="using:Hatband.App"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:settings="using:Hatband.App.ViewModels.Settings"
+             xmlns:screens="using:Hatband.App.Views.Screens"
+             xmlns:modals="using:Hatband.App.Views.Modals"
              RequestedThemeVariant="Dark">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.DataTemplates>
+        <DataTemplate DataType="{x:Type vm:LibraryScreenViewModel}">
+            <screens:LibraryScreenView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GameDetailsScreenViewModel}">
+            <screens:GameDetailsScreenView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AddGameViewModel}">
+            <screens:AddGameScreenView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GameMetadataEditorViewModel}">
+            <screens:GameMetadataEditorScreenView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type settings:SettingsScreenViewModel}">
+            <screens:SettingsScreenView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MainMenuViewModel}">
+            <screens:MenuOverlayView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GameOptionsViewModel}">
+            <modals:GameOptionsModalView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ConfirmationModalViewModel}">
+            <modals:ConfirmationModalView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:InstallLocationModalViewModel}">
+            <modals:InstallLocationModalView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MetadataSearchModalViewModel}">
+            <modals:MetadataSearchModalView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ArtworkPickerModalViewModel}">
+            <modals:ArtworkPickerModalView />
+        </DataTemplate>
         <local:ViewLocator/>
     </Application.DataTemplates>
 

@@ -1,51 +1,91 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
+using Hatband.App.Views.Navigation;
 
 namespace Hatband.App.Views.Screens;
 
-public partial class LibraryScreenView : UserControl
+/// <summary>
+/// Owns carousel navigation and empty-library actions within the active fullscreen focus scope.
+/// </summary>
+public partial class LibraryScreenView : FullScreenView
 {
     public LibraryScreenView()
     {
         InitializeComponent();
     }
 
-    public ListBox GameCarouselControl => GameCarousel;
+    public override void FocusInitial()
+    {
+        if (DataContext is not LibraryScreenViewModel viewModel)
+        {
+            return;
+        }
 
-    public Button EmptyConnectButtonControl => EmptyConnectButton;
+        if (!viewModel.Session.IsLibraryEmpty)
+        {
+            DirectionalFocusNavigator.Focus(GameCarousel);
+            return;
+        }
 
-    public Button EmptyAddButtonControl => EmptyAddButton;
+        DirectionalFocusNavigator.Focus(viewModel.Session.IsShowingHiddenGames
+            ? EmptyShowAllButton
+            : EmptyConnectButton);
+    }
 
-    public Button EmptyShowAllButtonControl => EmptyShowAllButton;
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs e)
+    {
+        if (DataContext is not LibraryScreenViewModel viewModel)
+        {
+            return NavigationActionHandling.Unhandled;
+        }
 
-    public event Action<MenuAction>? MenuActionRequested;
+        if (viewModel.Session.IsLibraryEmpty)
+        {
+            return base.HandleNavigationAction(action, e);
+        }
 
-    public event Action? MenuOpened;
+        switch (action)
+        {
+            case NavigationAction.Left:
+                viewModel.Session.MoveGameSelection(-1);
+                return NavigationActionHandling.Handled;
+            case NavigationAction.Right:
+                viewModel.Session.MoveGameSelection(1);
+                return NavigationActionHandling.Handled;
+            case NavigationAction.Confirm:
+                e.Handled = true;
+                viewModel.OpenSelectedGame();
+                return NavigationActionHandling.Handled;
+            default:
+                return base.HandleNavigationAction(action, e);
+        }
+    }
 
     private void OnEmptyPrimaryActionClick(object? sender, RoutedEventArgs e)
     {
-        MenuActionRequested?.Invoke(MenuAction.OpenConnectorSettings);
+        if (DataContext is LibraryScreenViewModel viewModel)
+        {
+            viewModel.RequestMenuAction(MenuAction.OpenConnectorSettings);
+        }
     }
 
     private void OnEmptyAddGameClick(object? sender, RoutedEventArgs e)
     {
-        MenuActionRequested?.Invoke(MenuAction.AddGame);
+        if (DataContext is LibraryScreenViewModel viewModel)
+        {
+            viewModel.RequestMenuAction(MenuAction.AddGame);
+        }
     }
 
     private void OnEmptyShowAllGamesClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel)
+        if (DataContext is LibraryScreenViewModel viewModel)
         {
-            viewModel.ShowAllGames();
-            if (viewModel.IsLibraryEmpty)
-            {
-                DirectionalFocusNavigator.Focus(EmptyConnectButton);
-            }
-            else
-            {
-                DirectionalFocusNavigator.Focus(GameCarousel);
-            }
+            viewModel.Session.ShowAllGames();
+            FocusInitial();
         }
     }
 }

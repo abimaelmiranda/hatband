@@ -1,10 +1,11 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<navigation:ModalView xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:navigation="using:Hatband.App.Views.Navigation"
              xmlns:lang="using:Hatband.App.Localization"
              xmlns:components="using:Hatband.App.Views.Components"
              x:Class="Hatband.App.Views.Screens.MenuOverlayView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:MainMenuViewModel">
     <Grid Background="Transparent">
         <Border Classes="simple-modal-frame">
             <Border.Background>
@@ -37,7 +38,8 @@
                                                                       Title="{Binding Title}"
                                                                       ItemBackground="{Binding HighlightBrush}"
                                                                       ItemBorderBrush="{Binding SelectionBorderBrush}"
-                                                                      Activated="OnMenuOptionClick" />
+                                                                      Activated="OnMenuOptionClick"
+                                                                      FocusEntered="OnMenuOptionFocusEntered" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -45,4 +47,4 @@
             </Grid>
         </Border>
         </Grid>
-</UserControl>
+</navigation:ModalView>

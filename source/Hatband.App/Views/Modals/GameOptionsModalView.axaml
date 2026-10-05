@@ -1,0 +1,27 @@
+<navigation:ModalView xmlns="https://github.com/avaloniaui"
+                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                     xmlns:navigation="using:Hatband.App.Views.Navigation"
+                     xmlns:vm="using:Hatband.App.ViewModels"
+                     xmlns:components="using:Hatband.App.Views.Components"
+                     xmlns:lang="using:Hatband.App.Localization"
+                     x:Class="Hatband.App.Views.Modals.GameOptionsModalView"
+                     x:DataType="vm:GameOptionsViewModel">
+    <Border Classes="simple-modal-frame" Background="#F21C252F">
+        <Grid RowDefinitions="Auto,*" RowSpacing="15">
+            <StackPanel Spacing="3">
+                <TextBlock Text="{x:Static lang:Resources.GameOptions}" Foreground="#AFC0CC" FontSize="12" />
+                <TextBlock Text="{Binding Game.Name}" FontSize="25" FontWeight="Bold" TextWrapping="Wrap" />
+            </StackPanel>
+            <ItemsControl x:Name="OptionsHost" Grid.Row="1" ItemsSource="{Binding Options}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GameOptionViewModel">
+                        <components:ConsoleNavigationItemView Title="{Binding Title}"
+                                                              Symbol="{Binding Symbol}"
+                                                              TitleFontSize="13"
+                                                              Activated="OnOptionActivated" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+    </Border>
+</navigation:ModalView>

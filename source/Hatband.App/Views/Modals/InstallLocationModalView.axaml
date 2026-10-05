@@ -1,0 +1,23 @@
+<navigation:ModalView xmlns="https://github.com/avaloniaui"
+                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                     xmlns:navigation="using:Hatband.App.Views.Navigation"
+                     xmlns:vm="using:Hatband.App.ViewModels"
+                     xmlns:lang="using:Hatband.App.Localization"
+                     x:Class="Hatband.App.Views.Modals.InstallLocationModalView"
+                     x:DataType="vm:InstallLocationModalViewModel">
+    <Border Width="560" Padding="24" CornerRadius="12" Background="#F21C252F"
+            BorderBrush="#526B7884" BorderThickness="1"
+            HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="14">
+            <TextBlock Text="{x:Static lang:Resources.InstallLocationTitle}" FontSize="22" FontWeight="Bold" />
+            <TextBlock Text="{x:Static lang:Resources.InstallLocationMessage}" Foreground="#CFD7DE" FontSize="14" TextWrapping="Wrap" />
+            <ComboBox x:Name="LocationComboBox" ItemsSource="{Binding Locations}"
+                      SelectedItem="{Binding SelectedLocation, Mode=TwoWay}"
+                      DisplayMemberBinding="{Binding DisplayName}" Classes="settings-select" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,8,0,0">
+                <Button Content="{x:Static lang:Resources.Cancel}" Classes="subtle-action confirmation-action" Click="OnCancelClick" />
+                <Button Content="{x:Static lang:Resources.Install}" Classes="console-action confirmation-action" Click="OnConfirmClick" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</navigation:ModalView>

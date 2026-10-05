@@ -3,7 +3,7 @@
              xmlns:vm="using:Hatband.App.ViewModels"
              xmlns:lang="using:Hatband.App.Localization"
              x:Class="Hatband.App.Views.Components.GameSessionOverlayView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:LibrarySessionViewModel">
     <Grid IsVisible="{Binding IsGameSessionActive}"
           Background="#FF11161C">
         <Image Source="{Binding ActiveGameSessionBackgroundImage}"
