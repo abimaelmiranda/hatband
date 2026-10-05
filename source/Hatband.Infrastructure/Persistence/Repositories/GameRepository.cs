@@ -71,6 +71,17 @@ public sealed class GameRepository : IGameRepository
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task UpdateInstallationInfoAsync(
+        Guid gameId,
+        GameInstallationInfo? installationInfo,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var game = await context.Games.SingleAsync(item => item.Id == gameId, cancellationToken);
+        game.InstallationInfo = installationInfo;
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(Guid gameId, CancellationToken cancellationToken = default)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);

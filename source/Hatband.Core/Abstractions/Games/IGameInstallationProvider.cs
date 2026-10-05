@@ -8,8 +8,8 @@ public interface IGameInstallationProvider
     GameSourceId SourceId { get; }
 
     /// <summary>
-    /// Returns installed games keyed by their ID in this provider's source.
+    /// Returns games installed locally and known to this provider.
     /// </summary>
-    Task<IReadOnlyDictionary<string, GameInstallationInfo>> ScanInstalledGamesAsync(
+    Task<IReadOnlyList<Game>> ScanInstalledGamesAsync(
         CancellationToken cancellationToken = default);
 }

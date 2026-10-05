@@ -28,5 +28,10 @@ public interface IGameRepository
 
     Task UpdateAsync(Game game, CancellationToken cancellationToken = default);
 
+    Task UpdateInstallationInfoAsync(
+        Guid gameId,
+        GameInstallationInfo? installationInfo,
+        CancellationToken cancellationToken = default);
+
     Task DeleteAsync(Guid gameId, CancellationToken cancellationToken = default);
 }

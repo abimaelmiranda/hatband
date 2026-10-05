@@ -8,36 +8,38 @@ namespace Hatband.Integrations.Steam;
 
 public sealed class SteamGameInstallationProvider : IGameInstallationProvider
 {
-    private readonly ISteamInstalledGameScanner installedGameScanner;
+    private readonly ISteamInstalledGameScanner _installedGameScanner;
 
     public SteamGameInstallationProvider(ISteamInstalledGameScanner installedGameScanner)
     {
         ArgumentNullException.ThrowIfNull(installedGameScanner);
-        this.installedGameScanner = installedGameScanner;
+        _installedGameScanner = installedGameScanner;
     }
 
     public GameSourceId SourceId => GameSourceId.Steam;
 
-    public async Task<IReadOnlyDictionary<string, GameInstallationInfo>> ScanInstalledGamesAsync(
+    public async Task<IReadOnlyList<Game>> ScanInstalledGamesAsync(
         CancellationToken cancellationToken = default)
     {
-        var installedGames = await installedGameScanner.ScanAsync(cancellationToken);
-        var installationInfo = new Dictionary<string, GameInstallationInfo>(StringComparer.Ordinal);
-        foreach (var game in installedGames)
+        var installedGames = await _installedGameScanner.ScanAsync(cancellationToken);
+        var games = new List<Game>(installedGames.Count);
+        foreach (var installedGame in installedGames)
         {
-            if (game.InstallDirectory is null)
+            if (installedGame.InstallDirectory is not { } installDirectory)
             {
                 throw new InvalidOperationException(
-                    $"Steam reported installed game {game.AppId} without an installation directory.");
+                    $"Steam reported installed game {installedGame.AppId} without an installation directory.");
             }
 
-            var sourceGameId = game.AppId.ToString(CultureInfo.InvariantCulture);
-            installationInfo.Add(sourceGameId, new GameInstallationInfo
+            games.Add(new Game
             {
-                InstallDirectory = game.InstallDirectory
+                Name = installedGame.Name,
+                SourceId = SourceId,
+                SourceGameId = installedGame.AppId.ToString(CultureInfo.InvariantCulture),
+                InstallationInfo = new GameInstallationInfo { InstallDirectory = installDirectory }
             });
         }
 
-        return installationInfo;
+        return games;
     }
 }
