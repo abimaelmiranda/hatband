@@ -25,7 +25,7 @@
             </Border.Background>
         </Border>
 
-        <Grid Margin="40,28,40,68" RowDefinitions="*,Auto">
+        <Grid Margin="24,28,24,68" RowDefinitions="*,Auto">
             <Grid Grid.Row="0"
                   ColumnDefinitions="1.05*,1.35*"
                   ColumnSpacing="16"
