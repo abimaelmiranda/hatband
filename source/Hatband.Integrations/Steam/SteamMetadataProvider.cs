@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Hatband.Core.Abstractions.Games;
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Enums.Games;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Compatibility;
@@ -18,8 +19,11 @@ namespace Hatband.Integrations.Steam;
 public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGameCompatibilityTierProvider
 {
     private const int MaximumNameSearchResults = 5;
+    private const int CacheDurationDays = 1;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ProtondbMetadataProvider _protondbMetadataProvider;
+    private readonly ICacheService _cacheService;
+    private readonly TimeProvider _timeProvider;
 
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex HtmlTagPattern();
@@ -40,12 +44,18 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
 
     public SteamMetadataProvider(
         IHttpClientFactory httpClientFactory,
-        ProtondbMetadataProvider protondbMetadataProvider)
+        ProtondbMetadataProvider protondbMetadataProvider,
+        ICacheService cacheService,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(protondbMetadataProvider);
+        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         _httpClientFactory = httpClientFactory;
         _protondbMetadataProvider = protondbMetadataProvider;
+        _cacheService = cacheService;
+        _timeProvider = timeProvider;
     }
 
     public GameSourceId? SourceId => GameSourceId.Steam;
@@ -143,7 +153,13 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameName);
-        var appIds = await SearchAppIdsAsync(gameName, cancellationToken);
+        var normalizedName = gameName.Trim();
+        var expiresAt = GetCacheExpiration();
+        var appIds = await _cacheService.GetOrCreateAsync(
+            $"steam:search:{normalizedName.ToUpperInvariant()}",
+            expiresAt,
+            () => SearchAppIdsAsync(normalizedName, cancellationToken),
+            cancellationToken);
         var results = new List<GameMetadata>(Math.Min(appIds.Count, MaximumNameSearchResults));
         foreach (var appId in appIds.Take(MaximumNameSearchResults))
         {
@@ -209,7 +225,12 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         var (steamLanguage, contentLanguageTag) = SteamLanguage.Resolve(languageTag);
         var dateCulture = CultureInfo.GetCultureInfo(languageTag);
         using var httpClient = _httpClientFactory.CreateClient();
-        var response = await GetStoreDocumentAsync(httpClient, appId, steamLanguage, cancellationToken);
+        var expiresAt = GetCacheExpiration();
+        var response = await _cacheService.GetOrCreateAsync(
+            $"steam:metadata:{appId}:{steamLanguage}",
+            expiresAt,
+            () => GetStoreDocumentAsync(httpClient, appId, steamLanguage, cancellationToken),
+            cancellationToken);
         if (response is null ||
             !response.TryGetValue(appId.ToString(CultureInfo.InvariantCulture), out var appResult) ||
             !appResult.Success ||
@@ -247,6 +268,9 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
             NativePlatforms = GetNativePlatforms(data.Platforms)
         };
     }
+
+    private DateOnly GetCacheExpiration() =>
+        DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime).AddDays(CacheDurationDays);
 
     private async Task<Dictionary<string, SteamAppDetailsResult>?> GetStoreDocumentAsync(
         HttpClient httpClient,

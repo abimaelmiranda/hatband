@@ -1,5 +1,8 @@
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using Hatband.Core.Abstractions.Services;
 
 namespace Hatband.Integrations.IGN;
 
@@ -44,11 +47,20 @@ internal sealed class IgnGraphQlClient
     private const string ImagesHash = "06204b0f0871f8382e3adab7d1c59399e6c17ac94bff575c20a12ebf9d880b86";
     private static readonly Uri IgnReferer = new("https://www.ign.com/reviews/games");
     private readonly IHttpClientFactory httpClientFactory;
+    private readonly ICacheService cacheService;
+    private readonly TimeProvider timeProvider;
 
-    public IgnGraphQlClient(IHttpClientFactory httpClientFactory)
+    public IgnGraphQlClient(
+        IHttpClientFactory httpClientFactory,
+        ICacheService cacheService,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         this.httpClientFactory = httpClientFactory;
+        this.cacheService = cacheService;
+        this.timeProvider = timeProvider;
     }
 
     public async Task<IgnGraphQlResult<IReadOnlyList<IgnGameSearchEntry>>> SearchGamesAsync(
@@ -155,34 +167,23 @@ internal sealed class IgnGraphQlClient
         request.Headers.TryAddWithoutValidation("Accept-Language", preferredLanguageTag);
         request.Headers.TryAddWithoutValidation("apollo-require-preflight", "true");
 
+        var cacheKeyHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{uri.AbsoluteUri}|{preferredLanguageTag}")));
+        var cacheExpiration = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime).AddDays(7);
+
         try
         {
-            using var httpClient = httpClientFactory.CreateClient();
-            using var response = await httpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
+            var json = await cacheService.GetOrCreateAsync(
+                $"ign:graphql:{cacheKeyHash}",
+                cacheExpiration,
+                () => FetchDocumentJsonAsync(request, cancellationToken),
                 cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                var apiError = IgnGraphQlParser.ReadApiError(responseBody);
-                var status = $"HTTP {(int)response.StatusCode} ({response.StatusCode})";
-                return IgnGraphQlResult<JsonDocument>.Failed(apiError is null
-                    ? $"IGN request failed with {status}."
-                    : $"IGN request failed with {status}: {apiError}");
-            }
-
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            var apiErrorFromResponse = IgnGraphQlParser.ReadApiError(document.RootElement);
-            if (apiErrorFromResponse is not null)
-            {
-                document.Dispose();
-                return IgnGraphQlResult<JsonDocument>.Failed(
-                    $"IGN rejected the metadata request: {apiErrorFromResponse}");
-            }
-
+            var document = JsonDocument.Parse(json);
             return IgnGraphQlResult<JsonDocument>.Succeeded(document);
+        }
+        catch (IgnGraphQlRequestException exception)
+        {
+            return IgnGraphQlResult<JsonDocument>.Failed(exception.Message);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -201,6 +202,58 @@ internal sealed class IgnGraphQlClient
             return IgnGraphQlResult<JsonDocument>.Failed("IGN returned an unreadable metadata response.");
         }
     }
+
+    private async Task<string> FetchDocumentJsonAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var httpClient = httpClientFactory.CreateClient();
+            using var response = await httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                var apiError = IgnGraphQlParser.ReadApiError(responseBody);
+                var status = $"HTTP {(int)response.StatusCode} ({response.StatusCode})";
+                throw new IgnGraphQlRequestException(apiError is null
+                    ? $"IGN request failed with {status}."
+                    : $"IGN request failed with {status}: {apiError}");
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            var apiErrorFromResponse = IgnGraphQlParser.ReadApiError(document.RootElement);
+            if (apiErrorFromResponse is not null)
+            {
+                throw new IgnGraphQlRequestException(
+                    $"IGN rejected the metadata request: {apiErrorFromResponse}");
+            }
+
+            return document.RootElement.GetRawText();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            throw new IgnGraphQlRequestException("IGN request timed out. Try again later.");
+        }
+        catch (HttpRequestException)
+        {
+            throw new IgnGraphQlRequestException("IGN could not be reached. Try again later.");
+        }
+        catch (JsonException)
+        {
+            throw new IgnGraphQlRequestException("IGN returned an unreadable metadata response.");
+        }
+    }
+
+    private sealed class IgnGraphQlRequestException(string message) : Exception(message);
 
     private static JsonDocument RequireDocument(IgnGraphQlResult<JsonDocument> result)
     {

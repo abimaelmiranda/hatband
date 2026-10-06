@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Hatband.Core.Abstractions.Integrations.HowLongToBeat;
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Models;
 using Hatband.Integrations.HowLongToBeat.Models;
 
@@ -12,15 +13,24 @@ namespace Hatband.Integrations.HowLongToBeat;
 /// </summary>
 public sealed class HowLongToBeatProvider : IHowLongToBeatProvider
 {
+    private const int CacheDurationDays = 1;
     private readonly IHttpClientFactory httpClientFactory;
+    private readonly ICacheService cacheService;
+    private readonly TimeProvider timeProvider;
     private readonly HowLongToBeatEndpointDiscoverer endpointDiscoverer;
     private readonly HowLongToBeatSessionTokenProvider sessionTokenProvider;
 
-    public HowLongToBeatProvider(IHttpClientFactory httpClientFactory, TimeProvider timeProvider)
+    public HowLongToBeatProvider(
+        IHttpClientFactory httpClientFactory,
+        ICacheService cacheService,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(cacheService);
         ArgumentNullException.ThrowIfNull(timeProvider);
         this.httpClientFactory = httpClientFactory;
+        this.cacheService = cacheService;
+        this.timeProvider = timeProvider;
         endpointDiscoverer = new HowLongToBeatEndpointDiscoverer(httpClientFactory);
         sessionTokenProvider = new HowLongToBeatSessionTokenProvider(httpClientFactory, timeProvider);
     }
@@ -31,6 +41,19 @@ public sealed class HowLongToBeatProvider : IHowLongToBeatProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameName);
 
+        var normalizedName = gameName.Trim();
+        var expiresAt = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime).AddDays(CacheDurationDays);
+        return await cacheService.GetOrCreateAsync(
+            $"howlongtobeat:search:{normalizedName.ToUpperInvariant()}",
+            expiresAt,
+            () => SearchUncachedAsync(normalizedName, cancellationToken),
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<HowLongToBeatGame>> SearchUncachedAsync(
+        string gameName,
+        CancellationToken cancellationToken)
+    {
         var currentSearchPath = await endpointDiscoverer.GetSearchPathAsync(false, cancellationToken);
         for (var attempt = 0; attempt < 2; attempt++)
         {

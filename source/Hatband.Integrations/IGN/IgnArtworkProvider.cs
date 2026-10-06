@@ -1,4 +1,5 @@
 using Hatband.Core.Abstractions.Games;
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Games;
@@ -13,11 +14,16 @@ public sealed class IgnArtworkProvider : IGameArtworkProvider
     private readonly IHttpClientFactory httpClientFactory;
     private readonly IgnGraphQlClient client;
 
-    public IgnArtworkProvider(IHttpClientFactory httpClientFactory)
+    public IgnArtworkProvider(
+        IHttpClientFactory httpClientFactory,
+        ICacheService cacheService,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         this.httpClientFactory = httpClientFactory;
-        client = new IgnGraphQlClient(httpClientFactory);
+        client = new IgnGraphQlClient(httpClientFactory, cacheService, timeProvider);
     }
 
     public GameSourceId? SourceId => null;

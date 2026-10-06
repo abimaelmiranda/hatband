@@ -70,6 +70,16 @@ public sealed class CacheService : ICacheService
         }
 
         var valueToCache = await callback();
+        if (valueToCache is null)
+        {
+            if (entry is not null)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+            return valueToCache;
+        }
+
         await dbContext.CacheEntries.AddAsync(
             new CacheEntry(key, JsonSerializer.Serialize(valueToCache), expiresAt),
             cancellationToken);

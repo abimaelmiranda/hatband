@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using Hatband.Core.Abstractions.Games;
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Extensions;
 using Hatband.Core.Models.Games;
@@ -23,10 +24,15 @@ public sealed partial class IgnMetadataProvider : IGameMetadataProvider
     [GeneratedRegex("\\s+")]
     private static partial Regex WhitespacePattern();
 
-    public IgnMetadataProvider(IHttpClientFactory httpClientFactory)
+    public IgnMetadataProvider(
+        IHttpClientFactory httpClientFactory,
+        ICacheService cacheService,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
-        client = new IgnGraphQlClient(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        client = new IgnGraphQlClient(httpClientFactory, cacheService, timeProvider);
     }
 
     public string ProviderId => "ign";

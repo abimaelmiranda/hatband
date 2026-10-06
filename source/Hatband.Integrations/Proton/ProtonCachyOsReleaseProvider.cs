@@ -1,5 +1,6 @@
 using Hatband.Core.Abstractions.Compatibility;
 using Hatband.Core.Abstractions.Host;
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Enums.Host;
 using Hatband.Core.Models.Compatibility;
 using Hatband.Integrations.Proton.Models;
@@ -12,11 +13,17 @@ public sealed class ProtonCachyOsReleaseProvider : ICompatibilityToolReleaseProv
     private readonly GitHubReleaseClient releaseClient;
     private readonly IHostSystemInfo hostSystemInfo;
 
-    public ProtonCachyOsReleaseProvider(IHttpClientFactory httpClientFactory, IHostSystemInfo hostSystemInfo)
+    public ProtonCachyOsReleaseProvider(
+        IHttpClientFactory httpClientFactory,
+        IHostSystemInfo hostSystemInfo,
+        ICacheService cacheService,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
-        releaseClient = new GitHubReleaseClient(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        releaseClient = new GitHubReleaseClient(httpClientFactory, cacheService, timeProvider);
         this.hostSystemInfo = hostSystemInfo;
     }
 

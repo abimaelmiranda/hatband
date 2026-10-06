@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Enums.Stores;
@@ -15,13 +16,23 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
     private static readonly Uri StoreBrowseUri = new("https://api.steampowered.com/IStoreBrowseService/GetItems/v1/");
     private const string LegacyArtworkBaseUri = "https://steamcdn-a.akamaihd.net/steam/apps/";
     private const string AssetStoreBaseUri = "https://shared.akamai.steamstatic.com/store_item_assets/";
+    private const int CacheDurationDays = 7;
 
     private readonly IHttpClientFactory httpClientFactory;
+    private readonly ICacheService cacheService;
+    private readonly TimeProvider timeProvider;
 
-    public SteamArtworkProvider(IHttpClientFactory httpClientFactory)
+    public SteamArtworkProvider(
+        IHttpClientFactory httpClientFactory,
+        ICacheService cacheService,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(timeProvider);
         this.httpClientFactory = httpClientFactory;
+        this.cacheService = cacheService;
+        this.timeProvider = timeProvider;
     }
 
     public GameSourceId? SourceId => GameSourceId.Steam;
@@ -68,7 +79,12 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
 
         var (steamLanguage, _) = SteamLanguage.Resolve(languageTag);
         cancellationToken.ThrowIfCancellationRequested();
-        var storeAssets = await TryGetStoreAssetsAsync(httpClient, appId, steamLanguage, cancellationToken);
+        var expiresAt = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime).AddDays(CacheDurationDays);
+        var storeAssets = await cacheService.GetOrCreateAsync(
+            $"steam:artwork-assets:{appId}:{steamLanguage}",
+            expiresAt,
+            () => TryGetStoreAssetsAsync(httpClient, appId, steamLanguage, cancellationToken),
+            cancellationToken);
         return CreateArtworkSources(appId, storeAssets);
     }
 
