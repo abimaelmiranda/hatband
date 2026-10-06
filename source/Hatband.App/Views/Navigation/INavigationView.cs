@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Input;
 using Hatband.App.Navigation;
 
 namespace Hatband.App.Views.Navigation;
@@ -8,10 +7,13 @@ namespace Hatband.App.Views.Navigation;
 public interface INavigationView
 {
     /// <summary>Routes one semantic action while preserving native control behavior when requested.</summary>
-    NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent);
+    NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context);
 
     /// <summary>Gives the active view a chance to handle Back before the coordinator dismisses or pops.</summary>
-    bool TryHandleBack(KeyEventArgs originalEvent);
+    bool TryHandleBack();
+
+    /// <summary>Whether this view currently supports previous/next tab commands.</summary>
+    bool SupportsTabNavigation { get; }
 
     /// <summary>Root used for directional focus movement and bounds.</summary>
     Control NavigationRoot { get; }

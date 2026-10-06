@@ -29,7 +29,7 @@ public partial class ProtonReleaseSelectionModalView : ModalView
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         if (!viewModel.HasLoadedCatalog && !viewModel.IsLoading)
         {
-            viewModel.LoadCatalogCommand.Execute(null);
+            NavigationCommandExecutor.TryExecute(this, viewModel.LoadCatalogCommand);
         }
     }
 
@@ -61,34 +61,48 @@ public partial class ProtonReleaseSelectionModalView : ModalView
         return ReleaseList;
     }
 
-    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent)
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         var viewModel = DataContext as ProtonReleaseSelectionModalViewModel;
         if (action == NavigationAction.Confirm && viewModel is not null)
         {
-            originalEvent.Handled = true;
-            if (IsFocusedWithin(ReleaseList) || SelectButton.IsFocused)
+            if (IsFocusedWithin(ReleaseList))
             {
-                viewModel.ConfirmSelectionCommand.Execute(null);
-            }
-            else if (RetryButton.IsFocused)
-            {
-                viewModel.LoadCatalogCommand.Execute(null);
-            }
-            else if (CancelButton.IsFocused)
-            {
-                viewModel.CancelSelectionCommand.Execute(null);
+                return NavigationCommandExecutor.TryExecute(ReleaseList, viewModel.ConfirmSelectionCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
             }
 
-            return NavigationActionHandling.Handled;
+            if (SelectButton.IsFocused)
+            {
+                return NavigationCommandExecutor.TryExecute(SelectButton, viewModel.ConfirmSelectionCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
+            }
+
+            if (RetryButton.IsFocused)
+            {
+                return NavigationCommandExecutor.TryExecute(RetryButton, viewModel.LoadCatalogCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
+            }
+
+            if (CancelButton.IsFocused)
+            {
+                return NavigationCommandExecutor.TryExecute(CancelButton, viewModel.CancelSelectionCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
+            }
+
+            return NavigationActionHandling.Native;
         }
 
         if (action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right)
         {
-            return base.HandleNavigationAction(action, originalEvent);
+            return base.HandleNavigationAction(action, context);
         }
 
-        return base.HandleNavigationAction(action, originalEvent);
+        return base.HandleNavigationAction(action, context);
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

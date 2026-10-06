@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
@@ -35,7 +34,7 @@ public partial class LibraryScreenView : FullScreenView
             : EmptyConnectButton);
     }
 
-    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs e)
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         if (DataContext is not LibraryScreenViewModel viewModel)
         {
@@ -44,7 +43,7 @@ public partial class LibraryScreenView : FullScreenView
 
         if (viewModel.Session.IsLibraryEmpty)
         {
-            return base.HandleNavigationAction(action, e);
+            return base.HandleNavigationAction(action, context);
         }
 
         switch (action)
@@ -56,11 +55,10 @@ public partial class LibraryScreenView : FullScreenView
                 viewModel.Session.MoveGameSelection(1);
                 return NavigationActionHandling.Handled;
             case NavigationAction.Confirm:
-                e.Handled = true;
                 viewModel.OpenSelectedGame();
                 return NavigationActionHandling.Handled;
             default:
-                return base.HandleNavigationAction(action, e);
+                return base.HandleNavigationAction(action, context);
         }
     }
 

@@ -18,33 +18,45 @@ public partial class MetadataSearchModalView : ModalView
         InitializeComponent();
     }
 
+    public override bool SupportsTabNavigation => true;
+
     public override NavigationActionHandling HandleNavigationAction(
         NavigationAction action,
-        KeyEventArgs originalEvent)
+        NavigationInputContext context)
     {
         if (action == NavigationAction.Back)
         {
-            return TryHandleBack(originalEvent)
+            return TryHandleBack()
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Unhandled;
+        }
+
+        if (action is NavigationAction.PreviousTab or NavigationAction.NextTab)
+        {
+            return MoveSelectedTab(action == NavigationAction.NextTab ? 1 : -1)
                 ? NavigationActionHandling.Handled
                 : NavigationActionHandling.Unhandled;
         }
 
         if (action == NavigationAction.Confirm)
         {
-            HandleConfirm(originalEvent);
-            return NavigationActionHandling.Handled;
+            return HandleConfirm()
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Native;
         }
 
         if (action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right)
         {
-            if (DirectionalFocusNavigator.IsTextInput(originalEvent.Source, originalEvent.Key))
+            var focusedControl = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+            var direction = GetDirection(action);
+            if (context.Source == InputSource.Keyboard && focusedControl is TextBox textBox &&
+                DirectionalFocusNavigator.IsTextInput(textBox, direction))
             {
                 return NavigationActionHandling.Native;
             }
 
             if (MoveModalFocus(action))
             {
-                originalEvent.Handled = true;
                 return NavigationActionHandling.Handled;
             }
 
@@ -54,58 +66,97 @@ public partial class MetadataSearchModalView : ModalView
                 return NavigationActionHandling.Native;
             }
 
-            originalEvent.Handled = true;
-            MoveFocusWithinModal(originalEvent.Key);
-            return NavigationActionHandling.Handled;
+            return MoveFocusWithinModal(direction, context)
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Unhandled;
         }
 
-        return base.HandleNavigationAction(action, originalEvent);
+        return base.HandleNavigationAction(action, context);
     }
 
-    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    public override bool TryHandleBack()
     {
-        originalEvent.Handled = true;
         if (DataContext is MetadataSearchModalViewModel viewModel)
         {
-            viewModel.CancelSearchCommand.Execute(null);
+            return NavigationCommandExecutor.TryExecute(this, viewModel.CancelSearchCommand);
         }
 
-        return true;
+        return false;
     }
 
     protected override Control? GetInitialFocusTarget() => MetadataSearchQueryBox;
 
-    private void HandleConfirm(KeyEventArgs originalEvent)
+    private bool HandleConfirm()
     {
-        originalEvent.Handled = true;
         if (DataContext is not MetadataSearchModalViewModel viewModel)
         {
-            return;
+            return false;
         }
 
-        if (MetadataSearchQueryBox.IsFocused || MetadataSearchRunButton.IsFocused)
+        if (MetadataSearchQueryBox.IsFocused)
         {
-            viewModel.SearchCommand.Execute(null);
-            return;
+            return viewModel.CanSearch &&
+                NavigationCommandExecutor.TryExecute(MetadataSearchQueryBox, viewModel.SearchCommand);
+        }
+
+        if (MetadataSearchRunButton.IsFocused)
+        {
+            return NavigationCommandExecutor.TryExecute(MetadataSearchRunButton, viewModel.SearchCommand);
         }
 
         if (GetActiveResults() is { } resultsList &&
             (resultsList.IsFocused || resultsList.GetVisualDescendants().OfType<Control>().Any(control => control.IsFocused)))
         {
+            if (!ApplyMetadataSearchButton.IsEffectivelyEnabled ||
+                !viewModel.ApplySelectedResultCommand.CanExecute(null))
+            {
+                return false;
+            }
+
             DirectionalFocusNavigator.Focus(ApplyMetadataSearchButton);
-            return;
+            return true;
         }
 
         if (ApplyMetadataSearchButton.IsFocused)
         {
-            viewModel.ApplySelectedResultCommand.Execute(null);
-            return;
+            return NavigationCommandExecutor.TryExecute(
+                ApplyMetadataSearchButton,
+                viewModel.ApplySelectedResultCommand);
         }
 
-        if (CloseMetadataSearchButton.IsFocused || CancelMetadataSearchButton.IsFocused)
+        if (CloseMetadataSearchButton.IsFocused)
         {
-            viewModel.CancelSearchCommand.Execute(null);
+            return NavigationCommandExecutor.TryExecute(CloseMetadataSearchButton, viewModel.CancelSearchCommand);
         }
+
+        if (CancelMetadataSearchButton.IsFocused)
+        {
+            return NavigationCommandExecutor.TryExecute(CancelMetadataSearchButton, viewModel.CancelSearchCommand);
+        }
+
+        return false;
+    }
+
+    private bool MoveSelectedTab(int offset)
+    {
+        var selectedIndex = MetadataSearchSourceTabs.SelectedIndex + offset;
+        if ((uint)selectedIndex >= (uint)MetadataSearchSourceTabs.Items.Count)
+        {
+            return false;
+        }
+
+        MetadataSearchSourceTabs.SelectedIndex = selectedIndex;
+        Dispatcher.UIThread.Post(() =>
+        {
+            var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+            if (IsLoaded && IsEffectivelyVisible && MetadataSearchSourceTabs.SelectedIndex == selectedIndex &&
+                focused is not null && focused.GetVisualAncestors().Contains(this) &&
+                MetadataSearchSourceTabs.ContainerFromIndex(selectedIndex) is TabItem selectedTab)
+            {
+                DirectionalFocusNavigator.Focus(selectedTab);
+            }
+        }, DispatcherPriority.Loaded);
+        return true;
     }
 
     private bool MoveModalFocus(NavigationAction action)
@@ -113,19 +164,7 @@ public partial class MetadataSearchModalView : ModalView
         var sourceTabsFocused = IsSourceTabFocused();
         if (sourceTabsFocused && (action is NavigationAction.Left or NavigationAction.Right))
         {
-            var indexOffset = action == NavigationAction.Right ? 1 : -1;
-            var selectedIndex = MetadataSearchSourceTabs.SelectedIndex + indexOffset;
-            if ((uint)selectedIndex < (uint)MetadataSearchSourceTabs.Items.Count)
-            {
-                MetadataSearchSourceTabs.SelectedIndex = selectedIndex;
-                Dispatcher.UIThread.Post(() =>
-                {
-                    if (MetadataSearchSourceTabs.ContainerFromIndex(selectedIndex) is TabItem selectedTab)
-                    {
-                        DirectionalFocusNavigator.Focus(selectedTab);
-                    }
-                });
-            }
+            MoveSelectedTab(action == NavigationAction.Right ? 1 : -1);
 
             return true;
         }
@@ -181,13 +220,27 @@ public partial class MetadataSearchModalView : ModalView
         return focusedTab is not null && focusedTab.GetVisualAncestors().Contains(MetadataSearchSourceTabs);
     }
 
-    private void MoveFocusWithinModal(Key key)
+    private bool MoveFocusWithinModal(NavigationDirection direction, NavigationInputContext context)
     {
         if (TopLevel.GetTopLevel(this) is Window window)
         {
-            new DirectionalFocusNavigator(window).MoveFocus(this, key, useNativeArrowBehavior: false);
+            return new DirectionalFocusNavigator(window).MoveFocus(
+                this,
+                direction,
+                context.Source == InputSource.Keyboard);
         }
+
+        return false;
     }
+
+    private static NavigationDirection GetDirection(NavigationAction action) => action switch
+    {
+        NavigationAction.Up => NavigationDirection.Up,
+        NavigationAction.Down => NavigationDirection.Down,
+        NavigationAction.Left => NavigationDirection.Left,
+        NavigationAction.Right => NavigationDirection.Right,
+        _ => throw new InvalidOperationException("Unsupported directional action.")
+    };
 
     private void FocusSelectedMetadataSearchResult()
     {

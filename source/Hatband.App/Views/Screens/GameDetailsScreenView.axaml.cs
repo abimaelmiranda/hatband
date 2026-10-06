@@ -1,4 +1,3 @@
-using Avalonia.Input;
 using Hatband.App.Navigation;
 using Hatband.App.Views.Navigation;
 
@@ -21,7 +20,7 @@ public partial class GameDetailsScreenView : FullScreenView
             : OptionsButton);
     }
 
-    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs e)
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         switch (action)
         {
@@ -34,7 +33,7 @@ public partial class GameDetailsScreenView : FullScreenView
                 DirectionalFocusNavigator.Focus(OptionsButton);
                 return NavigationActionHandling.Handled;
             default:
-                return base.HandleNavigationAction(action, e);
+                return base.HandleNavigationAction(action, context);
         }
     }
 }

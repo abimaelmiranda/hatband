@@ -40,35 +40,59 @@ public partial class ArtworkPickerModalView : ModalView
 
     public override NavigationActionHandling HandleNavigationAction(
         NavigationAction action,
-        KeyEventArgs originalEvent)
+        NavigationInputContext context)
     {
         if (action == NavigationAction.Back)
         {
-            return TryHandleBack(originalEvent)
+            return TryHandleBack()
                 ? NavigationActionHandling.Handled
                 : NavigationActionHandling.Unhandled;
         }
 
         if (action == NavigationAction.Confirm)
         {
-            originalEvent.Handled = true;
-            if (DataContext is ArtworkPickerModalViewModel viewModel)
+            if (DataContext is not ArtworkPickerModalViewModel viewModel)
             {
-                if (ApplyArtworkButton.IsFocused)
-                {
-                    viewModel.ApplySelectedArtworkCommand.Execute(null);
-                }
-                else if (CloseArtworkPickerButton.IsFocused || CancelArtworkPickerButton.IsFocused)
-                {
-                    viewModel.ClosePickerCommand.Execute(null);
-                }
-                else if (GetActiveArtworkList() is { } list && IsFocusedWithin(list))
-                {
-                    viewModel.ApplySelectedArtworkCommand.Execute(null);
-                }
+                return NavigationActionHandling.Native;
             }
 
-            return NavigationActionHandling.Handled;
+            if (ApplyArtworkButton.IsFocused)
+            {
+                return NavigationCommandExecutor.TryExecute(
+                    ApplyArtworkButton,
+                    viewModel.ApplySelectedArtworkCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
+            }
+
+            if (CloseArtworkPickerButton.IsFocused)
+            {
+                return NavigationCommandExecutor.TryExecute(
+                    CloseArtworkPickerButton,
+                    viewModel.ClosePickerCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
+            }
+
+            if (CancelArtworkPickerButton.IsFocused)
+            {
+                return NavigationCommandExecutor.TryExecute(
+                    CancelArtworkPickerButton,
+                    viewModel.ClosePickerCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
+            }
+
+            if (GetActiveArtworkList() is { } list && IsFocusedWithin(list))
+            {
+                return list.IsEffectivelyEnabled && NavigationCommandExecutor.TryExecute(
+                    ApplyArtworkButton,
+                    viewModel.ApplySelectedArtworkCommand)
+                    ? NavigationActionHandling.Handled
+                    : NavigationActionHandling.Native;
+            }
+
+            return NavigationActionHandling.Native;
         }
 
         if (action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right)
@@ -79,7 +103,6 @@ public partial class ArtworkPickerModalView : ModalView
                 if (action == NavigationAction.Right &&
                     activeList.SelectedIndex == activeList.Items.Count - 1)
                 {
-                    originalEvent.Handled = true;
                     DirectionalFocusNavigator.Focus(ApplyArtworkButton);
                     return NavigationActionHandling.Handled;
                 }
@@ -90,34 +113,32 @@ public partial class ArtworkPickerModalView : ModalView
             if (ApplyArtworkButton.IsFocused && (action is NavigationAction.Left or NavigationAction.Up))
             {
                 FocusSelectedArtworkOption();
-                originalEvent.Handled = true;
                 return NavigationActionHandling.Handled;
             }
 
             if (CancelArtworkPickerButton.IsFocused && action == NavigationAction.Right)
             {
-                originalEvent.Handled = true;
                 DirectionalFocusNavigator.Focus(ApplyArtworkButton);
                 return NavigationActionHandling.Handled;
             }
 
-            originalEvent.Handled = true;
-            MoveFocusWithinModal(originalEvent.Key);
-            return NavigationActionHandling.Handled;
+            var direction = GetDirection(action);
+            return MoveFocusWithinModal(direction, context)
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Unhandled;
         }
 
-        return base.HandleNavigationAction(action, originalEvent);
+        return base.HandleNavigationAction(action, context);
     }
 
-    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    public override bool TryHandleBack()
     {
-        originalEvent.Handled = true;
         if (DataContext is ArtworkPickerModalViewModel viewModel)
         {
-            viewModel.ClosePickerCommand.Execute(null);
+            return NavigationCommandExecutor.TryExecute(this, viewModel.ClosePickerCommand);
         }
 
-        return true;
+        return false;
     }
 
     protected override Control? GetInitialFocusTarget()
@@ -163,13 +184,27 @@ public partial class ArtworkPickerModalView : ModalView
         }
     }
 
-    private void MoveFocusWithinModal(Key key)
+    private bool MoveFocusWithinModal(NavigationDirection direction, NavigationInputContext context)
     {
         if (TopLevel.GetTopLevel(this) is Window window)
         {
-            new DirectionalFocusNavigator(window).MoveFocus(this, key, useNativeArrowBehavior: false);
+            return new DirectionalFocusNavigator(window).MoveFocus(
+                this,
+                direction,
+                context.Source == InputSource.Keyboard);
         }
+
+        return false;
     }
+
+    private static NavigationDirection GetDirection(NavigationAction action) => action switch
+    {
+        NavigationAction.Up => NavigationDirection.Up,
+        NavigationAction.Down => NavigationDirection.Down,
+        NavigationAction.Left => NavigationDirection.Left,
+        NavigationAction.Right => NavigationDirection.Right,
+        _ => throw new InvalidOperationException("Unsupported directional action.")
+    };
 
     private void OnArtworkOptionGotFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {

@@ -1,3 +1,5 @@
+using Hatband.App.Localization;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
 
 namespace Hatband.App.ViewModels.Navigation;
@@ -16,8 +18,13 @@ public abstract class ModalViewModel : ViewModelBase, IModalViewModel
     /// <summary>True after this modal invocation has produced its one completion.</summary>
     public bool IsCompleted { get; private set; }
 
-    /// <summary>Keyboard guidance displayed while this modal is topmost.</summary>
-    public virtual string KeyboardHelpText => string.Empty;
+    /// <summary>Semantic input guidance displayed while this modal is topmost.</summary>
+    public virtual IReadOnlyList<InputHint> InputHints =>
+    [
+        new(NavigationAction.Up, Resources.InputHintNavigate),
+        new(NavigationAction.Confirm, Resources.InputHintConfirm),
+        new(NavigationAction.Back, Resources.InputHintBack)
+    ];
 
     public event EventHandler? CompletionChanged;
 

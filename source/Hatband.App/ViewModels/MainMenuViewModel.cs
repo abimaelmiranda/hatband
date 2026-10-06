@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Hatband.App.Localization;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels.Navigation;
 
 namespace Hatband.App.ViewModels;
@@ -22,7 +23,12 @@ public sealed class MainMenuViewModel : ModalViewModel<MenuAction>
 
     public ObservableCollection<MenuOptionViewModel> MenuOptions { get; }
 
-    public override string KeyboardHelpText => Resources.KeyboardMenuNavigate;
+    public override IReadOnlyList<InputHint> InputHints =>
+    [
+        new(NavigationAction.Up, Resources.InputHintNavigate),
+        new(NavigationAction.Confirm, Resources.InputHintOpen),
+        new(NavigationAction.Back, Resources.InputHintBack)
+    ];
 
     public void Activate(MenuAction action)
     {

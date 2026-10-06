@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
 using Hatband.App.Services;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels.Navigation;
 using Hatband.Core.Abstractions.Authentication;
 using Hatband.Core.Abstractions.Services;
@@ -122,11 +123,20 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     /// <summary>Raised after the shared date formatter has changed to the selected time zone.</summary>
     public event Action<string>? TimeZoneChanged;
 
+    /// <summary>Raised with the saved controller legend style, including after settings initialize.</summary>
+    public event Action<ControllerDisplayMode>? ControllerDisplayModeChanged;
+
     /// <summary>Owns section, field, tab, and focus-selection state for this screen.</summary>
     public SettingsNavigationViewModel Navigation { get; }
 
-    /// <summary>Returns the localized keyboard hint while settings is the active screen.</summary>
-    public override string KeyboardHelpText => Resources.KeyboardSettingsHelp;
+    /// <summary>Returns semantic navigation guidance while settings is the active screen.</summary>
+    public override IReadOnlyList<InputHint> InputHints =>
+    [
+        new(NavigationAction.Up, Resources.InputHintNavigate),
+        new(NavigationAction.Confirm, Resources.InputHintOpen),
+        new(NavigationAction.Back, Resources.InputHintBack),
+        new(NavigationAction.OpenMenu, Resources.InputHintMenu)
+    ];
 
     /// <summary>Manages compatibility tool catalogs and installations for the compatibility section.</summary>
     public ProtonManagementViewModel ProtonManagement { get; }
@@ -330,8 +340,14 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             }
 
             var generalSettings = GetSettings<GeneralSettings>();
+            if (!Enum.IsDefined(generalSettings.ControllerDisplayMode))
+            {
+                throw new InvalidOperationException("The saved controller display mode is not supported.");
+            }
+
             _dateTimeDisplayFormatter.SetTimeZone(generalSettings.TimeZoneId);
             TypographyScale.Apply(generalSettings.TextScalePercent);
+            ControllerDisplayModeChanged?.Invoke(generalSettings.ControllerDisplayMode);
             UpdateSelectedSettingsOptions();
             IsSteamSilentModeEnabled = TryGetSettings<ConnectorsSettings>(out var connectorSettings) &&
                 connectorSettings is not null &&
@@ -480,6 +496,18 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             return;
         }
 
+        ControllerDisplayMode? controllerDisplayModeToNotify = null;
+        if (propertyPath.Count == 1 && descriptor.SettingsType == typeof(GeneralSettings) &&
+            property.Name == nameof(GeneralSettings.ControllerDisplayMode))
+        {
+            if (value is not ControllerDisplayMode selectedDisplayMode || !Enum.IsDefined(selectedDisplayMode))
+            {
+                throw new InvalidOperationException("The controller display mode must be a supported value.");
+            }
+
+            controllerDisplayModeToNotify = selectedDisplayMode;
+        }
+
         object target = settings;
         for (var index = 0; index < propertyPath.Count - 1; index++)
         {
@@ -503,6 +531,11 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             }
 
             TypographyScale.Apply(textScalePercent);
+        }
+
+        if (controllerDisplayModeToNotify is { } controllerDisplayMode)
+        {
+            ControllerDisplayModeChanged?.Invoke(controllerDisplayMode);
         }
 
         if (descriptor.SettingsType == typeof(ConnectorsSettings) &&

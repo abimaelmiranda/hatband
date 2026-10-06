@@ -31,8 +31,8 @@ public sealed class NavigationCoordinator : ObservableObject, IScreenNavigation,
     /// <summary>The top modal invocation, or null when the modal stack is empty.</summary>
     public IModalViewModel? ActiveModal => _modalStack.Count == 0 ? null : _modalStack[^1].ViewModel;
 
-    /// <summary>Keyboard guidance supplied by the top modal or, when none is open, the active screen.</summary>
-    public string KeyboardHelpText => ActiveModal?.KeyboardHelpText ?? ActiveScreen?.KeyboardHelpText ?? string.Empty;
+    /// <summary>Semantic input guidance supplied by the top modal or active screen.</summary>
+    public IReadOnlyList<InputHint> InputHints => ActiveModal?.InputHints ?? ActiveScreen?.InputHints ?? [];
 
     /// <summary>Raised after a back operation whose screen history entry requests reopening the shell menu.</summary>
     public event EventHandler? ReturnToMenuRequested;
@@ -45,7 +45,7 @@ public sealed class NavigationCoordinator : ObservableObject, IScreenNavigation,
         _mutableHistory.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(ActiveScreen));
-            OnPropertyChanged(nameof(KeyboardHelpText));
+            OnPropertyChanged(nameof(InputHints));
         };
     }
 
@@ -223,7 +223,7 @@ public sealed class NavigationCoordinator : ObservableObject, IScreenNavigation,
         _mutableModalStack.Add(modal);
         OnPropertyChanged(nameof(ActiveModal));
         OnPropertyChanged(nameof(HasOpenModals));
-        OnPropertyChanged(nameof(KeyboardHelpText));
+        OnPropertyChanged(nameof(InputHints));
     }
 
     private void OnModalCompletionChanged(object? sender, EventArgs e)
@@ -259,7 +259,7 @@ public sealed class NavigationCoordinator : ObservableObject, IScreenNavigation,
 
         OnPropertyChanged(nameof(ActiveModal));
         OnPropertyChanged(nameof(HasOpenModals));
-        OnPropertyChanged(nameof(KeyboardHelpText));
+        OnPropertyChanged(nameof(InputHints));
     }
 
     private void EnsureInitialized()

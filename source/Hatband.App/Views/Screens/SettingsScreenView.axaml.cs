@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -17,6 +16,9 @@ public partial class SettingsScreenView : FullScreenView
     {
         InitializeComponent();
     }
+
+    public override bool SupportsTabNavigation =>
+        DataContext is SettingsScreenViewModel { IsSettingsContentActive: true } && SettingsSectionEditor.HasTabs;
 
     /// <summary>Reports whether keyboard focus is on a settings section item.</summary>
     public bool IsSectionNavigationFocused => SettingsSectionList.GetVisualDescendants()
@@ -125,11 +127,11 @@ public partial class SettingsScreenView : FullScreenView
     /// Handles settings confirmation and delegates directional movement to the shared full-screen
     /// focus navigator.
     /// </summary>
-    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent)
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         if (action == NavigationAction.Back)
         {
-            return TryHandleBack(originalEvent)
+            return TryHandleBack()
                 ? NavigationActionHandling.Handled
                 : NavigationActionHandling.Unhandled;
         }
@@ -146,17 +148,24 @@ public partial class SettingsScreenView : FullScreenView
         {
             var focusedProviderButton = FindFocusedProviderButton();
             var focusedProvider = focusedProviderButton?.DataContext as ProtonReleaseProviderViewModel;
-            if (focusedProvider is not null)
+            if (focusedProvider is not null && focusedProviderButton is not null &&
+                NavigationCommandExecutor.TryExecute(focusedProviderButton, focusedProvider.OpenVersionsCommand))
             {
-                originalEvent.Handled = true;
-                focusedProvider.OpenVersionsCommand.Execute(null);
                 return NavigationActionHandling.Handled;
             }
         }
 
+        if (SupportsTabNavigation && action is (NavigationAction.PreviousTab or NavigationAction.NextTab))
+        {
+            var offset = action == NavigationAction.NextTab ? 1 : -1;
+            return SettingsSectionEditor.SelectAdjacentTab(offset)
+                ? NavigationActionHandling.Handled
+                : NavigationActionHandling.Unhandled;
+        }
+
         if (action != NavigationAction.Confirm)
         {
-            return base.HandleNavigationAction(action, originalEvent);
+            return base.HandleNavigationAction(action, context);
         }
 
         if (viewModel.IsSettingsContentActive &&
@@ -164,14 +173,12 @@ public partial class SettingsScreenView : FullScreenView
             !HasOpenComboBox() &&
             OpenSelectedComboBox())
         {
-            originalEvent.Handled = true;
             return NavigationActionHandling.Handled;
         }
 
         if (!viewModel.IsSettingsContentActive && IsSectionNavigationFocused)
         {
             viewModel.ActivateSettingsSection();
-            originalEvent.Handled = true;
             Dispatcher.UIThread.Post(() =>
             {
                 if (!viewModel.IsSettingsContentActive ||
@@ -196,11 +203,10 @@ public partial class SettingsScreenView : FullScreenView
     }
 
     /// <summary>Closes an expanded combo box or returns focus from content to the section list.</summary>
-    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    public override bool TryHandleBack()
     {
         if (CloseOpenComboBox())
         {
-            originalEvent.Handled = true;
             return true;
         }
 
@@ -211,7 +217,6 @@ public partial class SettingsScreenView : FullScreenView
 
         viewModel.DeactivateSettingsContent();
         FocusSelectedSection();
-        originalEvent.Handled = true;
         return true;
     }
 

@@ -9,7 +9,9 @@ public enum NavigationAction
     Right,
     Confirm,
     Back,
-    OpenMenu
+    OpenMenu,
+    PreviousTab,
+    NextTab
 }
 
 /// <summary>Indicates whether a navigation view handled an action, left it to native control behavior, or declined it.</summary>

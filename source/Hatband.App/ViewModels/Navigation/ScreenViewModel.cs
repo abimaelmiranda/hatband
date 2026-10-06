@@ -1,4 +1,6 @@
 using Hatband.App.ViewModels;
+using Hatband.App.Localization;
+using Hatband.App.Navigation;
 
 namespace Hatband.App.ViewModels.Navigation;
 
@@ -14,8 +16,14 @@ public abstract class ScreenViewModel : ViewModelBase
         private set => SetProperty(ref _isActive, value);
     }
 
-    /// <summary>Keyboard guidance displayed by the application shell while this screen is active.</summary>
-    public virtual string KeyboardHelpText => string.Empty;
+    /// <summary>Semantic input guidance displayed by the application shell while this screen is active.</summary>
+    public virtual IReadOnlyList<InputHint> InputHints =>
+    [
+        new(NavigationAction.Up, Resources.InputHintNavigate),
+        new(NavigationAction.Confirm, Resources.InputHintConfirm),
+        new(NavigationAction.Back, Resources.InputHintBack),
+        new(NavigationAction.OpenMenu, Resources.InputHintMenu)
+    ];
 
     internal void Activate()
     {

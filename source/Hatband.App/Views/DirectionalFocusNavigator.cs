@@ -15,18 +15,12 @@ internal sealed class DirectionalFocusNavigator
         _window = window;
     }
 
-    public bool MoveFocus(Control navigationRoot, Key key, bool useNativeArrowBehavior = true)
+    public bool MoveFocus(Control navigationRoot, NavigationDirection direction, bool useNativeArrowBehavior = true)
     {
         var focusedControl = navigationRoot.GetVisualDescendants()
             .OfType<Control>()
             .FirstOrDefault(control => control.IsFocused);
         if (focusedControl is not null && useNativeArrowBehavior && IsNativeArrowControl(focusedControl))
-        {
-            return false;
-        }
-
-        var direction = GetArrowDirection(key);
-        if (direction is null)
         {
             return false;
         }
@@ -39,15 +33,21 @@ internal sealed class DirectionalFocusNavigator
 
         if (focusedControl is null)
         {
-            return FocusFirstInDirection(navigationRoot, direction.Value == NavigationDirection.Up);
+            return FocusFirstInDirection(navigationRoot, direction == NavigationDirection.Up);
         }
 
         var resolvedNavigationRoot = ResolveNavigationScope(navigationRoot, focusedControl);
         var isInsideNavigationScope = !ReferenceEquals(navigationRoot, resolvedNavigationRoot);
         navigationRoot = resolvedNavigationRoot;
 
+        var directionalNeighbor = FindDirectionalNeighbor(navigationRoot, focusedControl, direction);
+        if (directionalNeighbor is not null && Focus(directionalNeighbor))
+        {
+            return true;
+        }
+
         var nextElement = focusManager.FindNextElement(
-            direction.Value,
+            direction,
             new FindNextElementOptions
             {
                 FocusedElement = focusedControl,
@@ -57,7 +57,7 @@ internal sealed class DirectionalFocusNavigator
 
         if (nextElement is Control nextControl &&
             !ReferenceEquals(nextControl, focusedControl) &&
-            IsInDirection(focusedControl, nextControl, navigationRoot, direction.Value) &&
+            IsInDirection(focusedControl, nextControl, navigationRoot, direction) &&
             focusManager.Focus(nextElement, NavigationMethod.Directional, KeyModifiers.None))
         {
             var focusedAfterMove = navigationRoot.GetVisualDescendants()
@@ -69,30 +69,19 @@ internal sealed class DirectionalFocusNavigator
             }
         }
 
-        var directionalNeighbor = FindDirectionalNeighbor(navigationRoot, focusedControl, direction.Value);
-        if (directionalNeighbor is not null && Focus(directionalNeighbor))
-        {
-            return true;
-        }
-
         return isInsideNavigationScope;
     }
 
     public static bool Focus(Control control) => control.Focus(NavigationMethod.Directional);
 
-    public static bool IsTextInput(object? source, Key key)
+    public static bool IsTextInput(TextBox textBox, NavigationDirection direction)
     {
-        if (source is not TextBox textBox)
-        {
-            return false;
-        }
-
-        if (key is Key.Enter or Key.Left or Key.Right)
+        if (direction is NavigationDirection.Left or NavigationDirection.Right)
         {
             return true;
         }
 
-        return textBox.AcceptsReturn && key is Key.Up or Key.Down;
+        return textBox.AcceptsReturn && direction is NavigationDirection.Up or NavigationDirection.Down;
     }
 
     public static bool IsArrowKey(Key key) => key is Key.Up or Key.Down or Key.Left or Key.Right;
@@ -159,12 +148,13 @@ internal sealed class DirectionalFocusNavigator
         Control focusedControl,
         NavigationDirection direction)
     {
-        var origin = GetCenter(focusedControl, navigationRoot);
-        if (origin is null)
+        var originBounds = GetBounds(focusedControl, navigationRoot);
+        if (originBounds is null)
         {
             return null;
         }
 
+        var origin = originBounds.Value.Center;
         Control? closestControl = null;
         var closestScore = double.PositiveInfinity;
         foreach (var candidate in GetFocusableControls(navigationRoot))
@@ -174,23 +164,29 @@ internal sealed class DirectionalFocusNavigator
                 continue;
             }
 
-            var candidateCenter = GetCenter(candidate, navigationRoot);
-            if (candidateCenter is null)
+            var candidateBounds = GetBounds(candidate, navigationRoot);
+            if (candidateBounds is null)
             {
                 continue;
             }
 
-            var horizontalDistance = candidateCenter.Value.X - origin.Value.X;
-            var verticalDistance = candidateCenter.Value.Y - origin.Value.Y;
-            var (primaryDistance, secondaryDistance) = direction switch
+            var candidateCenter = candidateBounds.Value.Center;
+            var horizontalDistance = candidateCenter.X - origin.X;
+            var verticalDistance = candidateCenter.Y - origin.Y;
+            var primaryDistance = direction switch
             {
-                NavigationDirection.Up when verticalDistance < 0 => (-verticalDistance, Math.Abs(horizontalDistance)),
-                NavigationDirection.Down when verticalDistance > 0 => (verticalDistance, Math.Abs(horizontalDistance)),
-                NavigationDirection.Left when horizontalDistance < 0 => (-horizontalDistance, Math.Abs(verticalDistance)),
-                NavigationDirection.Right when horizontalDistance > 0 => (horizontalDistance, Math.Abs(verticalDistance)),
-                _ => (double.PositiveInfinity, double.PositiveInfinity)
+                NavigationDirection.Up when verticalDistance < 0 => -verticalDistance,
+                NavigationDirection.Down when verticalDistance > 0 => verticalDistance,
+                NavigationDirection.Left when horizontalDistance < 0 => -horizontalDistance,
+                NavigationDirection.Right when horizontalDistance > 0 => horizontalDistance,
+                _ => double.PositiveInfinity
             };
-            var score = primaryDistance + secondaryDistance * 1.5;
+            var perpendicularGap = direction is NavigationDirection.Up or NavigationDirection.Down
+                ? Math.Max(0, Math.Max(originBounds.Value.Left - candidateBounds.Value.Right,
+                    candidateBounds.Value.Left - originBounds.Value.Right))
+                : Math.Max(0, Math.Max(originBounds.Value.Top - candidateBounds.Value.Bottom,
+                    candidateBounds.Value.Top - originBounds.Value.Bottom));
+            var score = primaryDistance + perpendicularGap * 1.5;
             if (score < closestScore)
             {
                 closestScore = score;
@@ -207,6 +203,12 @@ internal sealed class DirectionalFocusNavigator
         return topLeft is null
             ? null
             : new Point(topLeft.Value.X + control.Bounds.Width / 2, topLeft.Value.Y + control.Bounds.Height / 2);
+    }
+
+    private static Rect? GetBounds(Control control, Control relativeTo)
+    {
+        var topLeft = control.TranslatePoint(new Point(0, 0), relativeTo);
+        return topLeft is null ? null : new Rect(topLeft.Value, control.Bounds.Size);
     }
 
     private static bool IsInDirection(
@@ -242,14 +244,5 @@ internal sealed class DirectionalFocusNavigator
                               control.IsEffectivelyEnabled)
             .ToList();
     }
-
-    private static NavigationDirection? GetArrowDirection(Key key) => key switch
-    {
-        Key.Up => NavigationDirection.Up,
-        Key.Down => NavigationDirection.Down,
-        Key.Left => NavigationDirection.Left,
-        Key.Right => NavigationDirection.Right,
-        _ => null
-    };
 
 }

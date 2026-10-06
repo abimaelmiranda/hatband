@@ -3,6 +3,7 @@ using System.Reflection;
 using System.ComponentModel.DataAnnotations;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -62,6 +63,38 @@ public partial class SettingsSectionEditorView : UserControl
     {
         get => GetValue(SectionProperty);
         set => SetValue(SectionProperty, value);
+    }
+
+    public bool HasTabs => sectionTabControl is { Items.Count: > 1 };
+
+    public bool SelectAdjacentTab(int offset)
+    {
+        if (sectionTabControl is null || offset is not (-1 or 1))
+        {
+            return false;
+        }
+
+        var selectedIndex = sectionTabControl.SelectedIndex + offset;
+        if ((uint)selectedIndex >= (uint)sectionTabControl.Items.Count)
+        {
+            return false;
+        }
+
+        var tabs = sectionTabControl;
+        tabs.SelectedIndex = selectedIndex;
+        Dispatcher.UIThread.Post(() =>
+        {
+            var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+            if (IsLoaded && IsEffectivelyVisible && ReferenceEquals(sectionTabControl, tabs) &&
+                tabs.SelectedIndex == selectedIndex && focused is not null &&
+                focused.GetVisualAncestors().Contains(this) &&
+                tabs.ContainerFromIndex(selectedIndex) is TabItem selectedTab &&
+                selectedTab.IsEffectivelyVisible && selectedTab.IsEffectivelyEnabled)
+            {
+                selectedTab.Focus(NavigationMethod.Directional);
+            }
+        }, DispatcherPriority.Loaded);
+        return true;
     }
 
     public Control? FocusField(int index)
@@ -507,6 +540,13 @@ public partial class SettingsSectionEditorView : UserControl
                 SelectedItem = currentValue,
                 MinHeight = 38
             };
+            if (type == typeof(ControllerDisplayMode))
+            {
+                comboBox.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<ControllerDisplayMode>(
+                    (mode, _) => new TextBlock { Text = mode == ControllerDisplayMode.Xbox ? AppResources.ControllerDisplayXbox : AppResources.ControllerDisplayPlayStation },
+                    supportsRecycling: true);
+            }
+
             comboBox.SelectionChanged += (_, _) => SaveValue(field.PropertyPath, comboBox.SelectedItem);
             return comboBox;
         }
@@ -605,6 +645,7 @@ public partial class SettingsSectionEditorView : UserControl
                 nameof(GeneralSettings.LanguageTag) => AppResources.InterfaceLanguage,
                 nameof(GeneralSettings.TimeZoneId) => AppResources.TimeZone,
                 nameof(GeneralSettings.TextScalePercent) => AppResources.InterfaceTextSize,
+                nameof(GeneralSettings.ControllerDisplayMode) => AppResources.ControllerDisplayMode,
                 _ => SettingsFieldConvention.GetDisplayName(property)
             }
             : SettingsFieldConvention.GetDisplayName(property);

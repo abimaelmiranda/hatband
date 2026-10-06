@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -5,6 +8,11 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Hatband.App.ViewModels;
 using Hatband.App.Navigation;
+using Hatband.App.Services.Input;
+using Hatband.App.ViewModels.Settings;
+using Hatband.App.Views.Navigation;
+using Hatband.Core.Models.Settings;
+using AppResources = Hatband.App.Localization.Resources;
 
 namespace Hatband.App.Views;
 
@@ -19,12 +27,34 @@ public partial class MainWindow : Window
     private bool _isTemporarilyTopmost;
     private bool _wasTopmostBeforeRequest;
 
-    public MainWindow()
+    private readonly GamepadInputService _gamepadInput;
+    private readonly SettingsScreenViewModel _settings;
+    private bool _inputReady;
+    private bool _closed;
+
+    public MainWindow(GamepadInputService gamepadInput, SettingsScreenViewModel settings)
     {
+        ArgumentNullException.ThrowIfNull(gamepadInput);
+        ArgumentNullException.ThrowIfNull(settings);
+        _gamepadInput = gamepadInput;
+        _settings = settings;
         InitializeComponent();
         AddHandler(InputElement.KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
         Activated += OnWindowActivated;
         Closed += OnWindowClosed;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        // Activated is raised before Avalonia updates IsActive. Read the committed
+        // property value so controller navigation resumes when focus returns.
+        if (_inputReady && !_closed &&
+            (change.Property == IsActiveProperty || change.Property == WindowStateProperty))
+        {
+            UpdateGamepadInputEnabled();
+        }
     }
 
     private async void OnWindowOpened(object? sender, EventArgs e)
@@ -34,6 +64,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        _gamepadInput.ActionRequested += OnGamepadActionRequested;
+        _gamepadInput.ConnectionChanged += OnGamepadConnectionChanged;
+        _gamepadInput.InitializationFailed += OnGamepadInitializationFailed;
+        _settings.ControllerDisplayModeChanged += OnControllerDisplayModeChanged;
+        _settings.Navigation.PropertyChanged += OnNavigationContextChanged;
+        viewModel.Navigation.PropertyChanged += OnNavigationContextChanged;
         viewModel.ExitRequested += OnExitRequested;
         viewModel.Session.GameSessionStarted += OnGameSessionStarted;
         viewModel.Session.GameSessionEnded += OnGameSessionEnded;
@@ -42,7 +78,17 @@ public partial class MainWindow : Window
         viewModel.Session.SteamFallbackRequested += OnSteamFallbackRequested;
         viewModel.Session.WindowTopmostRequested += OnWindowTopmostRequested;
         await viewModel.InitializeAsync();
+        if (_closed)
+        {
+            return;
+        }
+
         ScreenHost.ActiveView?.FocusInitial();
+        _inputReady = true;
+        _gamepadInput.Start();
+        NavigationHints.HasConnectedGamepad = _gamepadInput.HasConnectedGamepad;
+        UpdateGamepadInputEnabled();
+        RefreshInputHints();
     }
 
     private async void OnWindowActivated(object? sender, EventArgs e)
@@ -55,8 +101,17 @@ public partial class MainWindow : Window
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
+        _closed = true;
+        _inputReady = false;
+        _gamepadInput.ActionRequested -= OnGamepadActionRequested;
+        _gamepadInput.ConnectionChanged -= OnGamepadConnectionChanged;
+        _gamepadInput.InitializationFailed -= OnGamepadInitializationFailed;
+        _settings.ControllerDisplayModeChanged -= OnControllerDisplayModeChanged;
+        _settings.Navigation.PropertyChanged -= OnNavigationContextChanged;
+        _gamepadInput.Dispose();
         if (DataContext is MainWindowViewModel viewModel)
         {
+            viewModel.Navigation.PropertyChanged -= OnNavigationContextChanged;
             viewModel.ExitRequested -= OnExitRequested;
             viewModel.Session.GameSessionStarted -= OnGameSessionStarted;
             viewModel.Session.GameSessionEnded -= OnGameSessionEnded;
@@ -71,6 +126,7 @@ public partial class MainWindow : Window
 
     private void OnGameSessionStarted(object? sender, EventArgs e)
     {
+        _gamepadInput.SetInputEnabled(false);
         if (_isMinimizedForGame)
         {
             return;
@@ -91,6 +147,7 @@ public partial class MainWindow : Window
         WindowState = _previousWindowState;
         _isMinimizedForGame = false;
         Activate();
+        UpdateGamepadInputEnabled();
     }
 
     private void OnGameUninstallationCompleted(object? sender, EventArgs e)
@@ -151,52 +208,125 @@ public partial class MainWindow : Window
         }
 
         var action = GetNavigationAction(e);
-        if (action is null)
+        if (action is not null && _inputReady)
         {
-            return;
+            e.Handled = DispatchNavigationAction(action.Value, InputSource.Keyboard);
+        }
+    }
+
+    private void OnGamepadActionRequested(NavigationAction action)
+    {
+        if (CanUseGamepadInput())
+        {
+            DispatchNavigationAction(action, InputSource.Gamepad);
+        }
+    }
+
+    private bool DispatchNavigationAction(NavigationAction action, InputSource source)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return false;
         }
 
         var target = ModalHost.ActiveView ?? ScreenHost.ActiveView;
         if (target is null)
         {
-            return;
+            return false;
         }
 
+        if ((source == InputSource.Gamepad || action == NavigationAction.Back) &&
+            FocusedControlNavigationAdapter.TryHandleOpenComboBox(target.NavigationRoot, action))
+        {
+            return true;
+        }
+
+        bool handled;
         if (action == NavigationAction.Back)
         {
-            if (target.TryHandleBack(e))
+            handled = target.TryHandleBack() || (viewModel.Navigation.HasOpenModals
+                ? viewModel.Navigation.DismissTopModal()
+                : viewModel.Navigation.GoBack());
+        }
+        else
+        {
+            var handling = target.HandleNavigationAction(action, new NavigationInputContext(source));
+            handled = handling == NavigationActionHandling.Handled;
+            if (!handled && source == InputSource.Gamepad)
             {
-                e.Handled = true;
-                return;
+                handled = FocusedControlNavigationAdapter.TryHandle(target.NavigationRoot, action);
             }
 
-            e.Handled = viewModel.Navigation.HasOpenModals
-                ? viewModel.Navigation.DismissTopModal()
-                : viewModel.Navigation.GoBack();
-            return;
+            if (!handled && handling != NavigationActionHandling.Native &&
+                action == NavigationAction.OpenMenu && !viewModel.Navigation.HasOpenModals)
+            {
+                viewModel.OpenMenuCommand.Execute(null);
+                handled = true;
+            }
         }
 
-        var handling = target.HandleNavigationAction(action.Value, e);
-        if (handling == NavigationActionHandling.Handled)
-        {
-            e.Handled = true;
-            return;
-        }
+        RefreshInputHints();
+        return handled;
+    }
 
-        if (handling == NavigationActionHandling.Native)
-        {
-            return;
-        }
+    private bool CanUseGamepadInput()
+    {
+        return _inputReady && !_closed && IsActive && WindowState != WindowState.Minimized &&
+            DataContext is MainWindowViewModel viewModel && !viewModel.Session.IsGameSessionActive;
+    }
 
-        if (action == NavigationAction.OpenMenu && !viewModel.Navigation.HasOpenModals)
+    private void UpdateGamepadInputEnabled()
+    {
+        _gamepadInput.SetInputEnabled(CanUseGamepadInput());
+    }
+
+    private void OnGamepadConnectionChanged(bool connected)
+    {
+        NavigationHints.HasConnectedGamepad = connected;
+    }
+
+    private void OnControllerDisplayModeChanged(ControllerDisplayMode mode)
+    {
+        NavigationHints.DisplayMode = mode;
+    }
+
+    private void OnGamepadInitializationFailed(string error)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
         {
-            e.Handled = true;
-            viewModel.OpenMenuCommand.Execute(null);
+            viewModel.Session.StatusMessage = string.Format(
+                CultureInfo.CurrentCulture, AppResources.GamepadInitializationError, error);
+        }
+    }
+
+    private void OnNavigationContextChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        Dispatcher.UIThread.Post(RefreshInputHints);
+    }
+
+    private void RefreshInputHints()
+    {
+        if (!_closed)
+        {
+            NavigationHints.SupportsTabNavigation = (ModalHost.ActiveView ?? ScreenHost.ActiveView)?.SupportsTabNavigation == true;
         }
     }
 
     private static NavigationAction? GetNavigationAction(KeyEventArgs e)
     {
+        if (e.KeyModifiers == KeyModifiers.Control)
+        {
+            if (e.Key == Key.PageUp)
+            {
+                return NavigationAction.PreviousTab;
+            }
+
+            if (e.Key == Key.PageDown)
+            {
+                return NavigationAction.NextTab;
+            }
+        }
+
         var textInput = e.Source as TextBox;
         if (textInput is null && e.Source is Control sourceControl)
         {
@@ -208,7 +338,7 @@ public partial class MainWindow : Window
             return null;
         }
 
-        if (textInput is { AcceptsReturn: true } && e.Key is Key.Up or Key.Down)
+        if (textInput is { AcceptsReturn: true } && e.Key is Key.Up or Key.Down or Key.Enter)
         {
             return null;
         }

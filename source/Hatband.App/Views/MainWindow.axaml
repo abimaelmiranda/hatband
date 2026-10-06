@@ -246,9 +246,8 @@
                 Padding="10,6"
                 CornerRadius="5"
                 Background="#B0101720">
-            <TextBlock Text="{Binding KeyboardHelpText}"
-                       Foreground="#D5DEE5"
-                       FontSize="{DynamicResource Typography.Caption}" />
+            <components:InputHintsView x:Name="NavigationHints"
+                                       InputHints="{Binding InputHints}" />
         </Border>
     </Grid>
 </Window>

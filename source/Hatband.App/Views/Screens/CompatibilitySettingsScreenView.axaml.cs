@@ -1,6 +1,5 @@
 using Hatband.App.Views.Navigation;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.VisualTree;
 using Hatband.App.ViewModels;
 
@@ -13,7 +12,7 @@ public partial class CompatibilitySettingsScreenView : FullScreenView
         InitializeComponent();
     }
 
-    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    public override bool TryHandleBack()
     {
         var viewModel = DataContext as CompatibilitySettingsScreenViewModel;
         if (viewModel is null || !viewModel.IsSaving)
@@ -21,7 +20,6 @@ public partial class CompatibilitySettingsScreenView : FullScreenView
             return false;
         }
 
-        originalEvent.Handled = true;
         return true;
     }
 

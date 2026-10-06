@@ -67,7 +67,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public LibrarySessionViewModel Session { get; }
 
-    public string KeyboardHelpText => Navigation.KeyboardHelpText;
+    public IReadOnlyList<InputHint> InputHints => Navigation.InputHints;
 
     public event EventHandler? ExitRequested;
 
@@ -244,7 +244,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         if (e.PropertyName is nameof(Navigation.ActiveScreen) or nameof(Navigation.ActiveModal))
         {
-            OnPropertyChanged(nameof(KeyboardHelpText));
+            OnPropertyChanged(nameof(InputHints));
         }
     }
 

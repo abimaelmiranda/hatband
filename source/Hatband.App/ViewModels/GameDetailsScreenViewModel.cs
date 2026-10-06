@@ -24,7 +24,13 @@ public partial class GameDetailsScreenViewModel : ScreenViewModel
 
     public LibrarySessionViewModel Session { get; }
 
-    public override string KeyboardHelpText => Resources.KeyboardDetailsHelp;
+    public override IReadOnlyList<InputHint> InputHints =>
+    [
+        new(NavigationAction.Up, Resources.InputHintNavigate),
+        new(NavigationAction.Confirm, Resources.InputHintActivate),
+        new(NavigationAction.Back, Resources.InputHintBack),
+        new(NavigationAction.OpenMenu, Resources.InputHintMenu)
+    ];
 
     public event Action<GameCardViewModel>? EditRequested;
 

@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.Platform.Storage;
@@ -100,11 +99,11 @@ public partial class AddGameScreenView : FullScreenView
     }
 
     /// <summary>Handles local Back transitions and leaves inline artwork arrows to the selected list.</summary>
-    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent)
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         if (action == NavigationAction.Back)
         {
-            return TryHandleBack(originalEvent)
+            return TryHandleBack()
                 ? NavigationActionHandling.Handled
                 : NavigationActionHandling.Unhandled;
         }
@@ -114,7 +113,6 @@ public partial class AddGameScreenView : FullScreenView
             addGameViewModel.ArtworkPicker.IsArtworkPickerOpen &&
             IsArtworkOptionFocused)
         {
-            originalEvent.Handled = true;
             UseFocusedArtworkOption();
             return NavigationActionHandling.Handled;
         }
@@ -123,9 +121,8 @@ public partial class AddGameScreenView : FullScreenView
             DataContext is AddGameViewModel sectionViewModel &&
             !sectionViewModel.IsContentActive && IsSectionNavigationFocused)
         {
-            originalEvent.Handled = true;
             sectionViewModel.ActivateContent();
-            FocusSelectedField();
+            ScheduleFocusSelectedField(sectionViewModel, sectionViewModel.SelectedSection);
             return NavigationActionHandling.Handled;
         }
 
@@ -137,18 +134,17 @@ public partial class AddGameScreenView : FullScreenView
             return NavigationActionHandling.Native;
         }
 
-        return base.HandleNavigationAction(action, originalEvent);
+        return base.HandleNavigationAction(action, context);
     }
 
     /// <summary>Moves from editor fields to the section rail before requesting shell cancellation.</summary>
-    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    public override bool TryHandleBack()
     {
         if (DataContext is not AddGameViewModel viewModel)
         {
             return false;
         }
 
-        originalEvent.Handled = true;
         if (viewModel.ArtworkPicker.IsArtworkPickerOpen)
         {
             var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
@@ -166,8 +162,7 @@ public partial class AddGameScreenView : FullScreenView
             return true;
         }
 
-        viewModel.CancelCommand.Execute(null);
-        return true;
+        return NavigationCommandExecutor.TryExecute(this, viewModel.CancelCommand);
     }
 
     protected override Control? GetInitialFocusTarget()
@@ -306,8 +301,24 @@ public partial class AddGameScreenView : FullScreenView
         {
             viewModel.SelectSection(section);
             viewModel.ActivateContent();
-            FocusSelectedField();
+            ScheduleFocusSelectedField(viewModel, section);
         }
+    }
+
+    private void ScheduleFocusSelectedField(AddGameViewModel viewModel, AddGameSectionViewModel section)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsLoaded || !IsEffectivelyVisible ||
+                !ReferenceEquals(DataContext, viewModel) ||
+                !viewModel.IsContentActive ||
+                !ReferenceEquals(viewModel.SelectedSection, section))
+            {
+                return;
+            }
+
+            FocusSelectedField();
+        }, DispatcherPriority.Loaded);
     }
 
     private async void OnOpenMetadataSearchClick(object? sender, RoutedEventArgs e)
@@ -330,7 +341,10 @@ public partial class AddGameScreenView : FullScreenView
             return;
         }
 
-        viewModel.AddActionCommand.Execute(null);
+        if (!NavigationCommandExecutor.TryExecute(sender as Control ?? this, viewModel.AddActionCommand))
+        {
+            return;
+        }
         var addedAction = viewModel.Actions.Last();
         Dispatcher.UIThread.Post(() =>
         {

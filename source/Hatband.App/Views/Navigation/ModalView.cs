@@ -20,50 +20,23 @@ public abstract class ModalView : UserControl, INavigationView
     }
 
     public Control NavigationRoot => this;
+    public virtual bool SupportsTabNavigation => false;
 
     /// <summary>Routes arrows inside this modal and preserves native text, list, and open combo-box behavior.</summary>
-    public virtual NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent)
+    public virtual NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         if (action == NavigationAction.Back)
         {
-            return TryHandleBack(originalEvent)
+            return TryHandleBack()
                 ? NavigationActionHandling.Handled
                 : NavigationActionHandling.Unhandled;
         }
 
-        if (action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right)
-        {
-            if (DirectionalFocusNavigator.IsTextInput(originalEvent.Source, originalEvent.Key) ||
-                UsesNativeArrowInput(originalEvent.Source, action))
-            {
-                return NavigationActionHandling.Native;
-            }
-
-            var window = TopLevel.GetTopLevel(this) as Window;
-            if (window is null)
-            {
-                return NavigationActionHandling.Unhandled;
-            }
-
-            var key = action switch
-            {
-                NavigationAction.Up => Key.Up,
-                NavigationAction.Down => Key.Down,
-                NavigationAction.Left => Key.Left,
-                NavigationAction.Right => Key.Right,
-                _ => throw new InvalidOperationException("Unsupported directional action.")
-            };
-
-            return new DirectionalFocusNavigator(window).MoveFocus(NavigationRoot, key)
-                ? NavigationActionHandling.Handled
-                : NavigationActionHandling.Unhandled;
-        }
-
-        return NavigationActionHandling.Unhandled;
+        return NavigationActionHandler.Handle(NavigationRoot, action, context);
     }
 
     /// <summary>Handles a modal-specific Back action before the coordinator cancels this modal.</summary>
-    public virtual bool TryHandleBack(KeyEventArgs originalEvent) => false;
+    public virtual bool TryHandleBack() => false;
 
     /// <summary>Focuses the initial modal target or restores focus when returning from an owned child modal.</summary>
     public virtual void FocusInitial()
@@ -128,22 +101,5 @@ public abstract class ModalView : UserControl, INavigationView
         }
 
         FocusInitial();
-    }
-
-    private static bool UsesNativeArrowInput(object? source, NavigationAction action)
-    {
-        if (source is not Control control)
-        {
-            return false;
-        }
-
-        if (control is ComboBox { IsDropDownOpen: true } ||
-            control.GetVisualAncestors().OfType<ComboBox>().Any(comboBox => comboBox.IsDropDownOpen))
-        {
-            return true;
-        }
-
-        var isListInput = control is ListBox || control.GetVisualAncestors().OfType<ListBox>().Any();
-        return isListInput && action is NavigationAction.Up or NavigationAction.Down;
     }
 }

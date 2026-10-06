@@ -20,55 +20,23 @@ public abstract class FullScreenView : UserControl, INavigationView
     }
 
     public Control NavigationRoot => this;
+    public virtual bool SupportsTabNavigation => false;
 
     /// <summary>Routes arrows through directional focus while leaving text editing and native list controls untouched.</summary>
-    public virtual NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs originalEvent)
+    public virtual NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         if (action == NavigationAction.Back)
         {
-            return TryHandleBack(originalEvent)
+            return TryHandleBack()
                 ? NavigationActionHandling.Handled
                 : NavigationActionHandling.Unhandled;
         }
 
-        if (action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right)
-        {
-            if (DirectionalFocusNavigator.IsTextInput(originalEvent.Source, originalEvent.Key))
-            {
-                return NavigationActionHandling.Native;
-            }
-
-            if (UsesNativeArrowInput(originalEvent.Source, action))
-            {
-                return NavigationActionHandling.Native;
-            }
-
-            var window = TopLevel.GetTopLevel(this) as Window;
-            if (window is null)
-            {
-                return NavigationActionHandling.Unhandled;
-            }
-
-            var key = action switch
-            {
-                NavigationAction.Up => Key.Up,
-                NavigationAction.Down => Key.Down,
-                NavigationAction.Left => Key.Left,
-                NavigationAction.Right => Key.Right,
-                _ => throw new InvalidOperationException("Unsupported directional action.")
-            };
-
-            var navigator = new DirectionalFocusNavigator(window);
-            return navigator.MoveFocus(NavigationRoot, key)
-                ? NavigationActionHandling.Handled
-                : NavigationActionHandling.Unhandled;
-        }
-
-        return NavigationActionHandling.Unhandled;
+        return NavigationActionHandler.Handle(NavigationRoot, action, context);
     }
 
     /// <summary>Handles a screen-specific Back action before shell navigation is consulted.</summary>
-    public virtual bool TryHandleBack(KeyEventArgs originalEvent) => false;
+    public virtual bool TryHandleBack() => false;
 
     /// <summary>Focuses the initial target or restores the last focused descendant when this cached view returns.</summary>
     public virtual void FocusInitial()
@@ -141,23 +109,5 @@ public abstract class FullScreenView : UserControl, INavigationView
         }
 
         FocusInitial();
-    }
-
-    private static bool UsesNativeArrowInput(object? source, NavigationAction action)
-    {
-        var control = source as Control;
-        if (control is null)
-        {
-            return false;
-        }
-
-        if (control is ComboBox { IsDropDownOpen: true } ||
-            control.GetVisualAncestors().OfType<ComboBox>().Any(comboBox => comboBox.IsDropDownOpen))
-        {
-            return true;
-        }
-
-        var isListInput = control is ListBox || control.GetVisualAncestors().OfType<ListBox>().Any();
-        return isListInput && action is NavigationAction.Up or NavigationAction.Down;
     }
 }

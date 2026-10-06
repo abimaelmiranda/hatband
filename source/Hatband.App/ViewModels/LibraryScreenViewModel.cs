@@ -1,4 +1,5 @@
 using Hatband.App.Localization;
+using Hatband.App.Navigation;
 using Hatband.App.ViewModels.Navigation;
 
 namespace Hatband.App.ViewModels;
@@ -15,7 +16,12 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
 
     public LibrarySessionViewModel Session { get; }
 
-    public override string KeyboardHelpText => Resources.KeyboardChooseOpen;
+    public override IReadOnlyList<InputHint> InputHints =>
+    [
+        new(NavigationAction.Up, Resources.InputHintNavigate),
+        new(NavigationAction.Confirm, Resources.InputHintOpen),
+        new(NavigationAction.OpenMenu, Resources.InputHintMenu)
+    ];
 
     public event Action<GameCardViewModel>? GameOpened;
     public event Action<MenuAction>? MenuActionRequested;

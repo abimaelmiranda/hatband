@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
@@ -19,7 +18,7 @@ public partial class InstallLocationModalView : ModalView
 
     protected override Control? GetInitialFocusTarget() => LocationComboBox;
 
-    public override bool TryHandleBack(KeyEventArgs e)
+    public override bool TryHandleBack()
     {
         if (!LocationComboBox.IsDropDownOpen)
         {
@@ -30,7 +29,7 @@ public partial class InstallLocationModalView : ModalView
         return true;
     }
 
-    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, KeyEventArgs e)
+    public override NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)
     {
         if (LocationComboBox.IsDropDownOpen)
         {
@@ -43,7 +42,7 @@ public partial class InstallLocationModalView : ModalView
             return NavigationActionHandling.Handled;
         }
 
-        return base.HandleNavigationAction(action, e);
+        return base.HandleNavigationAction(action, context);
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)

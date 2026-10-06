@@ -39,6 +39,51 @@
   <data name="KeyboardDetailsHelp" xml:space="preserve">
     <value>↑ ↓ ← → NAVEGAR   ENTER ATIVAR   ESC VOLTAR</value>
   </data>
+  <data name="InputHintNavigate" xml:space="preserve">
+    <value>Navegar</value>
+  </data>
+  <data name="InputHintOpen" xml:space="preserve">
+    <value>Abrir</value>
+  </data>
+  <data name="InputHintActivate" xml:space="preserve">
+    <value>Ativar</value>
+  </data>
+  <data name="InputHintConfirm" xml:space="preserve">
+    <value>Confirmar</value>
+  </data>
+  <data name="InputHintBack" xml:space="preserve">
+    <value>Voltar</value>
+  </data>
+  <data name="InputHintMenu" xml:space="preserve">
+    <value>Menu</value>
+  </data>
+  <data name="InputHintPreviousTab" xml:space="preserve">
+    <value>Aba anterior</value>
+  </data>
+  <data name="InputHintNextTab" xml:space="preserve">
+    <value>Próxima aba</value>
+  </data>
+  <data name="ControllerDirectionalInput" xml:space="preserve">
+    <value>Direcional / analógico esquerdo</value>
+  </data>
+  <data name="ControllerMenuXbox" xml:space="preserve">
+    <value>Menu</value>
+  </data>
+  <data name="ControllerMenuPlayStation" xml:space="preserve">
+    <value>Options</value>
+  </data>
+  <data name="ControllerDisplayMode" xml:space="preserve">
+    <value>Legendas dos botões do controle</value>
+  </data>
+  <data name="ControllerDisplayXbox" xml:space="preserve">
+    <value>Xbox</value>
+  </data>
+  <data name="ControllerDisplayPlayStation" xml:space="preserve">
+    <value>PlayStation</value>
+  </data>
+  <data name="GamepadInitializationError" xml:space="preserve">
+    <value>Não foi possível iniciar a entrada do controle: {0}</value>
+  </data>
   <data name="LibraryHeader" xml:space="preserve">
     <value>SUA BIBLIOTECA</value>
   </data>

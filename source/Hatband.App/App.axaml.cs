@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using System.Globalization;
 using Hatband.App.Services;
+using Hatband.App.Services.Input;
 using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
 using Hatband.App.ViewModels.Settings;
@@ -38,6 +39,7 @@ public partial class App : Application
                 .SetMinimumLevel(LogLevel.Information)
                 .AddProvider(new FileLoggerProvider(appDataFileSystem.GetPath("hatband.log"))));
             services.AddHatbandInfrastructure($"Data Source={databasePath}", appDataFileSystem);
+            services.AddSingleton<GamepadInputService>();
             services.AddSingleton<ArtworkImageLoader>();
             services.AddSingleton<DateTimeDisplayFormatter>();
             services.AddSingleton<GameProcessSessionService>();
@@ -61,7 +63,9 @@ public partial class App : Application
                 serviceProvider.GetRequiredService<ISettingsApi>(),
                 serviceProvider.GetRequiredService<ILogger<App>>());
 
-            desktop.MainWindow = new MainWindow
+            desktop.MainWindow = new MainWindow(
+                serviceProvider.GetRequiredService<GamepadInputService>(),
+                serviceProvider.GetRequiredService<SettingsScreenViewModel>())
             {
                 DataContext = serviceProvider.GetRequiredService<MainWindowViewModel>(),
             };

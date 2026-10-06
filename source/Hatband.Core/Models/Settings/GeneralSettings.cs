@@ -17,4 +17,7 @@ public sealed class GeneralSettings
     /// <summary>Multiplier applied to the application's shared typography scale.</summary>
     [Range(80, 140)]
     public int TextScalePercent { get; set; } = 100;
+
+    /// <summary>Preferred controller button legend style shown in the interface.</summary>
+    public ControllerDisplayMode ControllerDisplayMode { get; set; } = ControllerDisplayMode.Xbox;
 }

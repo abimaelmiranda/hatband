@@ -5,7 +5,7 @@ public interface IModalViewModel
 {
     bool IsCompleted { get; }
 
-    string KeyboardHelpText { get; }
+    IReadOnlyList<InputHint> InputHints { get; }
 
     Task CompletionTask { get; }
 
