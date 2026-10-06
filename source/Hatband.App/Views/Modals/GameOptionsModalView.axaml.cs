@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using Hatband.App.ViewModels;
+using Hatband.App.Views.Components;
 using Hatband.App.Views.Navigation;
 
 namespace Hatband.App.Views.Modals;
@@ -26,6 +27,19 @@ public partial class GameOptionsModalView : ModalView
             sender is Control { DataContext: GameOptionViewModel option })
         {
             viewModel.Complete(option.Action);
+        }
+    }
+
+    private void OnOptionFocusEntered(object? sender, EventArgs e)
+    {
+        if (sender is not ConsoleNavigationItemView focusedOption)
+        {
+            return;
+        }
+
+        foreach (var option in OptionsHost.GetVisualDescendants().OfType<ConsoleNavigationItemView>())
+        {
+            option.SetSelected(ReferenceEquals(option, focusedOption));
         }
     }
 }

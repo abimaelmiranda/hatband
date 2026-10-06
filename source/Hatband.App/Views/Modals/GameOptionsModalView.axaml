@@ -18,6 +18,7 @@
                         <components:ConsoleNavigationItemView Title="{Binding Title}"
                                                               IconGlyph="{Binding IconGlyph}"
                                                               TitleFontSize="13"
+                                                              FocusEntered="OnOptionFocusEntered"
                                                               Activated="OnOptionActivated" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
