@@ -101,7 +101,12 @@ internal sealed class DirectionalFocusNavigator
 
         if (layout.MainContentRoot is { } mainContentRoot && IsWithin(focusedControl, mainContentRoot))
         {
-            return mainContentRoot;
+            return layout.FooterContentRoot is null ? mainContentRoot : layout;
+        }
+
+        if (layout.FooterContentRoot is { } footerContentRoot && IsWithin(focusedControl, footerContentRoot))
+        {
+            return layout;
         }
 
         return navigationRoot;

@@ -16,6 +16,7 @@
             </Border>
 
             <ContentControl Grid.Row="1"
+                            x:Name="FooterContentPresenter"
                             Grid.Column="1"
                             Content="{Binding FooterContent, RelativeSource={RelativeSource AncestorType=components:FullScreenNavigationLayout}}"
                             Margin="24,0,0,0"

@@ -56,6 +56,8 @@ public partial class FullScreenNavigationLayout : UserControl
 
     public Control? MainContentRoot => MainContentPresenter.Content as Control;
 
+    public Control? FooterContentRoot => FooterContentPresenter.Content as Control;
+
     public void ActivateMainContent() => IsMainContentActive = true;
 
     public void DeactivateMainContent() => IsMainContentActive = false;
