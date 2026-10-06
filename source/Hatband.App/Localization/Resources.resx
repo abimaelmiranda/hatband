@@ -613,6 +613,15 @@
   <data name="RefreshMetadata" xml:space="preserve">
     <value>Refresh game metadata</value>
   </data>
+  <data name="RemoveExpiredCache" xml:space="preserve">
+    <value>Remove expired cache entries</value>
+  </data>
+  <data name="ExpiredCacheCleanupComplete" xml:space="preserve">
+    <value>Expired cache cleanup complete. Entries removed: {0}.</value>
+  </data>
+  <data name="ExpiredCacheCleanupError" xml:space="preserve">
+    <value>Could not remove expired cache entries: {0}</value>
+  </data>
   <data name="SteamSyncActivity" xml:space="preserve">
     <value>Steam · syncing library…</value>
   </data>
@@ -777,6 +786,27 @@
   </data>
   <data name="PlatformCompatibility" xml:space="preserve">
     <value>Platform compatibility</value>
+  </data>
+  <data name="ProtonCompatibilityLabel" xml:space="preserve">
+    <value>ProtonDB compatibility</value>
+  </data>
+  <data name="ProtonTierPlatinum" xml:space="preserve">
+    <value>Platinum</value>
+  </data>
+  <data name="ProtonTierGold" xml:space="preserve">
+    <value>Gold</value>
+  </data>
+  <data name="ProtonTierSilver" xml:space="preserve">
+    <value>Silver</value>
+  </data>
+  <data name="ProtonTierBronze" xml:space="preserve">
+    <value>Bronze</value>
+  </data>
+  <data name="ProtonTierBorked" xml:space="preserve">
+    <value>Borked</value>
+  </data>
+  <data name="ProtonTierUnknown" xml:space="preserve">
+    <value>Unknown</value>
   </data>
   <data name="NativePlatforms" xml:space="preserve">
     <value>Native platforms</value>

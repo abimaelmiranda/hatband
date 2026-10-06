@@ -4,6 +4,7 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hatband.App.Localization;
 using Hatband.App.Services;
+using Hatband.Core.Enums.Games;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Enums.Host;
 
@@ -71,6 +72,36 @@ public partial class GameCardViewModel : ObservableObject
             };
         }
     }
+
+    public bool HasProtonCompatibility => Game.CompatibilityLayer is not null;
+
+    public string ProtonCompatibilityLabel => Game.CompatibilityLayer?.Tier switch
+    {
+        GameCompatibilityTier.Platinum => Resources.ProtonTierPlatinum,
+        GameCompatibilityTier.Gold => Resources.ProtonTierGold,
+        GameCompatibilityTier.Silver => Resources.ProtonTierSilver,
+        GameCompatibilityTier.Bronze => Resources.ProtonTierBronze,
+        GameCompatibilityTier.Borked => Resources.ProtonTierBorked,
+        GameCompatibilityTier.Unknown => Resources.ProtonTierUnknown,
+        null => string.Empty,
+        _ => throw new ArgumentOutOfRangeException(nameof(Game.CompatibilityLayer.Tier))
+    };
+
+    public IBrush ProtonCompatibilityBackground => Game.CompatibilityLayer?.Tier switch
+    {
+        GameCompatibilityTier.Platinum => new SolidColorBrush(Color.Parse("#E5E4E2")),
+        GameCompatibilityTier.Gold => new SolidColorBrush(Color.Parse("#FFD700")),
+        GameCompatibilityTier.Silver => new SolidColorBrush(Color.Parse("#C0C0C0")),
+        GameCompatibilityTier.Bronze => new SolidColorBrush(Color.Parse("#CD7F32")),
+        GameCompatibilityTier.Borked => new SolidColorBrush(Color.Parse("#FF5252")),
+        GameCompatibilityTier.Unknown => new SolidColorBrush(Color.Parse("#687681")),
+        null => Brushes.Transparent,
+        _ => throw new ArgumentOutOfRangeException(nameof(Game.CompatibilityLayer.Tier))
+    };
+
+    public IBrush ProtonCompatibilityForeground => Game.CompatibilityLayer?.Tier is GameCompatibilityTier.Unknown
+        ? Brushes.White
+        : new SolidColorBrush(Color.Parse("#11161C"));
 
     public bool SupportsWindows => Game.Metadata.NativePlatforms?.HasFlag(GamePlatform.Windows) == true;
 

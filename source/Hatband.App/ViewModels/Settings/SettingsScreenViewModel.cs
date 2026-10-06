@@ -10,6 +10,7 @@ using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.App.ViewModels.Navigation;
 using Hatband.Core.Abstractions.Authentication;
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Abstractions.Settings;
 using Hatband.Core.Models.Settings;
 using Hatband.Integrations.Settings;
@@ -23,6 +24,7 @@ namespace Hatband.App.ViewModels.Settings;
 public partial class SettingsScreenViewModel : ScreenViewModel
 {
     private readonly ISettingsApi _settingsApi;
+    private readonly ICacheService _cacheService;
     private readonly DateTimeDisplayFormatter _dateTimeDisplayFormatter;
     private readonly SteamConnectorLoginViewModel _steamConnectorLogin;
     private readonly Dictionary<Type, object> _settingsByType = [];
@@ -51,24 +53,36 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     [ObservableProperty]
     public partial SettingsOptionViewModel? SelectedTimeZoneOption { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsRemovingExpiredCache { get; set; }
+
+    [ObservableProperty]
+    public partial string? ExpiredCacheCleanupMessage { get; set; }
+
+    public bool HasExpiredCacheCleanupMessage =>
+        IsGeneralSettingsSection && !string.IsNullOrWhiteSpace(ExpiredCacheCleanupMessage);
+
     /// <summary>
     /// Creates the settings screen and its Steam login flow. The application session supplies the
     /// Steam library synchronization callback after the view models have been composed.
     /// </summary>
     public SettingsScreenViewModel(
         ISettingsApi settingsApi,
+        ICacheService cacheService,
         ProtonManagementViewModel protonManagement,
         DateTimeDisplayFormatter dateTimeDisplayFormatter,
         IEnumerable<IQrCodeLoginProvider> qrLoginProviders,
         IEnumerable<IConnectorSessionProvider> connectorSessionProviders)
     {
         ArgumentNullException.ThrowIfNull(settingsApi);
+        ArgumentNullException.ThrowIfNull(cacheService);
         ArgumentNullException.ThrowIfNull(protonManagement);
         ArgumentNullException.ThrowIfNull(dateTimeDisplayFormatter);
         ArgumentNullException.ThrowIfNull(qrLoginProviders);
         ArgumentNullException.ThrowIfNull(connectorSessionProviders);
 
         _settingsApi = settingsApi;
+        _cacheService = cacheService;
         _dateTimeDisplayFormatter = dateTimeDisplayFormatter;
         ProtonManagement = protonManagement;
         Navigation = new SettingsNavigationViewModel(settingsApi.GetSections());
@@ -234,6 +248,40 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         _canRefreshMetadata = value;
         OnPropertyChanged(nameof(CanRefreshMetadata));
     }
+
+    [RelayCommand]
+    private async Task RemoveExpiredCacheAsync(CancellationToken cancellationToken)
+    {
+        IsRemovingExpiredCache = true;
+        ExpiredCacheCleanupMessage = null;
+
+        try
+        {
+            var removedEntries = await _cacheService.RemoveExpiredEntriesAsync(cancellationToken);
+            ExpiredCacheCleanupMessage = string.Format(
+                CultureInfo.CurrentCulture,
+                Resources.ExpiredCacheCleanupComplete,
+                removedEntries);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            SettingsError?.Invoke(string.Format(
+                CultureInfo.CurrentCulture,
+                Resources.ExpiredCacheCleanupError,
+                exception.Message));
+        }
+        finally
+        {
+            IsRemovingExpiredCache = false;
+        }
+    }
+
+    partial void OnExpiredCacheCleanupMessageChanged(string? value) =>
+        OnPropertyChanged(nameof(HasExpiredCacheCleanupMessage));
 
     /// <summary>
     /// Loads each registered settings section once, applies the saved time zone, and initializes
@@ -647,6 +695,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             case nameof(SettingsNavigationViewModel.SelectedSection):
                 OnPropertyChanged(nameof(SelectedSettingsSection));
                 OnPropertyChanged(nameof(IsGeneralSettingsSection));
+                OnPropertyChanged(nameof(HasExpiredCacheCleanupMessage));
                 break;
             case nameof(SettingsNavigationViewModel.SelectedFieldCount):
                 OnPropertyChanged(nameof(SelectedSettingsFieldCount));

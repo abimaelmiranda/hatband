@@ -138,18 +138,12 @@
                                        FontSize="{DynamicResource Typography.Caption}"
                                        FontWeight="SemiBold" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="14">
-                                <components:GameDetailStatView Label="{x:Static lang:Resources.Genre}"
-                                                               Value="{Binding Session.SelectedGameCard.Genre}" />
-                                <components:GameDetailStatView Grid.Column="1"
-                                                               Label="{x:Static lang:Resources.Developer}"
+                                <components:GameDetailStatView Label="{x:Static lang:Resources.Developer}"
                                                                Value="{Binding Session.SelectedGameCard.Developer}" />
-                                <components:GameDetailStatView Grid.Row="1"
+                                <components:GameDetailStatView Grid.Column="1"
                                                                Label="{x:Static lang:Resources.Publisher}"
                                                                Value="{Binding Session.SelectedGameCard.Publisher}" />
-                                <components:GameDetailStatView Grid.Row="1" Grid.Column="1"
-                                                               Label="{x:Static lang:Resources.ReleaseDate}"
-                                                               Value="{Binding Session.SelectedGameCard.ReleaseDateDisplay}" />
-                                <StackPanel Grid.Row="2" Spacing="3">
+                                <StackPanel Grid.Row="1" Spacing="3">
                                     <TextBlock Text="{x:Static lang:Resources.NativePlatforms}"
                                                Foreground="#AFC0CC"
                                                FontSize="{DynamicResource Typography.Micro}" />
@@ -183,9 +177,25 @@
                                                    IsVisible="{Binding Session.SelectedGameCard.HasUnknownNativePlatforms}" />
                                     </StackPanel>
                                 </StackPanel>
-                                <components:GameDetailStatView Grid.Row="2" Grid.Column="1"
+                                <components:GameDetailStatView Grid.Row="1" Grid.Column="1"
                                                                Label="{x:Static lang:Resources.PlatformCompatibility}"
                                                                Value="{Binding Session.SelectedGameCard.PlatformCompatibilityLabel}" />
+                                <StackPanel Grid.Row="2" Grid.Column="1"
+                                            Spacing="3"
+                                            IsVisible="{Binding Session.SelectedGameCard.HasProtonCompatibility}">
+                                    <TextBlock Text="{x:Static lang:Resources.ProtonCompatibilityLabel}"
+                                               Foreground="#AFC0CC"
+                                               FontSize="{DynamicResource Typography.Micro}" />
+                                    <Border Background="{Binding Session.SelectedGameCard.ProtonCompatibilityBackground}"
+                                            Padding="8,2"
+                                            CornerRadius="3"
+                                            HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding Session.SelectedGameCard.ProtonCompatibilityLabel}"
+                                                   Foreground="{Binding Session.SelectedGameCard.ProtonCompatibilityForeground}"
+                                                   FontSize="{DynamicResource Typography.Caption}"
+                                                   FontWeight="SemiBold" />
+                                    </Border>
+                                </StackPanel>
                             </Grid>
                         </StackPanel>
                     </Grid>

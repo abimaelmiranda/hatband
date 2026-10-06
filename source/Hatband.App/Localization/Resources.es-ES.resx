@@ -613,6 +613,15 @@
   <data name="RefreshMetadata" xml:space="preserve">
     <value>Actualizar metadatos de juegos</value>
   </data>
+  <data name="RemoveExpiredCache" xml:space="preserve">
+    <value>Eliminar caché caducada</value>
+  </data>
+  <data name="ExpiredCacheCleanupComplete" xml:space="preserve">
+    <value>Limpieza de caché caducada completada. Registros eliminados: {0}.</value>
+  </data>
+  <data name="ExpiredCacheCleanupError" xml:space="preserve">
+    <value>No se pudieron eliminar los registros caducados de la caché: {0}</value>
+  </data>
   <data name="SteamSyncActivity" xml:space="preserve">
     <value>Steam · sincronizando biblioteca…</value>
   </data>
@@ -777,6 +786,27 @@
   </data>
   <data name="PlatformCompatibility" xml:space="preserve">
     <value>Compatibilidad</value>
+  </data>
+  <data name="ProtonCompatibilityLabel" xml:space="preserve">
+    <value>Compatibilidad ProtonDB</value>
+  </data>
+  <data name="ProtonTierPlatinum" xml:space="preserve">
+    <value>Platino</value>
+  </data>
+  <data name="ProtonTierGold" xml:space="preserve">
+    <value>Oro</value>
+  </data>
+  <data name="ProtonTierSilver" xml:space="preserve">
+    <value>Plata</value>
+  </data>
+  <data name="ProtonTierBronze" xml:space="preserve">
+    <value>Bronce</value>
+  </data>
+  <data name="ProtonTierBorked" xml:space="preserve">
+    <value>No funciona</value>
+  </data>
+  <data name="ProtonTierUnknown" xml:space="preserve">
+    <value>Desconocido</value>
   </data>
   <data name="NativePlatforms" xml:space="preserve">
     <value>Plataformas nativas</value>
