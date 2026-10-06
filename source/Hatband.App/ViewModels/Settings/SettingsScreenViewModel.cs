@@ -13,8 +13,11 @@ using Hatband.Core.Abstractions.Authentication;
 using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Abstractions.Settings;
 using Hatband.Core.Models.Settings;
+using Hatband.Infrastructure.Persistence;
 using Hatband.Integrations.Settings;
 using Hatband.Integrations.Steam.Settings;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Hatband.App.ViewModels.Settings;
 
@@ -24,7 +27,8 @@ namespace Hatband.App.ViewModels.Settings;
 public partial class SettingsScreenViewModel : ScreenViewModel
 {
     private readonly ISettingsApi _settingsApi;
-    private readonly ICacheService _cacheService;
+    private readonly IDbContextFactory<HatbandDbContext> _dbContextFactory;
+    private readonly IMemoryCache _memoryCache;
     private readonly DateTimeDisplayFormatter _dateTimeDisplayFormatter;
     private readonly SteamConnectorLoginViewModel _steamConnectorLogin;
     private readonly Dictionary<Type, object> _settingsByType = [];
@@ -54,13 +58,13 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     public partial SettingsOptionViewModel? SelectedTimeZoneOption { get; set; }
 
     [ObservableProperty]
-    public partial bool IsRemovingExpiredCache { get; set; }
+    public partial bool IsClearingCache { get; set; }
 
     [ObservableProperty]
-    public partial string? ExpiredCacheCleanupMessage { get; set; }
+    public partial string? CacheCleanupMessage { get; set; }
 
-    public bool HasExpiredCacheCleanupMessage =>
-        IsGeneralSettingsSection && !string.IsNullOrWhiteSpace(ExpiredCacheCleanupMessage);
+    public bool HasCacheCleanupMessage =>
+        IsGeneralSettingsSection && !string.IsNullOrWhiteSpace(CacheCleanupMessage);
 
     /// <summary>
     /// Creates the settings screen and its Steam login flow. The application session supplies the
@@ -68,21 +72,24 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     /// </summary>
     public SettingsScreenViewModel(
         ISettingsApi settingsApi,
-        ICacheService cacheService,
+        IDbContextFactory<HatbandDbContext> dbContextFactory,
+        IMemoryCache memoryCache,
         ProtonManagementViewModel protonManagement,
         DateTimeDisplayFormatter dateTimeDisplayFormatter,
         IEnumerable<IQrCodeLoginProvider> qrLoginProviders,
         IEnumerable<IConnectorSessionProvider> connectorSessionProviders)
     {
         ArgumentNullException.ThrowIfNull(settingsApi);
-        ArgumentNullException.ThrowIfNull(cacheService);
+        ArgumentNullException.ThrowIfNull(dbContextFactory);
+        ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(protonManagement);
         ArgumentNullException.ThrowIfNull(dateTimeDisplayFormatter);
         ArgumentNullException.ThrowIfNull(qrLoginProviders);
         ArgumentNullException.ThrowIfNull(connectorSessionProviders);
 
         _settingsApi = settingsApi;
-        _cacheService = cacheService;
+        _dbContextFactory = dbContextFactory;
+        _memoryCache = memoryCache;
         _dateTimeDisplayFormatter = dateTimeDisplayFormatter;
         ProtonManagement = protonManagement;
         Navigation = new SettingsNavigationViewModel(settingsApi.GetSections());
@@ -250,17 +257,28 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     }
 
     [RelayCommand]
-    private async Task RemoveExpiredCacheAsync(CancellationToken cancellationToken)
+    private async Task ClearCacheAsync(CancellationToken cancellationToken)
     {
-        IsRemovingExpiredCache = true;
-        ExpiredCacheCleanupMessage = null;
+        IsClearingCache = true;
+        CacheCleanupMessage = null;
 
         try
         {
-            var removedEntries = await _cacheService.RemoveExpiredEntriesAsync(cancellationToken);
-            ExpiredCacheCleanupMessage = string.Format(
+            // Accessing the dbContext here is intentional, as ICacheService should not provide a public way to clear the cache.
+
+            await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var cacheKeys = await dbContext.CacheEntries
+                .Select(entry => entry.Key)
+                .ToArrayAsync(cancellationToken);
+            var removedEntries = await dbContext.CacheEntries.ExecuteDeleteAsync(cancellationToken);
+            foreach (var cacheKey in cacheKeys)
+            {
+                _memoryCache.Remove(cacheKey);
+            }
+
+            CacheCleanupMessage = string.Format(
                 CultureInfo.CurrentCulture,
-                Resources.ExpiredCacheCleanupComplete,
+                Resources.CacheCleanupComplete,
                 removedEntries);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -271,17 +289,17 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         {
             SettingsError?.Invoke(string.Format(
                 CultureInfo.CurrentCulture,
-                Resources.ExpiredCacheCleanupError,
+                Resources.CacheCleanupError,
                 exception.Message));
         }
         finally
         {
-            IsRemovingExpiredCache = false;
+            IsClearingCache = false;
         }
     }
 
-    partial void OnExpiredCacheCleanupMessageChanged(string? value) =>
-        OnPropertyChanged(nameof(HasExpiredCacheCleanupMessage));
+    partial void OnCacheCleanupMessageChanged(string? value) =>
+        OnPropertyChanged(nameof(HasCacheCleanupMessage));
 
     /// <summary>
     /// Loads each registered settings section once, applies the saved time zone, and initializes
@@ -695,7 +713,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             case nameof(SettingsNavigationViewModel.SelectedSection):
                 OnPropertyChanged(nameof(SelectedSettingsSection));
                 OnPropertyChanged(nameof(IsGeneralSettingsSection));
-                OnPropertyChanged(nameof(HasExpiredCacheCleanupMessage));
+                OnPropertyChanged(nameof(HasCacheCleanupMessage));
                 break;
             case nameof(SettingsNavigationViewModel.SelectedFieldCount):
                 OnPropertyChanged(nameof(SelectedSettingsFieldCount));

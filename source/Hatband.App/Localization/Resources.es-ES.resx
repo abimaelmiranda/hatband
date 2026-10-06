@@ -613,14 +613,14 @@
   <data name="RefreshMetadata" xml:space="preserve">
     <value>Actualizar metadatos de juegos</value>
   </data>
-  <data name="RemoveExpiredCache" xml:space="preserve">
-    <value>Eliminar caché caducada</value>
+  <data name="ClearCache" xml:space="preserve">
+    <value>Vaciar caché</value>
   </data>
-  <data name="ExpiredCacheCleanupComplete" xml:space="preserve">
-    <value>Limpieza de caché caducada completada. Registros eliminados: {0}.</value>
+  <data name="CacheCleanupComplete" xml:space="preserve">
+    <value>Caché vaciada. Registros eliminados: {0}.</value>
   </data>
-  <data name="ExpiredCacheCleanupError" xml:space="preserve">
-    <value>No se pudieron eliminar los registros caducados de la caché: {0}</value>
+  <data name="CacheCleanupError" xml:space="preserve">
+    <value>No se pudo vaciar la caché: {0}</value>
   </data>
   <data name="SteamSyncActivity" xml:space="preserve">
     <value>Steam · sincronizando biblioteca…</value>

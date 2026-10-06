@@ -89,15 +89,6 @@ public sealed class CacheService : ICacheService
         return valueToCache;
     }
 
-    public async Task<int> RemoveExpiredEntriesAsync(CancellationToken cancellationToken = default)
-    {
-        var currentDate = DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime);
-        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-        return await dbContext.CacheEntries
-            .Where(entry => entry.ExpiresAt < currentDate)
-            .ExecuteDeleteAsync(cancellationToken);
-    }
-
     private void SetMemoryCacheValue<T>(string key, T value, DateOnly expiresAt)
     {
         var expirationDate = expiresAt.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);

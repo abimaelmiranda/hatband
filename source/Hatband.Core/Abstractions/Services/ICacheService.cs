@@ -8,5 +8,4 @@ public interface ICacheService
         Func<Task<T>> callback,
         CancellationToken cancellationToken = default);
 
-    Task<int> RemoveExpiredEntriesAsync(CancellationToken cancellationToken = default);
 }

@@ -48,17 +48,17 @@
                                         Command="{Binding RefreshMetadataCommand}"
                                         IsEnabled="{Binding CanRefreshMetadata}"
                                         IsVisible="{Binding IsGeneralSettingsSection}" />
-                                <Button Content="{x:Static lang:Resources.RemoveExpiredCache}"
+                                <Button Content="{x:Static lang:Resources.ClearCache}"
                                         Classes="subtle-action"
                                         HorizontalAlignment="Left"
-                                        Command="{Binding RemoveExpiredCacheCommand}"
-                                        IsEnabled="{Binding !IsRemovingExpiredCache}"
+                                        Command="{Binding ClearCacheCommand}"
+                                        IsEnabled="{Binding !IsClearingCache}"
                                         IsVisible="{Binding IsGeneralSettingsSection}" />
-                                <TextBlock Text="{Binding ExpiredCacheCleanupMessage}"
-                                           IsVisible="{Binding HasExpiredCacheCleanupMessage}"
+                                <TextBlock Text="{Binding CacheCleanupMessage}"
+                                           IsVisible="{Binding HasCacheCleanupMessage}"
                                            Foreground="#AEBBC5"
                                            FontSize="{DynamicResource Typography.Caption}"
-                                           IsEnabled="{Binding !IsRemovingExpiredCache}" />
+                                           IsEnabled="{Binding !IsClearingCache}" />
                             </StackPanel>
 
                             <ScrollViewer IsVisible="{Binding IsCompatibilitySettingsSection}"
