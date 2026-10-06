@@ -20,6 +20,10 @@ public sealed class GameOptionsViewModel : ModalViewModel<GameOptionAction>
         {
             options.Add(new(Resources.UninstallGame, FluentIconGlyph.Delete, GameOptionAction.Uninstall));
         }
+        if (game.Game.SourceId == GameSourceId.Manual)
+        {
+            options.Add(new(Resources.DeleteGame, FluentIconGlyph.Delete, GameOptionAction.Delete));
+        }
         options.Add(new(Resources.Compatibility, FluentIconGlyph.Toolbox, GameOptionAction.Compatibility));
         Options = options;
     }

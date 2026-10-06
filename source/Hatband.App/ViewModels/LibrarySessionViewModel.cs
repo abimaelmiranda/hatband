@@ -294,6 +294,35 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public async Task<bool> DeleteManualGameAsync(
+        GameCardViewModel gameCard,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(gameCard);
+        if (gameCard.Game.SourceId != GameSourceId.Manual)
+        {
+            throw new InvalidOperationException("Only manually added games can be deleted from the library.");
+        }
+
+        try
+        {
+            await _gameRepository.DeleteAsync(gameCard.Game.Id, cancellationToken);
+            _allGames.RemoveAll(game => game.Game.Id == gameCard.Game.Id);
+            RefreshVisibleGames();
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameDeleted, gameCard.Name);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.DeleteGameError, exception.Message);
+            return false;
+        }
+    }
+
     [RelayCommand]
     private async Task RefreshMetadataAsync(CancellationToken cancellationToken)
     {

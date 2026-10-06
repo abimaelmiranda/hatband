@@ -26,6 +26,8 @@ public partial class GameDetailsScreenViewModel : ScreenViewModel
 
     public event Action<GameCardViewModel>? EditRequested;
 
+    public event Action? ManualGameDeleted;
+
     [RelayCommand]
     private async Task ActivatePrimaryActionAsync(CancellationToken cancellationToken)
     {
@@ -94,6 +96,20 @@ public partial class GameDetailsScreenViewModel : ScreenViewModel
                 if (confirmed.Outcome == ModalOutcome.Confirmed && confirmed.GetConfirmedValue())
                 {
                     await Session.UninstallGameAsync(game);
+                }
+                break;
+            case GameOptionAction.Delete:
+                var deleteConfirmation = new ConfirmationModalViewModel(
+                    Resources.DeleteGameConfirmationTitle,
+                    game.Name,
+                    Resources.DeleteGameConfirmationMessage,
+                    Resources.DeleteGame);
+                var deleteConfirmed = await _modals.ShowAsync(deleteConfirmation, this);
+                if (deleteConfirmed.Outcome == ModalOutcome.Confirmed &&
+                    deleteConfirmed.GetConfirmedValue() &&
+                    await Session.DeleteManualGameAsync(game))
+                {
+                    ManualGameDeleted?.Invoke();
                 }
                 break;
             case GameOptionAction.Compatibility:

@@ -5,5 +5,6 @@ public enum GameOptionAction
     Edit,
     ToggleHidden,
     Uninstall,
+    Delete,
     Compatibility
 }

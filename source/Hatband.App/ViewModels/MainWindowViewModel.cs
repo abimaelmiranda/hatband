@@ -47,6 +47,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _library.GameOpened += OpenGame;
         _library.MenuActionRequested += ActivateMenuOption;
         _details.EditRequested += OpenEditor;
+        _details.ManualGameDeleted += ReturnToLibrary;
         _addGame.CancelRequested += CancelNewGame;
         _addGame.CreationCompleted += OnAddGameCreationCompleted;
         _editor.CancelRequested += CancelGameEditing;
@@ -151,6 +152,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Navigation.Navigate(_details);
     }
 
+    private void ReturnToLibrary()
+    {
+        Navigation.Reset(_library);
+    }
+
     private void OpenEditor(GameCardViewModel game)
     {
         _editor.Load(game.Game, _settings.GetSettings<GeneralSettings>().LanguageTag);
@@ -244,6 +250,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _library.GameOpened -= OpenGame;
         _library.MenuActionRequested -= ActivateMenuOption;
         _details.EditRequested -= OpenEditor;
+        _details.ManualGameDeleted -= ReturnToLibrary;
         _addGame.CancelRequested -= CancelNewGame;
         _addGame.CreationCompleted -= OnAddGameCreationCompleted;
         _editor.CancelRequested -= CancelGameEditing;

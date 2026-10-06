@@ -645,6 +645,21 @@
   <data name="UninstallGame" xml:space="preserve">
     <value>Desinstalar jogo</value>
   </data>
+  <data name="DeleteGame" xml:space="preserve">
+    <value>Excluir jogo</value>
+  </data>
+  <data name="DeleteGameConfirmationTitle" xml:space="preserve">
+    <value>Remover este jogo do Hatband?</value>
+  </data>
+  <data name="DeleteGameConfirmationMessage" xml:space="preserve">
+    <value>Este jogo manual será removido da sua biblioteca do Hatband. Os arquivos dele não serão excluídos.</value>
+  </data>
+  <data name="GameDeleted" xml:space="preserve">
+    <value>{0} foi removido da sua biblioteca.</value>
+  </data>
+  <data name="DeleteGameError" xml:space="preserve">
+    <value>Não foi possível remover o jogo: {0}</value>
+  </data>
   <data name="UninstallConfirmationTitle" xml:space="preserve">
     <value>Desinstalar este jogo?</value>
   </data>
