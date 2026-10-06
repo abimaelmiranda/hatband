@@ -59,17 +59,6 @@ public partial class SettingsScreenView : FullScreenView
         FocusSelectedCompatibilityField(refreshButtonIndex);
     }
 
-    /// <summary>Opens the selected settings field when it is a combo box.</summary>
-    public bool OpenSelectedComboBox()
-    {
-        if (DataContext is not SettingsScreenViewModel viewModel || viewModel.IsCompatibilitySettingsSection)
-        {
-            return false;
-        }
-
-        return SettingsSectionEditor.OpenSelectedComboBox(viewModel.SelectedSettingsFieldIndex);
-    }
-
     /// <summary>Reports whether a settings editor combo box is currently expanded.</summary>
     public bool HasOpenComboBox() => SettingsSectionEditor.HasOpenComboBox();
 
@@ -166,14 +155,6 @@ public partial class SettingsScreenView : FullScreenView
         if (action != NavigationAction.Confirm)
         {
             return base.HandleNavigationAction(action, context);
-        }
-
-        if (viewModel.IsSettingsContentActive &&
-            viewModel.IsSettingsDataSectionSelected &&
-            !HasOpenComboBox() &&
-            OpenSelectedComboBox())
-        {
-            return NavigationActionHandling.Handled;
         }
 
         if (!viewModel.IsSettingsContentActive && IsSectionNavigationFocused)

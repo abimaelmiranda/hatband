@@ -129,18 +129,6 @@ public partial class SettingsSectionEditorView : UserControl
         }
     }
 
-    public bool OpenSelectedComboBox(int index)
-    {
-        if (activePanel is null || index < 0 || index >= activePanel.Fields.Count ||
-            activePanel.Fields[index] is not ComboBox comboBox)
-        {
-            return false;
-        }
-
-        comboBox.IsDropDownOpen = true;
-        return true;
-    }
-
     public bool HasOpenComboBox() => SettingsFieldsPanel.GetVisualDescendants()
         .OfType<ComboBox>()
         .Any(comboBox => comboBox.IsDropDownOpen);
