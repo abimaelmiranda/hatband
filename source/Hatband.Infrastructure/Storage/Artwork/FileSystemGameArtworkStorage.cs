@@ -76,7 +76,7 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
         }
 
         var assetName = GetAssetName(slot);
-        var relativeDirectory = Path.Combine("artwork", gameId.ToString());
+        var relativeDirectory = Path.Combine("games", gameId.ToString("D"), "artwork");
         appDataFileSystem.CreateDirectory(relativeDirectory);
 
         var fileName = $"custom-{assetName}-{Guid.NewGuid():N}{extension}";
@@ -137,7 +137,7 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
             "image/bmp" => ".bmp",
             _ => throw new InvalidOperationException($"Unsupported artwork content type '{image.ContentType}'.")
         };
-        var relativeDirectory = Path.Combine("artwork", gameId.ToString());
+        var relativeDirectory = Path.Combine("games", gameId.ToString("D"), "artwork");
         appDataFileSystem.CreateDirectory(relativeDirectory);
         var relativePath = Path.Combine(relativeDirectory, $"{GetAssetName(image.Slot)}{extension}")
             .Replace(Path.DirectorySeparatorChar, '/');

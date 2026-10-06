@@ -11,14 +11,15 @@ public sealed class AppDataFileSystem : IAppDataFileSystem
     {
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentException.ThrowIfNullOrWhiteSpace(hostSystemInfo.UserProfileDirectory);
-        ArgumentException.ThrowIfNullOrWhiteSpace(hostSystemInfo.LocalApplicationDataDirectory);
 
         pathComparison = hostSystemInfo.Platform == HostOperatingSystem.Windows
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
         rootDirectory = Path.GetFullPath(Path.Combine(hostSystemInfo.UserProfileDirectory, ".hatband"));
         Directory.CreateDirectory(rootDirectory);
-        MigrateLegacyData(hostSystemInfo.LocalApplicationDataDirectory);
+        Directory.CreateDirectory(GetPath("tools"));
+        Directory.CreateDirectory(GetPath("tools/proton"));
+        Directory.CreateDirectory(GetPath("games"));
     }
 
     public string RootDirectory => rootDirectory;
@@ -82,45 +83,5 @@ public sealed class AppDataFileSystem : IAppDataFileSystem
     public void CreateDirectory(string relativePath)
     {
         Directory.CreateDirectory(GetPath(relativePath));
-    }
-
-    private void MigrateLegacyData(string localApplicationDataDirectory)
-    {
-        var legacyDirectory = Path.Combine(localApplicationDataDirectory, "Hatband");
-        if (!Directory.Exists(legacyDirectory))
-        {
-            return;
-        }
-
-        foreach (var sourcePath in Directory.EnumerateFiles(legacyDirectory, "*", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(legacyDirectory, sourcePath);
-            var destinationPath = GetPath(relativePath);
-            if (File.Exists(destinationPath))
-            {
-                continue;
-            }
-
-            var destinationDirectory = Path.GetDirectoryName(destinationPath);
-            if (string.IsNullOrWhiteSpace(destinationDirectory))
-            {
-                throw new InvalidOperationException("A migrated app data file path must include a directory.");
-            }
-
-            Directory.CreateDirectory(destinationDirectory);
-            var temporaryPath = $"{destinationPath}.{Guid.NewGuid():N}.migrate";
-            try
-            {
-                File.Copy(sourcePath, temporaryPath);
-                File.Move(temporaryPath, destinationPath);
-            }
-            finally
-            {
-                if (File.Exists(temporaryPath))
-                {
-                    File.Delete(temporaryPath);
-                }
-            }
-        }
     }
 }

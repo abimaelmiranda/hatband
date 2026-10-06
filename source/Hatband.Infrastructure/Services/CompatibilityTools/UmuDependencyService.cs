@@ -19,8 +19,8 @@ public sealed class UmuDependencyService
     private const string UmuArchiveName = "umu-launcher-1.4.4-zipapp.tar";
     private const string UmuArchiveSha256 = "eb590691841f7fad3fc3ad8fd5db4ccb87849fe7948e62b28ece7a4ee48cc851";
     private const string UmuDownloadUrl = "https://github.com/Open-Wine-Components/umu-launcher/releases/download/1.4.4/umu-launcher-1.4.4-zipapp.tar";
-    private const string UmuDirectory = "proton/umu";
-    private const string DownloadDirectory = "proton/.downloads";
+    private const string UmuDirectory = "tools/umu";
+    private const string DownloadDirectory = "tools/.downloads";
 
     private readonly IAppDataFileSystem _appDataFileSystem;
     private readonly IArchiveExtractionService _archiveExtractionService;
@@ -187,7 +187,7 @@ public sealed class UmuDependencyService
         _appDataFileSystem.CreateDirectory(DownloadDirectory);
         var archivePath = _appDataFileSystem.GetPath(Path.Combine(DownloadDirectory, $"{Guid.NewGuid():N}-{UmuArchiveName}"));
         var targetDirectory = _appDataFileSystem.GetPath(UmuDirectory);
-        var stagingDirectory = _appDataFileSystem.GetPath(Path.Combine("proton", $".umu-staging-{Guid.NewGuid():N}"));
+        var stagingDirectory = _appDataFileSystem.GetPath(Path.Combine("tools", $".umu-staging-{Guid.NewGuid():N}"));
 
         try
         {

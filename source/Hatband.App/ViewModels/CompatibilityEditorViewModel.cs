@@ -61,7 +61,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
 
     public string ManagedPrefixPath => ConfiguredGameId is Guid gameId
         ? GetManagedPrefixPath(gameId)
-        : _appDataFileSystem.GetPath("proton/prefixes");
+        : _appDataFileSystem.GetPath("games");
 
     public Guid? ConfiguredGameId { get; private set; }
 
@@ -244,7 +244,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
 
     private static IBrush CreateModeBrush(bool isSelected) => new SolidColorBrush(Color.Parse(isSelected ? "#263640" : "#151C21"));
 
-    private string GetManagedPrefixPath(Guid gameId) => _appDataFileSystem.GetPath($"proton/prefixes/{gameId:D}");
+    private string GetManagedPrefixPath(Guid gameId) => _appDataFileSystem.GetPath($"games/{gameId:D}/prefix");
 
     private static bool TryNormalizePrefixPath(string path, [NotNullWhen(true)] out string? normalizedPath)
     {

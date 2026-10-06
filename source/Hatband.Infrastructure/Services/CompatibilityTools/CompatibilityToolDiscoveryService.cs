@@ -4,7 +4,7 @@ namespace Hatband.Infrastructure.Services.CompatibilityTools;
 
 public sealed class CompatibilityToolDiscoveryService : ICompatibilityToolDiscoveryService
 {
-    private const string HatbandRunnersDirectory = "proton/runners";
+    private const string HatbandRunnersDirectory = "tools/proton";
 
     private readonly IAppDataFileSystem appDataFileSystem;
     private readonly IHostSystemInfo hostSystemInfo;

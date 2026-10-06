@@ -1,4 +1,5 @@
 using Hatband.Core.Abstractions.Repositories;
+using Hatband.Core.Abstractions.FileSystem;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Games;
 using Microsoft.EntityFrameworkCore;
@@ -8,10 +9,16 @@ namespace Hatband.Infrastructure.Persistence.Repositories;
 public sealed class GameRepository : IGameRepository
 {
     private readonly IDbContextFactory<HatbandDbContext> _contextFactory;
+    private readonly IAppDataFileSystem _appDataFileSystem;
 
-    public GameRepository(IDbContextFactory<HatbandDbContext> contextFactory)
+    public GameRepository(
+        IDbContextFactory<HatbandDbContext> contextFactory,
+        IAppDataFileSystem appDataFileSystem)
     {
+        ArgumentNullException.ThrowIfNull(contextFactory);
+        ArgumentNullException.ThrowIfNull(appDataFileSystem);
         _contextFactory = contextFactory;
+        _appDataFileSystem = appDataFileSystem;
     }
 
     public async Task<IReadOnlyList<Game>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -56,6 +63,7 @@ public sealed class GameRepository : IGameRepository
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentException.ThrowIfNullOrWhiteSpace(game.Name);
+        _appDataFileSystem.CreateDirectory(Path.Combine("games", game.Id.ToString("D"), "artwork"));
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var library = await context.Libraries.SingleAsync(item => item.Id == libraryId, cancellationToken);
         context.Games.Add(game);

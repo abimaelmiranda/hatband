@@ -5,8 +5,8 @@ namespace Hatband.Infrastructure.Services.CompatibilityTools;
 
 public sealed class CompatibilityToolInstallationService : ICompatibilityToolInstallationService
 {
-    private const string HatbandRunnersDirectory = "proton/runners";
-    private const string DownloadDirectory = "proton/.downloads";
+    private const string HatbandRunnersDirectory = "tools/proton";
+    private const string DownloadDirectory = "tools/proton/.downloads";
     private const string GitHubReleaseDownloadHost = "github.com";
 
     private readonly IAppDataFileSystem _appDataFileSystem;
