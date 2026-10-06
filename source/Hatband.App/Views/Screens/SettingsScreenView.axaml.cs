@@ -41,7 +41,7 @@ public partial class SettingsScreenView : FullScreenView
     }
 
     /// <summary>Moves focus to the available Steam connect or sync action.</summary>
-    public void FocusConnectorsPrimaryAction() => SteamConnectorSettings.FocusPrimaryAction();
+    public void FocusConnectorsPrimaryAction() => SettingsSectionEditor.FocusConnectorPrimaryAction();
 
     /// <summary>Selects and focuses the compatibility catalog refresh action.</summary>
     public void FocusCompatibilityRefreshButton()
@@ -95,7 +95,7 @@ public partial class SettingsScreenView : FullScreenView
     /// <summary>Uses a pending Steam action request or the selected section as the initial focus target.</summary>
     protected override Control? GetInitialFocusTarget()
     {
-        var steamAction = SteamConnectorSettings.GetPrimaryActionControl();
+        var steamAction = SettingsSectionEditor.GetConnectorPrimaryActionControl();
         if (steamAction is not null &&
             DataContext is SettingsScreenViewModel viewModel &&
             viewModel.ConsumeConnectorsPrimaryActionFocusRequest())

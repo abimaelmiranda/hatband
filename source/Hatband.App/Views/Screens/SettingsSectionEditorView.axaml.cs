@@ -81,6 +81,20 @@ public partial class SettingsSectionEditorView : UserControl
         return null;
     }
 
+    public Button? GetConnectorPrimaryActionControl() => SettingsFieldsPanel.GetVisualDescendants()
+        .OfType<SteamConnectorSettingsView>()
+        .Select(view => view.GetPrimaryActionControl())
+        .FirstOrDefault(button => button is not null);
+
+    public void FocusConnectorPrimaryAction()
+    {
+        var control = GetConnectorPrimaryActionControl();
+        if (control is not null)
+        {
+            DirectionalFocusNavigator.Focus(control);
+        }
+    }
+
     public bool OpenSelectedComboBox(int index)
     {
         if (activePanel is null || index < 0 || index >= activePanel.Fields.Count ||
@@ -296,12 +310,18 @@ public partial class SettingsSectionEditorView : UserControl
 
             var panelState = new PanelEditorState();
             panelStates.Add(panelState);
+            var panel = BuildPanelEditor(settings, tab.Content, panelState);
+            if (Section?.IsConnectorsSection == true && tab.Property?.Name == "Steam")
+            {
+                panel.Children.Add(CreateSteamConnectorPanel());
+            }
+
             var item = new TabItem
             {
                 Header = tab.Property is null
                     ? AppResources.General
                     : SettingsFieldConvention.GetDisplayName(tab.Property),
-                Content = BuildPanelEditor(settings, tab.Content, panelState)
+                Content = panel
             };
             tabItems.Add(item);
         }
@@ -313,7 +333,7 @@ public partial class SettingsSectionEditorView : UserControl
         ActivatePanel(sectionTabControl.SelectedIndex);
     }
 
-    private Control BuildPanelEditor(object settings, SettingsPanelDefinition definition, PanelEditorState state)
+    private StackPanel BuildPanelEditor(object settings, SettingsPanelDefinition definition, PanelEditorState state)
     {
         var panel = new StackPanel { Spacing = 10 };
         foreach (var block in definition.Blocks)
@@ -438,6 +458,25 @@ public partial class SettingsSectionEditorView : UserControl
         }
 
         return current;
+    }
+
+    private static Control CreateSteamConnectorPanel()
+    {
+        return new StackPanel
+        {
+            Spacing = 12,
+            Children =
+            {
+                new TextBlock
+                {
+                    Text = AppResources.SteamSilentModeDescription,
+                    Foreground = new SolidColorBrush(Color.Parse("#AEBBC5")),
+                    FontSize = 11,
+                    TextWrapping = TextWrapping.Wrap
+                },
+                new SteamConnectorSettingsView()
+            }
+        };
     }
 
     private Control CreateEditor(object settings, SettingsPanelDefinition.Field field)
@@ -567,6 +606,20 @@ public partial class SettingsSectionEditorView : UserControl
                 _ => SettingsFieldConvention.GetDisplayName(property)
             }
             : SettingsFieldConvention.GetDisplayName(property);
+        if (Section?.IsConnectorsSection == true && editor is CheckBox connectorCheckBox)
+        {
+            connectorCheckBox.Content = fieldLabel;
+            connectorCheckBox.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            ToolTip.SetTip(editor, property.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description);
+            return new Border
+            {
+                Padding = new Thickness(0, 7),
+                BorderThickness = new Thickness(1),
+                BorderBrush = fieldIndex >= 0 ? observedViewModel?.GetSettingsFieldBorderBrush(fieldIndex) ?? Brushes.Transparent : Brushes.Transparent,
+                Child = editor
+            };
+        }
+
         Control editorContent = editor;
         if (property.DeclaringType == typeof(GeneralSettings) && property.Name == nameof(GeneralSettings.LanguageTag))
         {
