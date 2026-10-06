@@ -9,9 +9,9 @@
             BorderBrush="#526B7884" BorderThickness="1"
             HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="14">
-            <TextBlock Text="{Binding Title}" FontSize="22" FontWeight="Bold" />
-            <TextBlock Text="{Binding Subject}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding Message}" Foreground="#CFD7DE" FontSize="14" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Title}" FontSize="{DynamicResource Typography.ScreenTitle}" FontWeight="Bold" />
+            <TextBlock Text="{Binding Subject}" FontSize="{DynamicResource Typography.Subheading}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Message}" Foreground="#CFD7DE" FontSize="{DynamicResource Typography.Body}" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,8,0,0">
                 <Button x:Name="CancelButton" Content="{x:Static lang:Resources.Cancel}"
                         Classes="subtle-action confirmation-action" Click="OnCancelClick" />

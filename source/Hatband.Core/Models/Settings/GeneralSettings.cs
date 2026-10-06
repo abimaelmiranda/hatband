@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Hatband.Core.Models.Settings;
 
 public sealed class GeneralSettings
@@ -11,4 +13,8 @@ public sealed class GeneralSettings
     /// Preferred time zone ID used by the presentation layer when displaying UTC instants.
     /// </summary>
     public string TimeZoneId { get; set; } = TimeZoneInfo.Local.Id;
+
+    /// <summary>Multiplier applied to the application's shared typography scale.</summary>
+    [Range(80, 140)]
+    public int TextScalePercent { get; set; } = 100;
 }

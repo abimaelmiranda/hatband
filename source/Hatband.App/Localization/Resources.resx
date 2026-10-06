@@ -421,6 +421,9 @@
   <data name="LanguageDateTimeDescription" xml:space="preserve">
     <value>Language and date and time display</value>
   </data>
+  <data name="InterfaceTextSize" xml:space="preserve">
+    <value>Interface text size (%)</value>
+  </data>
   <data name="InterfaceLanguage" xml:space="preserve">
     <value>Interface language</value>
   </data>

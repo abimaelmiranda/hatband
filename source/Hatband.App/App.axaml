@@ -9,6 +9,21 @@
              RequestedThemeVariant="Dark">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
+    <Application.Resources>
+        <ResourceDictionary>
+            <x:Double x:Key="Typography.Micro">10</x:Double>
+            <x:Double x:Key="Typography.Caption">12</x:Double>
+            <x:Double x:Key="Typography.BodySmall">13</x:Double>
+            <x:Double x:Key="Typography.Body">14</x:Double>
+            <x:Double x:Key="Typography.BodyEmphasis">16</x:Double>
+            <x:Double x:Key="Typography.Subheading">18</x:Double>
+            <x:Double x:Key="Typography.SectionTitle">20</x:Double>
+            <x:Double x:Key="Typography.ScreenTitle">24</x:Double>
+            <x:Double x:Key="Typography.GameTitle">30</x:Double>
+            <x:Double x:Key="Typography.Display">32</x:Double>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.DataTemplates>
         <DataTemplate DataType="{x:Type vm:LibraryScreenViewModel}">
             <screens:LibraryScreenView />

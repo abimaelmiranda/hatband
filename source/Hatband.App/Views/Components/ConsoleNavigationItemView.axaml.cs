@@ -13,9 +13,6 @@ public partial class ConsoleNavigationItemView : UserControl
     public static readonly StyledProperty<string> TitleProperty =
         AvaloniaProperty.Register<ConsoleNavigationItemView, string>(nameof(Title), string.Empty);
 
-    public static readonly StyledProperty<double> TitleFontSizeProperty =
-        AvaloniaProperty.Register<ConsoleNavigationItemView, double>(nameof(TitleFontSize), 15);
-
     public static readonly StyledProperty<IBrush> ItemBackgroundProperty =
         AvaloniaProperty.Register<ConsoleNavigationItemView, IBrush>(nameof(ItemBackground), Brushes.Transparent);
 
@@ -37,12 +34,6 @@ public partial class ConsoleNavigationItemView : UserControl
     {
         get => GetValue(TitleProperty);
         set => SetValue(TitleProperty, value);
-    }
-
-    public double TitleFontSize
-    {
-        get => GetValue(TitleFontSizeProperty);
-        set => SetValue(TitleFontSizeProperty, value);
     }
 
     public IBrush ItemBackground

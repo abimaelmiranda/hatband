@@ -16,8 +16,8 @@
             </Border.Background>
             <Grid RowDefinitions="Auto,*" RowSpacing="14">
                 <StackPanel Spacing="2">
-                    <TextBlock Text="{x:Static lang:Resources.Brand}" Foreground="#AEBBC5" FontSize="10" />
-                    <TextBlock Text="{x:Static lang:Resources.MenuTitle}" FontSize="27" FontWeight="Bold" />
+                    <TextBlock Text="{x:Static lang:Resources.Brand}" Foreground="#AEBBC5" FontSize="{DynamicResource Typography.Micro}" />
+                    <TextBlock Text="{x:Static lang:Resources.MenuTitle}" FontSize="{DynamicResource Typography.ScreenTitle}" FontWeight="Bold" />
                 </StackPanel>
                 <ScrollViewer Grid.Row="1"
                               HorizontalScrollBarVisibility="Disabled"

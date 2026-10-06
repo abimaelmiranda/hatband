@@ -7,7 +7,7 @@
              x:DataType="vm:CompatibilityEditorViewModel">
     <StackPanel Spacing="16">
         <StackPanel Spacing="4">
-            <TextBlock Text="{x:Static lang:Resources.Compatibility}" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock Text="{x:Static lang:Resources.Compatibility}" FontSize="{DynamicResource Typography.ScreenTitle}" FontWeight="SemiBold" />
             <Border Height="1" Background="#39454F" />
         </StackPanel>
 

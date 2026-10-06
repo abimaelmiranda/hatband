@@ -6,12 +6,12 @@
             <TextBlock x:CompileBindings="False"
                        Text="{Binding Label, ElementName=Root}"
                        Foreground="#AFC0CC"
-                       FontSize="10"
+                       FontSize="{DynamicResource Typography.Micro}"
                        TextTrimming="CharacterEllipsis" />
             <TextBlock x:CompileBindings="False"
                        Text="{Binding Value, ElementName=Root}"
                        Foreground="#F2F5F7"
-                       FontSize="12"
+                       FontSize="{DynamicResource Typography.Caption}"
                        FontWeight="SemiBold"
                        TextTrimming="CharacterEllipsis" />
     </StackPanel>

@@ -21,7 +21,7 @@
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
                 <StackPanel Spacing="4">
                     <TextBlock Text="{x:Static lang:Resources.MetadataSearchTitle}"
-                               FontSize="24"
+                               FontSize="{DynamicResource Typography.ScreenTitle}"
                                FontWeight="Bold" />
                     <TextBlock Text="{x:Static lang:Resources.MetadataSearchPrompt}"
                                Foreground="#AFC0CC"
@@ -92,7 +92,7 @@
                                           IsVisible="{Binding HasLookup}">
                                 <StackPanel Spacing="12">
                                     <TextBlock Text="{Binding SelectedSearchResult.StoreName}"
-                                               FontSize="22"
+                                               FontSize="{DynamicResource Typography.ScreenTitle}"
                                                FontWeight="SemiBold"
                                                TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding SelectedSearchResult.Description}"

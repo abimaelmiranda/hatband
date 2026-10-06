@@ -22,13 +22,13 @@
                 <TextBlock Text="{x:Static lang:Resources.GameSessionOverlayTitle}"
                            HorizontalAlignment="Center"
                            Foreground="#A9BAC5"
-                           FontSize="15"
+                           FontSize="{DynamicResource Typography.BodyEmphasis}"
                            FontWeight="Bold"
                            LetterSpacing="1.2" />
                 <TextBlock Text="{Binding ActiveGameSessionName}"
                            HorizontalAlignment="Center"
                            Foreground="#F4F6F8"
-                           FontSize="32"
+                           FontSize="{DynamicResource Typography.Display}"
                            FontWeight="Bold"
                            TextAlignment="Center"
                            TextWrapping="Wrap" />

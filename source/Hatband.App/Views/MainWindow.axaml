@@ -27,6 +27,57 @@
     </Window.Resources>
 
     <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="NumericUpDown">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="TextBlock.typography-micro">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Micro}" />
+        </Style>
+        <Style Selector="TextBlock.typography-caption">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Caption}" />
+        </Style>
+        <Style Selector="TextBlock.typography-body-small">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.BodySmall}" />
+        </Style>
+        <Style Selector="TextBlock.typography-body">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
+        </Style>
+        <Style Selector="TextBlock.typography-body-emphasis">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.BodyEmphasis}" />
+        </Style>
+        <Style Selector="TextBlock.typography-subheading">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Subheading}" />
+        </Style>
+        <Style Selector="TextBlock.typography-section-title">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.SectionTitle}" />
+        </Style>
+        <Style Selector="TextBlock.typography-screen-title">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.ScreenTitle}" />
+        </Style>
+        <Style Selector="TextBlock.typography-game-title">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.GameTitle}" />
+        </Style>
+        <Style Selector="TextBlock.typography-display">
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Display}" />
+        </Style>
         <Style Selector="Border.simple-modal-frame">
             <Setter Property="Width" Value="480" />
             <Setter Property="Height" Value="480" />
@@ -63,7 +114,7 @@
         <Style Selector="Button.console-action">
             <Setter Property="Background" Value="#D9E8F1" />
             <Setter Property="Foreground" Value="#111820" />
-            <Setter Property="FontSize" Value="17" />
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Subheading}" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Padding" Value="26,15" />
             <Setter Property="CornerRadius" Value="8" />
@@ -76,7 +127,7 @@
         <Style Selector="Button.subtle-action">
             <Setter Property="Background" Value="#2E3842" />
             <Setter Property="Foreground" Value="#F2F5F7" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
             <Setter Property="Padding" Value="18,12" />
             <Setter Property="CornerRadius" Value="7" />
             <Setter Property="BorderBrush" Value="#00FFFFFF" />
@@ -89,7 +140,7 @@
             <Setter Property="Width" Value="116" />
             <Setter Property="Height" Value="49" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
@@ -110,10 +161,10 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.console-action.details-action">
-            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontSize" Value="{DynamicResource Typography.Body}" />
         </Style>
         <Style Selector="Button.subtle-action.details-action">
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource Typography.BodySmall}" />
         </Style>
         <Style Selector="Button.details-action:focus">
             <Setter Property="BorderBrush" Value="#72D9FF" />
@@ -122,7 +173,7 @@
             <Setter Property="Width" Value="40" />
             <Setter Property="Height" Value="38" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="FontSize" Value="25" />
+            <Setter Property="FontSize" Value="{DynamicResource Typography.ScreenTitle}" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="BorderBrush" Value="#00FFFFFF" />
@@ -144,7 +195,7 @@
             <Setter Property="BorderBrush" Value="#00FFFFFF" />
             <Setter Property="BorderThickness" Value="3" />
             <Setter Property="CornerRadius" Value="7" />
-            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontSize" Value="{DynamicResource Typography.BodySmall}" />
         </Style>
         <Style Selector="Button.danger-action:focus">
             <Setter Property="BorderBrush" Value="#72D9FF" />
@@ -197,7 +248,7 @@
                 Background="#B0101720">
             <TextBlock Text="{Binding KeyboardHelpText}"
                        Foreground="#D5DEE5"
-                       FontSize="11" />
+                       FontSize="{DynamicResource Typography.Caption}" />
         </Border>
     </Grid>
 </Window>

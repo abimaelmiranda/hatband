@@ -107,17 +107,17 @@
                             <StackPanel VerticalAlignment="Center" Spacing="3">
                                 <TextBlock Text="{Binding Session.LibraryEmptyBreadcrumb}"
                                            Foreground="#AFC0CB"
-                                           FontSize="10"
+                                           FontSize="{DynamicResource Typography.Micro}"
                                            FontWeight="SemiBold"
                                            LetterSpacing="1" />
                                 <TextBlock Text="{Binding Session.EmptyLibraryTitle}"
-                                           FontSize="26"
+                                           FontSize="{DynamicResource Typography.ScreenTitle}"
                                            FontWeight="Bold" />
                             </StackPanel>
                         </StackPanel>
                         <TextBlock Text="{Binding Session.EmptyLibraryMessage}"
                                    Foreground="#BDCAD3"
-                                   FontSize="15"
+                                   FontSize="{DynamicResource Typography.BodyEmphasis}"
                                    MaxWidth="700"
                                    TextWrapping="Wrap" />
                         <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,2,0,0">
@@ -161,12 +161,12 @@
                                HorizontalAlignment="Center"
                                Stretch="Uniform" />
                         <TextBlock Text="{Binding Session.LibraryBusyTitle}"
-                                   FontSize="25"
+                                   FontSize="{DynamicResource Typography.ScreenTitle}"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Center" />
                         <TextBlock Text="{Binding Session.LibraryBusyMessage}"
                                    Foreground="#BDCAD3"
-                                   FontSize="14"
+                                   FontSize="{DynamicResource Typography.Body}"
                                    HorizontalAlignment="Center" />
                         <ProgressBar IsIndeterminate="True"
                                      Height="3"

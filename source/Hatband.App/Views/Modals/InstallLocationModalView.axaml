@@ -9,8 +9,8 @@
             BorderBrush="#526B7884" BorderThickness="1"
             HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="14">
-            <TextBlock Text="{x:Static lang:Resources.InstallLocationTitle}" FontSize="22" FontWeight="Bold" />
-            <TextBlock Text="{x:Static lang:Resources.InstallLocationMessage}" Foreground="#CFD7DE" FontSize="14" TextWrapping="Wrap" />
+            <TextBlock Text="{x:Static lang:Resources.InstallLocationTitle}" FontSize="{DynamicResource Typography.ScreenTitle}" FontWeight="Bold" />
+            <TextBlock Text="{x:Static lang:Resources.InstallLocationMessage}" Foreground="#CFD7DE" FontSize="{DynamicResource Typography.Body}" TextWrapping="Wrap" />
             <ComboBox x:Name="LocationComboBox" ItemsSource="{Binding Locations}"
                       SelectedItem="{Binding SelectedLocation, Mode=TwoWay}"
                       DisplayMemberBinding="{Binding DisplayName}" Classes="settings-select" />

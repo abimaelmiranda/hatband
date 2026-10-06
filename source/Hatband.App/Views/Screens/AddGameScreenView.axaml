@@ -13,10 +13,10 @@
                 <Border Height="190" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
                     <Grid>
                         <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
-                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}" Foreground="#AFC0CC" FontSize="12" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPreviewUnavailable}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}" Foreground="#AFC0CC" FontSize="{DynamicResource Typography.Caption}" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPreviewUnavailable}" />
                     </Grid>
                 </Border>
-                <TextBlock Text="{Binding DisplayName}" FontSize="12" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource Typography.Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="BackgroundArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
@@ -24,10 +24,10 @@
                 <Border Height="150" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
                     <Grid>
                         <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
-                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}" Foreground="#AFC0CC" FontSize="12" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPreviewUnavailable}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}" Foreground="#AFC0CC" FontSize="{DynamicResource Typography.Caption}" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPreviewUnavailable}" />
                     </Grid>
                 </Border>
-                <TextBlock Text="{Binding DisplayName}" FontSize="12" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource Typography.Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
             </StackPanel>
         </DataTemplate>
     </UserControl.Resources>
@@ -72,7 +72,7 @@
                                         Spacing="16">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="{x:Static lang:Resources.ManualGameSection}"
-                                               FontSize="22"
+                                               FontSize="{DynamicResource Typography.ScreenTitle}"
                                                FontWeight="SemiBold" />
                                     <Border Height="1" Background="#39454F" />
                                 </StackPanel>
@@ -107,7 +107,7 @@
                                 <StackPanel Spacing="12">
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="{x:Static lang:Resources.ManualGameMetadataSection}"
-                                                   FontSize="22"
+                                                   FontSize="{DynamicResource Typography.ScreenTitle}"
                                                    FontWeight="SemiBold" />
                                         <Border Height="1" Background="#39454F" />
                                     </StackPanel>
@@ -147,7 +147,7 @@
                                         Spacing="14">
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="{x:Static lang:Resources.GameActionsSection}"
-                                               FontSize="22"
+                                               FontSize="{DynamicResource Typography.ScreenTitle}"
                                                FontWeight="SemiBold" />
                                     <Border Height="1" Background="#39454F" />
                                 </StackPanel>
@@ -240,7 +240,7 @@
                                                         </Grid>
                                                         <TextBlock Text="{x:Static lang:Resources.WorkingDirectoryHelp}"
                                                                    Foreground="#AEBBC5"
-                                                                   FontSize="11"
+                                                                   FontSize="{DynamicResource Typography.Caption}"
                                                                    TextWrapping="Wrap" />
                                                     </StackPanel>
                                                 </StackPanel>
@@ -265,7 +265,7 @@
                                         IsVisible="{Binding IsImagesSectionSelected}"
                                         Spacing="14">
                                 <StackPanel Spacing="4">
-                                    <TextBlock Text="{x:Static lang:Resources.ManualGameImagesSection}" FontSize="22" FontWeight="SemiBold" />
+                                    <TextBlock Text="{x:Static lang:Resources.ManualGameImagesSection}" FontSize="{DynamicResource Typography.ScreenTitle}" FontWeight="SemiBold" />
                                     <Border Height="1" Background="#39454F" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding SteamArtworkAssociationStatus}"

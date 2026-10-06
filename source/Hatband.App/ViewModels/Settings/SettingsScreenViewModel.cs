@@ -265,6 +265,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
 
             var generalSettings = GetSettings<GeneralSettings>();
             _dateTimeDisplayFormatter.SetTimeZone(generalSettings.TimeZoneId);
+            TypographyScale.Apply(generalSettings.TextScalePercent);
             UpdateSelectedSettingsOptions();
             IsSteamSilentModeEnabled = TryGetSettings<ConnectorsSettings>(out var connectorSettings) &&
                 connectorSettings is not null &&
@@ -428,6 +429,16 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         }
 
         property.SetValue(target, value);
+        if (descriptor.SettingsType == typeof(GeneralSettings) && property.Name == nameof(GeneralSettings.TextScalePercent))
+        {
+            if (value is not int textScalePercent)
+            {
+                throw new InvalidOperationException("The interface text scale must be an integer percentage.");
+            }
+
+            TypographyScale.Apply(textScalePercent);
+        }
+
         if (descriptor.SettingsType == typeof(ConnectorsSettings) &&
             propertyPath.Count == 2 &&
             propertyPath[0].Name == nameof(ConnectorsSettings.Steam) &&

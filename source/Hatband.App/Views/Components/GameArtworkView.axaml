@@ -18,7 +18,7 @@
                 <TextBlock Text="{Binding Name}"
                            x:CompileBindings="False"
                            IsVisible="{Binding ShowTitle, ElementName=Root}"
-                           FontSize="12"
+                           FontSize="{DynamicResource Typography.Caption}"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
                            MaxLines="2" />

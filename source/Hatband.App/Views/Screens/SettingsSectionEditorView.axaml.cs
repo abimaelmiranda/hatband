@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Reflection;
+using System.ComponentModel.DataAnnotations;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -266,7 +267,7 @@ public partial class SettingsSectionEditorView : UserControl
                 SettingsSectionOptionViewModel.ConnectorsSectionId => AppResources.ConnectorsFallback,
                 _ => descriptor.DisplayName
             },
-            FontSize = 19,
+            Classes = { "typography-section-title" },
             FontWeight = FontWeight.SemiBold
         });
         SettingsFieldsPanel.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#39454F")) });
@@ -276,7 +277,7 @@ public partial class SettingsSectionEditorView : UserControl
             {
                 Text = descriptor.Description,
                 Foreground = new SolidColorBrush(Color.Parse("#AEBBC5")),
-                FontSize = 12,
+                Classes = { "typography-caption" },
                 TextWrapping = TextWrapping.Wrap
             });
         }
@@ -393,7 +394,7 @@ public partial class SettingsSectionEditorView : UserControl
                     new TextBlock
                     {
                         Text = SettingsFieldConvention.GetDisplayName(group.Property),
-                        FontSize = 15,
+                        Classes = { "typography-body-emphasis" },
                         FontWeight = FontWeight.SemiBold
                     },
                     new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#39454F")) },
@@ -471,7 +472,7 @@ public partial class SettingsSectionEditorView : UserControl
                 {
                     Text = AppResources.SteamSilentModeDescription,
                     Foreground = new SolidColorBrush(Color.Parse("#AEBBC5")),
-                    FontSize = 11,
+                    Classes = { "typography-caption" },
                     TextWrapping = TextWrapping.Wrap
                 },
                 new SteamConnectorSettingsView()
@@ -552,7 +553,7 @@ public partial class SettingsSectionEditorView : UserControl
             return textBox;
         }
 
-        var (minimum, maximum) = GetNumericBounds(type);
+        var (minimum, maximum) = GetNumericBounds(type, property);
         var isFractional = FractionalNumericTypes.Contains(type);
         var numericEditor = new NumericUpDown
         {
@@ -603,6 +604,7 @@ public partial class SettingsSectionEditorView : UserControl
             {
                 nameof(GeneralSettings.LanguageTag) => AppResources.InterfaceLanguage,
                 nameof(GeneralSettings.TimeZoneId) => AppResources.TimeZone,
+                nameof(GeneralSettings.TextScalePercent) => AppResources.InterfaceTextSize,
                 _ => SettingsFieldConvention.GetDisplayName(property)
             }
             : SettingsFieldConvention.GetDisplayName(property);
@@ -633,7 +635,7 @@ public partial class SettingsSectionEditorView : UserControl
                     {
                         Text = AppResources.LanguageRestartHint,
                         Foreground = new SolidColorBrush(Color.Parse("#9EABB5")),
-                        FontSize = 10
+                        Classes = { "typography-micro" }
                     }
                 }
             };
@@ -647,7 +649,7 @@ public partial class SettingsSectionEditorView : UserControl
         grid.Children.Add(new TextBlock
         {
             Text = fieldLabel,
-            FontSize = 13,
+            Classes = { "typography-body-small" },
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
         });
         Grid.SetColumn(editorContent, 1);
@@ -676,10 +678,22 @@ public partial class SettingsSectionEditorView : UserControl
         }
     }
 
-    private static (decimal Minimum, decimal Maximum) GetNumericBounds(Type type) =>
-        NumericBounds.TryGetValue(type, out var bounds)
-            ? bounds
-            : throw new InvalidOperationException($"Settings field type '{type.Name}' is not numeric.");
+    private static (decimal Minimum, decimal Maximum) GetNumericBounds(Type type, PropertyInfo property)
+    {
+        if (!NumericBounds.TryGetValue(type, out var bounds))
+        {
+            throw new InvalidOperationException($"Settings field type '{type.Name}' is not numeric.");
+        }
+
+        if (property.GetCustomAttribute<RangeAttribute>() is not { } range)
+        {
+            return bounds;
+        }
+
+        return (
+            Convert.ToDecimal(range.Minimum, CultureInfo.InvariantCulture),
+            Convert.ToDecimal(range.Maximum, CultureInfo.InvariantCulture));
+    }
 
     private void SaveNumericValue(IReadOnlyList<PropertyInfo> propertyPath, Type type, decimal? value)
     {

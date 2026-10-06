@@ -25,7 +25,7 @@
             <TextBlock Grid.Column="1"
                        Text="{Binding Title, RelativeSource={RelativeSource AncestorType=components:ConsoleNavigationItemView}}"
                        Foreground="#F1F5F8"
-                       FontSize="{Binding TitleFontSize, RelativeSource={RelativeSource AncestorType=components:ConsoleNavigationItemView}}"
+                       FontSize="{DynamicResource Typography.BodyEmphasis}"
                        VerticalAlignment="Center" />
         </Grid>
     </Button>

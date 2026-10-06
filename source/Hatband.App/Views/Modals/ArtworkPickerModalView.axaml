@@ -14,14 +14,14 @@
                         <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
                         <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}"
                                    Foreground="#AFC0CC"
-                                   FontSize="12"
+                                   FontSize="{DynamicResource Typography.Caption}"
                                    TextAlignment="Center"
                                    VerticalAlignment="Center"
                                    IsVisible="{Binding IsPreviewUnavailable}" />
                     </Grid>
                 </Border>
                 <TextBlock Text="{Binding DisplayName}"
-                           FontSize="13"
+                           FontSize="{DynamicResource Typography.BodySmall}"
                            TextWrapping="Wrap"
                            TextTrimming="CharacterEllipsis" />
             </StackPanel>
@@ -33,14 +33,14 @@
                         <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
                         <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}"
                                    Foreground="#AFC0CC"
-                                   FontSize="12"
+                                   FontSize="{DynamicResource Typography.Caption}"
                                    TextAlignment="Center"
                                    VerticalAlignment="Center"
                                    IsVisible="{Binding IsPreviewUnavailable}" />
                     </Grid>
                 </Border>
                 <TextBlock Text="{Binding DisplayName}"
-                           FontSize="13"
+                           FontSize="{DynamicResource Typography.BodySmall}"
                            TextWrapping="Wrap"
                            TextTrimming="CharacterEllipsis" />
             </StackPanel>
@@ -61,11 +61,11 @@
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Spacing="4">
                     <TextBlock Text="{x:Static lang:Resources.ArtworkPickerTitle}"
-                               FontSize="24"
+                               FontSize="{DynamicResource Typography.ScreenTitle}"
                                FontWeight="Bold" />
                     <TextBlock Text="{Binding ArtworkPicker.ActiveArtworkTitle}"
                                Foreground="#AFC0CC"
-                               FontSize="16" />
+                               FontSize="{DynamicResource Typography.Subheading}" />
                     <TextBlock Text="{x:Static lang:Resources.ArtworkPickerHint}"
                                Foreground="#8496A2"
                                TextWrapping="Wrap" />

@@ -57,19 +57,19 @@
                                             IsEnabled="{Binding ProtonManagement.CanInteract}"
                                             Spacing="14">
                                     <TextBlock Text="{x:Static lang:Resources.Compatibility}"
-                                               FontSize="19"
+                                               FontSize="{DynamicResource Typography.SectionTitle}"
                                                FontWeight="SemiBold" />
                                     <Border Height="1" Background="#39454F" />
                                     <TextBlock Text="{Binding ProtonManagement.UnsupportedMessage}"
                                                IsVisible="{Binding ProtonManagement.IsCatalogBrowsingUnsupported}"
                                                Foreground="#AEBBC5"
-                                               FontSize="13" />
+                                               FontSize="{DynamicResource Typography.BodySmall}" />
                                     <StackPanel IsVisible="{Binding ProtonManagement.CanBrowseCatalogs}"
                                                 Spacing="16">
                                         <StackPanel Spacing="8"
                                                     IsVisible="{Binding ProtonManagement.IsLinuxSupported}">
                                             <TextBlock Text="{x:Static lang:Resources.ProtonToolsHeading}"
-                                                       FontSize="15"
+                                                       FontSize="{DynamicResource Typography.BodyEmphasis}"
                                                        FontWeight="SemiBold" />
                                             <ItemsControl ItemsSource="{Binding ProtonManagement.InstalledTools}">
                                                 <ItemsControl.ItemsPanel>
@@ -95,12 +95,12 @@
                                             <TextBlock Text="{x:Static lang:Resources.NoProtonToolsInstalled}"
                                                        IsVisible="{Binding ProtonManagement.HasNoInstalledTools}"
                                                        Foreground="#AEBBC5"
-                                                       FontSize="12" />
+                                                       FontSize="{DynamicResource Typography.Caption}" />
                                         </StackPanel>
 
                                         <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Text="{x:Static lang:Resources.ProtonReleaseProvidersHeading}"
-                                                       FontSize="15"
+                                                       FontSize="{DynamicResource Typography.BodyEmphasis}"
                                                        FontWeight="SemiBold"
                                                        VerticalAlignment="Center" />
                                             <Button x:Name="ProtonRefreshButton"
@@ -119,12 +119,12 @@
                                         <TextBlock Text="{Binding ProtonManagement.ErrorMessage}"
                                                    IsVisible="{Binding ProtonManagement.HasErrorMessage}"
                                                    Foreground="#FF9D8F"
-                                                   FontSize="12"
+                                                   FontSize="{DynamicResource Typography.Caption}"
                                                    TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding ProtonManagement.StatusMessage}"
                                                    IsVisible="{Binding ProtonManagement.HasStatusMessage}"
                                                    Foreground="#AEBBC5"
-                                                   FontSize="12" />
+                                                   FontSize="{DynamicResource Typography.Caption}" />
                                         <ItemsControl ItemsSource="{Binding ProtonManagement.Providers}">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -147,7 +147,7 @@
                                         <TextBlock Text="{x:Static lang:Resources.NoProtonProvidersAvailable}"
                                                    IsVisible="{Binding ProtonManagement.HasNoProviders}"
                                                    Foreground="#AEBBC5"
-                                                   FontSize="12" />
+                                                   FontSize="{DynamicResource Typography.Caption}" />
                                     </StackPanel>
                                 </StackPanel>
                             </ScrollViewer>
