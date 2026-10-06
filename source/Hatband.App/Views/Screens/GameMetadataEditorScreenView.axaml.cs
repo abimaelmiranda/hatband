@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -26,6 +25,9 @@ public partial class GameMetadataEditorScreenView : FullScreenView
         UpdateSectionSelection();
     }
 
+    public override bool SupportsTabNavigation =>
+        isSectionContentActive && selectedSectionIndex == 2 && MetadataSourceTabs.Items.Count > 1;
+
     public bool IsEditorSectionFocused => sectionItems.Any(item => item.HasKeyboardFocus);
 
     public void FocusSelectedEditorSection()
@@ -39,6 +41,7 @@ public partial class GameMetadataEditorScreenView : FullScreenView
         isSectionContentActive = true;
         NavigationLayout.ActivateMainContent();
         UpdateSectionSelection();
+        ScheduleFocusEditorSectionContent();
     }
 
     public void FocusEditorSectionContent()
@@ -68,20 +71,47 @@ public partial class GameMetadataEditorScreenView : FullScreenView
 
     public override NavigationActionHandling HandleNavigationAction(
         NavigationAction action,
-        KeyEventArgs originalEvent)
+        NavigationInputContext context)
     {
         if (action == NavigationAction.Back)
         {
-            return TryHandleBack(originalEvent)
+            return TryHandleBack()
                 ? NavigationActionHandling.Handled
                 : NavigationActionHandling.Unhandled;
         }
 
+        var focusedControl = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+        var sourceTabFocused = focusedControl is TabItem tab &&
+            tab.GetVisualAncestors().Contains(MetadataSourceTabs);
+        if (SupportsTabNavigation &&
+            (action is NavigationAction.PreviousTab or NavigationAction.NextTab ||
+             sourceTabFocused && action is NavigationAction.Left or NavigationAction.Right))
+        {
+            var offset = action is NavigationAction.NextTab or NavigationAction.Right ? 1 : -1;
+            var index = MetadataSourceTabs.SelectedIndex + offset;
+            if ((uint)index >= (uint)MetadataSourceTabs.Items.Count)
+            {
+                return NavigationActionHandling.Handled;
+            }
+
+            MetadataSourceTabs.SetCurrentValue(TabControl.SelectedIndexProperty, index);
+            Dispatcher.UIThread.Post(() =>
+            {
+                var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+                if (IsLoaded && IsEffectivelyVisible && SupportsTabNavigation &&
+                    MetadataSourceTabs.SelectedIndex == index && focused is not null &&
+                    focused.GetVisualAncestors().Contains(this) &&
+                    MetadataSourceTabs.ContainerFromIndex(index) is TabItem selected)
+                {
+                    DirectionalFocusNavigator.Focus(selected);
+                }
+            }, DispatcherPriority.Loaded);
+            return NavigationActionHandling.Handled;
+        }
+
         if ((action is NavigationAction.Confirm or NavigationAction.Right) && IsEditorSectionFocused)
         {
-            originalEvent.Handled = true;
             ActivateSectionContent();
-            FocusEditorSectionContent();
             if (action == NavigationAction.Confirm && selectedSectionIndex == 2)
             {
                 SearchSelectedMetadataSource();
@@ -90,25 +120,23 @@ public partial class GameMetadataEditorScreenView : FullScreenView
             return NavigationActionHandling.Handled;
         }
 
-        return base.HandleNavigationAction(action, originalEvent);
+        return base.HandleNavigationAction(action, context);
     }
 
-    public override bool TryHandleBack(KeyEventArgs originalEvent)
+    public override bool TryHandleBack()
     {
         if (DataContext is not GameMetadataEditorViewModel viewModel)
         {
             return false;
         }
 
-        originalEvent.Handled = true;
         if (isSectionContentActive)
         {
             FocusSelectedEditorSection();
             return true;
         }
 
-        viewModel.CancelCommand.Execute(null);
-        return true;
+        return NavigationCommandExecutor.TryExecute(this, viewModel.CancelCommand);
     }
 
     protected override Control? GetInitialFocusTarget()
@@ -140,7 +168,7 @@ public partial class GameMetadataEditorScreenView : FullScreenView
         e.Handled = true;
         if (DataContext is GameMetadataEditorViewModel viewModel)
         {
-            viewModel.CancelCommand.Execute(null);
+            NavigationCommandExecutor.TryExecute(sender as Control ?? this, viewModel.CancelCommand);
         }
     }
 
@@ -165,7 +193,8 @@ public partial class GameMetadataEditorScreenView : FullScreenView
 
     private async void OnMetadataSourceSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (!isSectionContentActive || selectedSectionIndex != 2 ||
+        if (!ReferenceEquals(sender, MetadataSourceTabs) || !ReferenceEquals(e.Source, MetadataSourceTabs) ||
+            !isSectionContentActive || selectedSectionIndex != 2 ||
             DataContext is not GameMetadataEditorViewModel viewModel)
         {
             return;
@@ -180,7 +209,29 @@ public partial class GameMetadataEditorScreenView : FullScreenView
         isSectionContentActive = true;
         NavigationLayout.ActivateMainContent();
         UpdateSectionSelection();
-        Dispatcher.UIThread.Post(FocusEditorSectionContent, DispatcherPriority.Background);
+        ScheduleFocusEditorSectionContent();
+    }
+
+    private void ScheduleFocusEditorSectionContent()
+    {
+        if (DataContext is not GameMetadataEditorViewModel viewModel)
+        {
+            return;
+        }
+
+        var expectedSectionIndex = selectedSectionIndex;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsLoaded || !IsEffectivelyVisible ||
+                !ReferenceEquals(DataContext, viewModel) ||
+                !isSectionContentActive ||
+                selectedSectionIndex != expectedSectionIndex)
+            {
+                return;
+            }
+
+            FocusEditorSectionContent();
+        }, DispatcherPriority.Loaded);
     }
 
     private void SelectSection(int sectionIndex)

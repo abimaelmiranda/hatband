@@ -129,88 +129,87 @@
                         <TextBlock Text="{x:Static lang:Resources.MetadataSourcesTab}"
                                    FontSize="{DynamicResource Typography.Subheading}"
                                    FontWeight="SemiBold" />
-                        <ListBox x:Name="MetadataSourceList"
-                                 ItemsSource="{Binding MetadataSources}"
-                                 SelectedItem="{Binding SelectedMetadataSource}"
-                                 SelectionChanged="OnMetadataSourceSelectionChanged"
-                                 HorizontalAlignment="Stretch">
-                            <ListBox.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ListBox.ItemsPanel>
-                            <ListBox.ItemTemplate>
+                        <TabControl x:Name="MetadataSourceTabs"
+                                    ItemsSource="{Binding MetadataSources}"
+                                    SelectedItem="{Binding SelectedMetadataSource, Mode=TwoWay}"
+                                    SelectionChanged="OnMetadataSourceSelectionChanged"
+                                    IsVisible="{Binding HasMetadataSources}"
+                                    HorizontalAlignment="Stretch">
+                            <TabControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:GameMetadataSourceViewModel">
-                                    <TextBlock Text="{Binding DisplayName}" Margin="12,6" />
+                                    <TextBlock Text="{Binding DisplayName}" />
                                 </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                        <StackPanel Spacing="10"
-                                    IsVisible="{Binding HasMetadataSources}">
-                            <StackPanel Spacing="10"
-                                        IsVisible="{Binding SelectedMetadataSource.IsCustomSearchOpen}">
-                                <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearchPrompt}"
-                                           Foreground="#AFC0CC"
-                                           TextWrapping="Wrap" />
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <TextBox Text="{Binding SelectedMetadataSource.SearchQuery}"
-                                             PlaceholderText="{x:Static lang:Resources.Name}" />
-                                    <Button Grid.Column="1"
-                                            Content="{x:Static lang:Resources.MetadataSourceSearch}"
-                                            Classes="subtle-action"
-                                            Command="{Binding SelectedMetadataSource.SearchCommand}"
-                                            IsEnabled="{Binding SelectedMetadataSource.CanSearch}" />
-                                </Grid>
-                                <Button Content="{x:Static lang:Resources.Back}"
-                                        Classes="subtle-action"
-                                        HorizontalAlignment="Left"
-                                        Command="{Binding SelectedMetadataSource.CloseCustomSearchCommand}" />
-                            </StackPanel>
-                            <StackPanel Spacing="10"
-                                        IsVisible="{Binding SelectedMetadataSource.IsResultViewVisible}">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="{Binding SelectedMetadataSource.SelectedResultName}"
-                                                   FontSize="{DynamicResource Typography.ScreenTitle}"
-                                                   FontWeight="SemiBold"
-                                                   IsVisible="{Binding SelectedMetadataSource.HasSearchResult}" />
-                                        <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearching}"
-                                                   Foreground="#AFC0CC"
-                                                   IsVisible="{Binding SelectedMetadataSource.IsSearching}" />
+                            </TabControl.ItemTemplate>
+                            <TabControl.ContentTemplate>
+                                <DataTemplate x:DataType="vm:GameMetadataSourceViewModel">
+                                    <StackPanel Spacing="10" Margin="4,18,4,4">
+                                        <StackPanel Spacing="10"
+                                                    IsVisible="{Binding IsCustomSearchOpen}">
+                                            <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearchPrompt}"
+                                                       Foreground="#AFC0CC"
+                                                       TextWrapping="Wrap" />
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <TextBox Text="{Binding SearchQuery}"
+                                                         PlaceholderText="{x:Static lang:Resources.Name}" />
+                                                <Button Grid.Column="1"
+                                                        Content="{x:Static lang:Resources.MetadataSourceSearch}"
+                                                        Classes="subtle-action"
+                                                        Command="{Binding SearchCommand}"
+                                                        IsEnabled="{Binding CanSearch}" />
+                                            </Grid>
+                                            <Button Content="{x:Static lang:Resources.Back}"
+                                                    Classes="subtle-action"
+                                                    HorizontalAlignment="Left"
+                                                    Command="{Binding CloseCustomSearchCommand}" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="10"
+                                                    IsVisible="{Binding IsResultViewVisible}">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="{Binding SelectedResultName}"
+                                                               FontSize="{DynamicResource Typography.ScreenTitle}"
+                                                               FontWeight="SemiBold"
+                                                               IsVisible="{Binding HasSearchResult}" />
+                                                    <TextBlock Text="{x:Static lang:Resources.MetadataSourceSearching}"
+                                                               Foreground="#AFC0CC"
+                                                               IsVisible="{Binding IsSearching}" />
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Content="{x:Static lang:Resources.MetadataSourceCustomSearch}"
+                                                        Classes="subtle-action"
+                                                        Command="{Binding OpenCustomSearchCommand}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding StatusMessage}"
+                                                       Foreground="#AFC0CC"
+                                                       TextWrapping="Wrap"
+                                                       IsVisible="{Binding HasStatusMessage}" />
+                                            <Border Background="#302B22"
+                                                    CornerRadius="8"
+                                                    Padding="12"
+                                                    IsVisible="{Binding IsLanguageMismatch}">
+                                                <TextBlock Text="{x:Static lang:Resources.MetadataLanguageMismatch}"
+                                                           Foreground="#F5D59A"
+                                                           TextWrapping="Wrap" />
+                                            </Border>
+                                            <StackPanel Spacing="6"
+                                                        IsVisible="{Binding HasLookup}">
+                                                <TextBlock Text="{Binding SelectedSearchResult.Description}"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding SelectedSearchResult.Developer}" />
+                                                <TextBlock Text="{Binding SelectedSearchResult.Publisher}" />
+                                                <TextBlock Text="{Binding SelectedSearchResult.Genre}" />
+                                                <TextBlock Text="{Binding SelectedSearchResult.ReleaseDate}" />
+                                            </StackPanel>
+                                            <Button Content="{x:Static lang:Resources.MetadataSourceApply}"
+                                                    Classes="subtle-action"
+                                                    HorizontalAlignment="Left"
+                                                    Command="{Binding ApplyCommand}"
+                                                    IsVisible="{Binding HasLookup}" />
+                                        </StackPanel>
                                     </StackPanel>
-                                    <Button Grid.Column="1"
-                                            Content="{x:Static lang:Resources.MetadataSourceCustomSearch}"
-                                            Classes="subtle-action"
-                                            Command="{Binding SelectedMetadataSource.OpenCustomSearchCommand}" />
-                                </Grid>
-                                <TextBlock Text="{Binding SelectedMetadataSource.StatusMessage}"
-                                           Foreground="#AFC0CC"
-                                           TextWrapping="Wrap"
-                                           IsVisible="{Binding SelectedMetadataSource.HasStatusMessage}" />
-                                <Border Background="#302B22"
-                                        CornerRadius="8"
-                                        Padding="12"
-                                        IsVisible="{Binding SelectedMetadataSource.IsLanguageMismatch}">
-                                    <TextBlock Text="{x:Static lang:Resources.MetadataLanguageMismatch}"
-                                               Foreground="#F5D59A"
-                                               TextWrapping="Wrap" />
-                                </Border>
-                                <StackPanel Spacing="6"
-                                            IsVisible="{Binding SelectedMetadataSource.HasLookup}">
-                                    <TextBlock Text="{Binding SelectedMetadataSource.SelectedSearchResult.Description}"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding SelectedMetadataSource.SelectedSearchResult.Developer}" />
-                                    <TextBlock Text="{Binding SelectedMetadataSource.SelectedSearchResult.Publisher}" />
-                                    <TextBlock Text="{Binding SelectedMetadataSource.SelectedSearchResult.Genre}" />
-                                    <TextBlock Text="{Binding SelectedMetadataSource.SelectedSearchResult.ReleaseDate}" />
-                                </StackPanel>
-                                <Button Content="{x:Static lang:Resources.MetadataSourceApply}"
-                                        Classes="subtle-action"
-                                        HorizontalAlignment="Left"
-                                        Command="{Binding SelectedMetadataSource.ApplyCommand}"
-                                        IsVisible="{Binding SelectedMetadataSource.HasLookup}" />
-                            </StackPanel>
-                        </StackPanel>
+                                </DataTemplate>
+                            </TabControl.ContentTemplate>
+                        </TabControl>
                         <TextBlock Text="{x:Static lang:Resources.NoMetadataSourcesAvailable}"
                                    Foreground="#AFC0CC"
                                    IsVisible="{Binding HasNoMetadataSources}" />
