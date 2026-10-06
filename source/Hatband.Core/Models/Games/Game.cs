@@ -62,6 +62,11 @@ public sealed class Game : ModelBase
     /// </summary>
     public CompatibilityTool? CompatibilityTool { get; set; }
 
+    /// <summary>
+    /// Configured compatibility prefix directory. Null means no prefix has been configured.
+    /// </summary>
+    public GameCompatibilityPrefix? CompatibilityPrefix { get; set; }
+
     public GameTimeToBeat? TimeToBeat { get; set; }
 
     public GameInstallationInfo? InstallationInfo { get; set; }

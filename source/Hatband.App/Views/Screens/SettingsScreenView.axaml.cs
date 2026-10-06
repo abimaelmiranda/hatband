@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Hatband.App.Navigation;
 using Hatband.App.ViewModels.Navigation;
@@ -51,8 +52,7 @@ public partial class SettingsScreenView : FullScreenView
         }
 
         var protonManagement = viewModel.ProtonManagement;
-        var refreshButtonIndex = protonManagement.Catalogs.Count +
-            (protonManagement.SelectedCatalog?.Releases.Count ?? 0);
+        var refreshButtonIndex = protonManagement.Providers.Count;
         viewModel.SelectSettingsField(refreshButtonIndex);
         FocusSelectedCompatibilityField(refreshButtonIndex);
     }
@@ -134,14 +134,29 @@ public partial class SettingsScreenView : FullScreenView
                 : NavigationActionHandling.Unhandled;
         }
 
+        var viewModel = DataContext as SettingsScreenViewModel;
+        if (viewModel is null)
+        {
+            return NavigationActionHandling.Unhandled;
+        }
+
+        if (action == NavigationAction.Confirm &&
+            viewModel.IsSettingsContentActive &&
+            viewModel.IsCompatibilitySettingsSection)
+        {
+            var focusedProviderButton = FindFocusedProviderButton();
+            var focusedProvider = focusedProviderButton?.DataContext as ProtonReleaseProviderViewModel;
+            if (focusedProvider is not null)
+            {
+                originalEvent.Handled = true;
+                focusedProvider.OpenVersionsCommand.Execute(null);
+                return NavigationActionHandling.Handled;
+            }
+        }
+
         if (action != NavigationAction.Confirm)
         {
             return base.HandleNavigationAction(action, originalEvent);
-        }
-
-        if (DataContext is not SettingsScreenViewModel viewModel)
-        {
-            return NavigationActionHandling.Unhandled;
         }
 
         if (viewModel.IsSettingsContentActive &&
@@ -156,16 +171,24 @@ public partial class SettingsScreenView : FullScreenView
         if (!viewModel.IsSettingsContentActive && IsSectionNavigationFocused)
         {
             viewModel.ActivateSettingsSection();
-            if (viewModel.IsSettingsDataSectionSelected)
-            {
-                FocusSelectedSettingField();
-            }
-            else if (viewModel.IsCompatibilitySettingsSection)
-            {
-                FocusCompatibilityRefreshButton();
-            }
-
             originalEvent.Handled = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!viewModel.IsSettingsContentActive ||
+                    !ReferenceEquals(DataContext, viewModel))
+                {
+                    return;
+                }
+
+                if (viewModel.IsSettingsDataSectionSelected)
+                {
+                    FocusSelectedSettingField();
+                }
+                else if (viewModel.IsCompatibilitySettingsSection)
+                {
+                    FocusCompatibilityRefreshButton();
+                }
+            }, DispatcherPriority.Loaded);
             return NavigationActionHandling.Handled;
         }
 
@@ -217,45 +240,28 @@ public partial class SettingsScreenView : FullScreenView
         if (DataContext is SettingsScreenViewModel viewModel && viewModel.IsCompatibilitySettingsSection)
         {
             var protonManagement = viewModel.ProtonManagement;
-            viewModel.SelectSettingsField(
-                protonManagement.Catalogs.Count + (protonManagement.SelectedCatalog?.Releases.Count ?? 0));
+            viewModel.SelectSettingsField(protonManagement.Providers.Count);
         }
     }
 
-    private void OnProtonCatalogGotFocus(object? sender, RoutedEventArgs e)
+    private void OnProtonProviderGotFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not SettingsScreenViewModel viewModel ||
-            sender is not Button { DataContext: ProtonReleaseCatalogViewModel catalog })
+        var viewModel = DataContext as SettingsScreenViewModel;
+        var button = sender as Button;
+        var provider = button?.DataContext as ProtonReleaseProviderViewModel;
+        if (viewModel is null || provider is null || !viewModel.IsCompatibilitySettingsSection)
         {
             return;
         }
 
-        var catalogIndex = viewModel.ProtonManagement.Catalogs.IndexOf(catalog);
-        if (catalogIndex < 0)
+        var providerIndex = viewModel.ProtonManagement.Providers.IndexOf(provider);
+        if (providerIndex < 0)
         {
             return;
         }
 
-        viewModel.SelectSettingsField(catalogIndex);
-        catalog.SelectCommand.Execute(null);
-    }
-
-    private void OnProtonReleaseGotFocus(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not SettingsScreenViewModel viewModel ||
-            sender is not Control { DataContext: ProtonReleaseOptionViewModel release })
-        {
-            return;
-        }
-
-        var protonManagement = viewModel.ProtonManagement;
-        var releaseIndex = protonManagement.SelectedCatalog?.Releases.IndexOf(release) ?? -1;
-        if (releaseIndex < 0)
-        {
-            return;
-        }
-
-        viewModel.SelectSettingsField(protonManagement.Catalogs.Count + releaseIndex);
+        viewModel.ProtonManagement.SelectProvider(provider);
+        viewModel.SelectSettingsField(providerIndex);
     }
 
     private void FocusSelectedCompatibilityField(int fieldIndex)
@@ -267,41 +273,24 @@ public partial class SettingsScreenView : FullScreenView
 
         var protonManagement = viewModel.ProtonManagement;
         var controls = ProtonManagementPanel.GetVisualDescendants().OfType<Control>();
-        var catalogButtons = new Dictionary<ProtonReleaseCatalogViewModel, Button>();
-        var releaseControls = new Dictionary<ProtonReleaseOptionViewModel, Control>();
+        var providerButtons = new Dictionary<ProtonReleaseProviderViewModel, Button>();
 
         foreach (var control in controls)
         {
-            if (control is Button button &&
-                button.DataContext is ProtonReleaseCatalogViewModel catalog &&
-                IsFocusable(button))
+            var button = control as Button;
+            var provider = button?.DataContext as ProtonReleaseProviderViewModel;
+            if (button is not null && provider is not null && IsFocusable(button))
             {
-                catalogButtons.TryAdd(catalog, button);
-            }
-
-            if (control.DataContext is ProtonReleaseOptionViewModel release && IsFocusable(control))
-            {
-                releaseControls.TryAdd(release, control);
+                providerButtons.TryAdd(provider, button);
             }
         }
 
         var focusableControls = new List<Control>();
-        foreach (var catalog in protonManagement.Catalogs)
+        foreach (var provider in protonManagement.Providers)
         {
-            if (catalogButtons.TryGetValue(catalog, out var catalogButton))
+            if (providerButtons.TryGetValue(provider, out var providerButton))
             {
-                focusableControls.Add(catalogButton);
-            }
-        }
-
-        if (protonManagement.SelectedCatalog is { } selectedCatalog)
-        {
-            foreach (var release in selectedCatalog.Releases)
-            {
-                if (releaseControls.TryGetValue(release, out var releaseControl))
-                {
-                    focusableControls.Add(releaseControl);
-                }
+                focusableControls.Add(providerButton);
             }
         }
 
@@ -316,6 +305,20 @@ public partial class SettingsScreenView : FullScreenView
         }
 
         DirectionalFocusNavigator.Focus(focusableControls[fieldIndex]);
+    }
+
+    private Button? FindFocusedProviderButton()
+    {
+        foreach (var button in ProtonManagementPanel.GetVisualDescendants().OfType<Button>())
+        {
+            var provider = button.DataContext as ProtonReleaseProviderViewModel;
+            if (provider is not null && button.IsFocused)
+            {
+                return button;
+            }
+        }
+
+        return null;
     }
 
     private static bool IsFocusable(Control control) =>

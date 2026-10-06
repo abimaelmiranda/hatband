@@ -15,6 +15,13 @@ public interface IHostApplicationLauncher
         string? workingDirectory,
         CancellationToken cancellationToken = default);
 
+    Task<HostApplicationProcess?> StartApplicationAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string> environmentVariables,
+        CancellationToken cancellationToken = default);
+
     bool IsProcessRunning(string processName);
 
     Task<bool> TryCloseProcessGracefullyAsync(string processName, CancellationToken cancellationToken = default);

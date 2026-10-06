@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using Hatband.Integrations.Steam.Abstractions;
 
 namespace Hatband.Infrastructure.Services.CompatibilityTools;
@@ -8,11 +9,11 @@ public sealed class CompatibilityToolInstallationService : ICompatibilityToolIns
     private const string DownloadDirectory = "proton/.downloads";
     private const string GitHubReleaseDownloadHost = "github.com";
 
-    private readonly IAppDataFileSystem appDataFileSystem;
-    private readonly IArchiveExtractionService archiveExtractionService;
-    private readonly IHostSystemInfo hostSystemInfo;
-    private readonly ISteamInstallationService steamInstallationService;
-    private readonly IHttpClientFactory httpClientFactory;
+    private readonly IAppDataFileSystem _appDataFileSystem;
+    private readonly IArchiveExtractionService _archiveExtractionService;
+    private readonly IHostSystemInfo _hostSystemInfo;
+    private readonly ISteamInstallationService _steamInstallationService;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public CompatibilityToolInstallationService(
         IAppDataFileSystem appDataFileSystem,
@@ -26,52 +27,71 @@ public sealed class CompatibilityToolInstallationService : ICompatibilityToolIns
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentNullException.ThrowIfNull(steamInstallationService);
         ArgumentNullException.ThrowIfNull(httpClientFactory);
-        this.appDataFileSystem = appDataFileSystem;
-        this.archiveExtractionService = archiveExtractionService;
-        this.hostSystemInfo = hostSystemInfo;
-        this.steamInstallationService = steamInstallationService;
-        this.httpClientFactory = httpClientFactory;
+        _appDataFileSystem = appDataFileSystem;
+        _archiveExtractionService = archiveExtractionService;
+        _hostSystemInfo = hostSystemInfo;
+        _steamInstallationService = steamInstallationService;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task InstallAsync(CompatibilityToolRelease release, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(release);
-        EnsureLinuxHost();
+        if (!_hostSystemInfo.IsLinux)
+        {
+            throw new PlatformNotSupportedException("Proton tools can only be installed on Linux.");
+        }
+
         ValidateRelease(release);
 
         var targetName = CreateInstallationDirectoryName(release);
-        var installations = await steamInstallationService.GetInstallationsAsync(cancellationToken);
+        var installations = await _steamInstallationService.GetInstallationsAsync(cancellationToken);
         var steamRoot = installations.FirstOrDefault()?.RootPath
             ?? throw new DirectoryNotFoundException("Could not find a Steam installation for the current user.");
         var steamCompatibilityToolsDirectory = Path.Combine(steamRoot, "compatibilitytools.d");
         var targetPath = Path.Combine(steamCompatibilityToolsDirectory, targetName);
-        var trackingLinkPath = appDataFileSystem.GetPath(Path.Combine(HatbandRunnersDirectory, targetName));
-        if (Directory.Exists(targetPath))
+        var trackingLinkPath = _appDataFileSystem.GetPath(Path.Combine(HatbandRunnersDirectory, targetName));
+        var isRepair = Directory.Exists(targetPath);
+        if (isRepair && !IsRepairableHatbandInstallation(targetPath, trackingLinkPath))
         {
             throw new InvalidOperationException($"'{release.DisplayName}' is already installed in Hatband.");
         }
 
-        appDataFileSystem.CreateDirectory(DownloadDirectory);
-        appDataFileSystem.CreateDirectory(HatbandRunnersDirectory);
+        _appDataFileSystem.CreateDirectory(DownloadDirectory);
+        _appDataFileSystem.CreateDirectory(HatbandRunnersDirectory);
         Directory.CreateDirectory(steamCompatibilityToolsDirectory);
-        var archivePath = appDataFileSystem.GetPath(Path.Combine(DownloadDirectory, $"{Guid.NewGuid():N}-{release.ArchiveFileName}"));
-        var extractionPath = Path.Combine(steamRoot, ".hatband-proton-staging", Guid.NewGuid().ToString("N"));
+        var archivePath = _appDataFileSystem.GetPath(Path.Combine(DownloadDirectory, $"{Guid.NewGuid():N}-{release.ArchiveFileName}"));
+        var stagingRoot = Path.Combine(steamCompatibilityToolsDirectory, ".hatband-proton-staging");
+        var extractionPath = Path.Combine(stagingRoot, Guid.NewGuid().ToString("N"));
+        var backupPath = Path.Combine(stagingRoot, $"{Guid.NewGuid():N}.backup");
 
         try
         {
             await DownloadArchiveAsync(release.DownloadUrl, archivePath, cancellationToken);
-            await archiveExtractionService.ExtractAsync(archivePath, extractionPath, cancellationToken);
+            await _archiveExtractionService.ExtractAsync(archivePath, extractionPath, cancellationToken);
 
             var protonDirectory = FindProtonDirectory(extractionPath);
-            Directory.Move(protonDirectory, targetPath);
-            try
+            if (!HasUserExecutePermission(Path.Combine(protonDirectory, "proton")))
             {
-                Directory.CreateSymbolicLink(trackingLinkPath, targetPath);
+                throw new InvalidDataException("The extracted Proton script does not have user execute permission.");
             }
-            catch
+
+            if (isRepair)
             {
-                Directory.Move(targetPath, protonDirectory);
-                throw;
+                ReplaceBrokenInstallation(protonDirectory, targetPath, trackingLinkPath, backupPath, stagingRoot);
+            }
+            else
+            {
+                Directory.Move(protonDirectory, targetPath);
+                try
+                {
+                    Directory.CreateSymbolicLink(trackingLinkPath, targetPath);
+                }
+                catch
+                {
+                    Directory.Move(targetPath, protonDirectory);
+                    throw;
+                }
             }
         }
         finally
@@ -88,21 +108,13 @@ public sealed class CompatibilityToolInstallationService : ICompatibilityToolIns
         }
     }
 
-    private void EnsureLinuxHost()
-    {
-        if (hostSystemInfo.Platform != HostOperatingSystem.Linux)
-        {
-            throw new PlatformNotSupportedException("Proton tools can only be installed on Linux.");
-        }
-    }
-
     private void ValidateRelease(CompatibilityToolRelease release)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(release.Id);
         ArgumentException.ThrowIfNullOrWhiteSpace(release.ProviderId);
         ArgumentException.ThrowIfNullOrWhiteSpace(release.Version);
         ArgumentException.ThrowIfNullOrWhiteSpace(release.ArchiveFileName);
-        archiveExtractionService.ValidateArchiveFileName(release.ArchiveFileName);
+        _archiveExtractionService.ValidateArchiveFileName(release.ArchiveFileName);
 
         if (!Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out var downloadUri) ||
             downloadUri.Scheme != Uri.UriSchemeHttps ||
@@ -128,12 +140,119 @@ public sealed class CompatibilityToolInstallationService : ICompatibilityToolIns
                 : '-'));
     }
 
+    [SupportedOSPlatform("linux")]
+    private static bool IsRepairableHatbandInstallation(string targetPath, string trackingLinkPath)
+    {
+        if (new DirectoryInfo(targetPath).LinkTarget is not null)
+        {
+            return false;
+        }
+
+        if (!TrackingLinkTargets(trackingLinkPath, targetPath))
+        {
+            return false;
+        }
+
+        var protonScript = Path.Combine(targetPath, "proton");
+        if (!File.Exists(protonScript))
+        {
+            return false;
+        }
+
+        return !HasUserExecutePermission(protonScript);
+    }
+
+    [SupportedOSPlatform("linux")]
+    private static bool HasUserExecutePermission(string protonScript)
+    {
+        var mode = File.GetUnixFileMode(protonScript);
+        return (mode & UnixFileMode.UserExecute) != 0;
+    }
+
+    private static bool TrackingLinkTargets(string trackingLinkPath, string targetPath)
+    {
+        var trackingLink = new DirectoryInfo(trackingLinkPath);
+        var linkTarget = trackingLink.LinkTarget;
+        if (linkTarget is null)
+        {
+            return false;
+        }
+
+        if (!Path.IsPathFullyQualified(linkTarget))
+        {
+            var linkParent = Path.GetDirectoryName(trackingLinkPath)
+                ?? throw new InvalidOperationException("The Proton tracking link must have a parent directory.");
+            linkTarget = Path.Combine(linkParent, linkTarget);
+        }
+
+        return string.Equals(
+            Path.GetFullPath(linkTarget),
+            Path.GetFullPath(targetPath),
+            StringComparison.Ordinal);
+    }
+
+    private static void ReplaceBrokenInstallation(
+        string stagedProtonDirectory,
+        string targetPath,
+        string trackingLinkPath,
+        string backupPath,
+        string stagingRoot)
+    {
+        Directory.Move(targetPath, backupPath);
+        var failedReplacementPath = Path.Combine(stagingRoot, $"{Guid.NewGuid():N}.failed");
+        try
+        {
+            Directory.Move(stagedProtonDirectory, targetPath);
+            if (!TrackingLinkTargets(trackingLinkPath, targetPath))
+            {
+                throw new InvalidOperationException("The Hatband Proton tracking link no longer points to the installation directory.");
+            }
+        }
+        catch (Exception replacementException)
+        {
+            try
+            {
+                if (Directory.Exists(targetPath))
+                {
+                    Directory.Move(targetPath, failedReplacementPath);
+                }
+
+                Directory.Move(backupPath, targetPath);
+            }
+            catch (Exception rollbackException)
+            {
+                throw new AggregateException(
+                    $"Proton repair failed and the previous installation remains available at '{backupPath}'.",
+                    replacementException,
+                    rollbackException);
+            }
+
+            if (Directory.Exists(failedReplacementPath))
+            {
+                try
+                {
+                    Directory.Delete(failedReplacementPath, recursive: true);
+                }
+                catch (Exception cleanupException)
+                {
+                    throw new IOException(
+                        $"Proton repair failed, the previous installation was restored, and the failed replacement remains at '{failedReplacementPath}'.",
+                        new AggregateException(replacementException, cleanupException));
+                }
+            }
+
+            throw;
+        }
+
+        Directory.Delete(backupPath, recursive: true);
+    }
+
     private async Task DownloadArchiveAsync(
         string downloadUrl,
         string archivePath,
         CancellationToken cancellationToken)
     {
-        using var httpClient = httpClientFactory.CreateClient();
+        using var httpClient = _httpClientFactory.CreateClient();
         using var response = await httpClient.GetAsync(
             downloadUrl,
             HttpCompletionOption.ResponseHeadersRead,

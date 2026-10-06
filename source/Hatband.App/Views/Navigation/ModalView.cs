@@ -33,7 +33,8 @@ public abstract class ModalView : UserControl, INavigationView
 
         if (action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right)
         {
-            if (DirectionalFocusNavigator.IsTextInput(originalEvent.Source, originalEvent.Key) || UsesNativeArrowInput(originalEvent.Source))
+            if (DirectionalFocusNavigator.IsTextInput(originalEvent.Source, originalEvent.Key) ||
+                UsesNativeArrowInput(originalEvent.Source, action))
             {
                 return NavigationActionHandling.Native;
             }
@@ -129,16 +130,20 @@ public abstract class ModalView : UserControl, INavigationView
         FocusInitial();
     }
 
-    private static bool UsesNativeArrowInput(object? source)
+    private static bool UsesNativeArrowInput(object? source, NavigationAction action)
     {
         if (source is not Control control)
         {
             return false;
         }
 
-        return control is ComboBox { IsDropDownOpen: true } ||
-               control.GetVisualAncestors().OfType<ComboBox>().Any(comboBox => comboBox.IsDropDownOpen) ||
-               control is ListBox ||
-               control.GetVisualAncestors().OfType<ListBox>().Any();
+        if (control is ComboBox { IsDropDownOpen: true } ||
+            control.GetVisualAncestors().OfType<ComboBox>().Any(comboBox => comboBox.IsDropDownOpen))
+        {
+            return true;
+        }
+
+        var isListInput = control is ListBox || control.GetVisualAncestors().OfType<ListBox>().Any();
+        return isListInput && action is NavigationAction.Up or NavigationAction.Down;
     }
 }

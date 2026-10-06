@@ -22,6 +22,9 @@
         <DataTemplate DataType="{x:Type vm:GameMetadataEditorViewModel}">
             <screens:GameMetadataEditorScreenView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:CompatibilitySettingsScreenViewModel}">
+            <screens:CompatibilitySettingsScreenView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type settings:SettingsScreenViewModel}">
             <screens:SettingsScreenView />
         </DataTemplate>
@@ -42,6 +45,9 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:ArtworkPickerModalViewModel}">
             <modals:ArtworkPickerModalView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type settings:ProtonReleaseSelectionModalViewModel}">
+            <modals:ProtonReleaseSelectionModalView />
         </DataTemplate>
         <local:ViewLocator/>
     </Application.DataTemplates>

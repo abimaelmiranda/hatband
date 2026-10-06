@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.ViewModels.Settings.Fields;
@@ -44,6 +45,8 @@ public partial class SettingsSectionEditorView : UserControl
     private bool isObservingViewModel;
     private bool isObservingSection;
     private bool isAttachedToVisualTree;
+    private int? pendingFieldFocusIndex;
+    private SettingsSectionOptionViewModel? pendingFieldFocusSection;
 
     public SettingsSectionEditorView()
     {
@@ -62,14 +65,20 @@ public partial class SettingsSectionEditorView : UserControl
 
     public Control? FocusField(int index)
     {
-        if (activePanel is null || index < 0 || index >= activePanel.Fields.Count)
+        if (index < 0)
         {
             return null;
         }
 
-        var control = activePanel.Fields[index];
-        DirectionalFocusNavigator.Focus(control);
-        return control;
+        pendingFieldFocusIndex = index;
+        pendingFieldFocusSection = Section;
+        if (TryFocusPendingField())
+        {
+            return activePanel?.Fields[index];
+        }
+
+        SchedulePendingFieldFocus();
+        return null;
     }
 
     public bool OpenSelectedComboBox(int index)
@@ -271,6 +280,7 @@ public partial class SettingsSectionEditorView : UserControl
         }
 
         UpdateFieldSelectionBorders();
+        SchedulePendingFieldFocus();
     }
 
     private void BuildTabbedSection(object settings, SettingsEditorDefinition definition)
@@ -331,9 +341,14 @@ public partial class SettingsSectionEditorView : UserControl
         var editor = CreateEditor(settings, field);
         var index = state.Fields.Count;
         state.Fields.Add(editor);
-        editor.GotFocus += (_, _) => observedViewModel?.SelectSettingsField(index);
         var row = CreateFieldRow(field.Property, editor, state == activePanel ? index : -1);
         state.Borders.Add(row);
+        editor.GotFocus += (_, _) =>
+        {
+            observedViewModel?.SelectSettingsField(index);
+            UpdateFieldSelectionBorders();
+        };
+        editor.LostFocus += (_, _) => UpdateFieldSelectionBorders();
         panel.Children.Add(row);
     }
 
@@ -634,8 +649,53 @@ public partial class SettingsSectionEditorView : UserControl
 
         for (var index = 0; index < activePanel.Borders.Count; index++)
         {
-            activePanel.Borders[index].BorderBrush = observedViewModel?.GetSettingsFieldBorderBrush(index) ?? Brushes.Transparent;
+            var fieldHasFocus = activePanel.Fields[index].IsFocused;
+            activePanel.Borders[index].BorderBrush = fieldHasFocus
+                ? observedViewModel?.GetSettingsFieldBorderBrush(index) ?? Brushes.Transparent
+                : Brushes.Transparent;
         }
+    }
+
+    private void SchedulePendingFieldFocus()
+    {
+        if (pendingFieldFocusIndex is null)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => TryFocusPendingField(), DispatcherPriority.Loaded);
+    }
+
+    private bool TryFocusPendingField()
+    {
+        if (pendingFieldFocusIndex is not int index ||
+            pendingFieldFocusSection is null ||
+            !ReferenceEquals(pendingFieldFocusSection, Section))
+        {
+            return false;
+        }
+
+        if (observedViewModel?.Navigation.IsContentActive != true ||
+            activePanel is null ||
+            index >= activePanel.Fields.Count)
+        {
+            return false;
+        }
+
+        var control = activePanel.Fields[index];
+        if (!control.IsEffectivelyVisible || !control.IsEffectivelyEnabled || !control.Focusable)
+        {
+            return false;
+        }
+
+        if (!DirectionalFocusNavigator.Focus(control) || !control.IsFocused)
+        {
+            return false;
+        }
+
+        pendingFieldFocusIndex = null;
+        pendingFieldFocusSection = null;
+        return true;
     }
 
     private sealed class PanelEditorState

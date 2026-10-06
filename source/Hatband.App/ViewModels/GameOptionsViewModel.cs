@@ -8,7 +8,7 @@ namespace Hatband.App.ViewModels;
 /// </summary>
 public sealed class GameOptionsViewModel : ModalViewModel<GameOptionAction>
 {
-    public GameOptionsViewModel(GameCardViewModel game, bool canUninstall)
+    public GameOptionsViewModel(GameCardViewModel game, bool canUninstall, bool isLinux)
     {
         Game = game;
         var options = new List<GameOptionViewModel>
@@ -24,7 +24,10 @@ public sealed class GameOptionsViewModel : ModalViewModel<GameOptionAction>
         {
             options.Add(new(Resources.DeleteGame, FluentIconGlyph.Delete, GameOptionAction.Delete));
         }
-        options.Add(new(Resources.Compatibility, FluentIconGlyph.Toolbox, GameOptionAction.Compatibility));
+        if (isLinux && game.Game.SourceId == GameSourceId.Manual)
+        {
+            options.Add(new(Resources.Compatibility, FluentIconGlyph.Toolbox, GameOptionAction.Compatibility));
+        }
         Options = options;
     }
 

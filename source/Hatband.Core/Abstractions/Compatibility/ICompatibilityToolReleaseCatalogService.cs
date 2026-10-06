@@ -4,6 +4,9 @@ namespace Hatband.Core.Abstractions.Compatibility;
 
 public interface ICompatibilityToolReleaseCatalogService
 {
-    Task<IReadOnlyList<CompatibilityToolReleaseCatalog>> GetCatalogsAsync(
+    IReadOnlyList<CompatibilityToolReleaseProviderInfo> GetProviders();
+
+    Task<CompatibilityToolReleaseCatalog> GetCatalogAsync(
+        string providerId,
         CancellationToken cancellationToken = default);
 }

@@ -38,7 +38,7 @@ public abstract class FullScreenView : UserControl, INavigationView
                 return NavigationActionHandling.Native;
             }
 
-            if (UsesNativeArrowInput(originalEvent.Source))
+            if (UsesNativeArrowInput(originalEvent.Source, action))
             {
                 return NavigationActionHandling.Native;
             }
@@ -143,7 +143,7 @@ public abstract class FullScreenView : UserControl, INavigationView
         FocusInitial();
     }
 
-    private bool UsesNativeArrowInput(object? source)
+    private static bool UsesNativeArrowInput(object? source, NavigationAction action)
     {
         var control = source as Control;
         if (control is null)
@@ -151,9 +151,13 @@ public abstract class FullScreenView : UserControl, INavigationView
             return false;
         }
 
-        return control is ComboBox { IsDropDownOpen: true } ||
-               control.GetVisualAncestors().OfType<ComboBox>().Any(comboBox => comboBox.IsDropDownOpen) ||
-               control is ListBox ||
-               control.GetVisualAncestors().OfType<ListBox>().Any();
+        if (control is ComboBox { IsDropDownOpen: true } ||
+            control.GetVisualAncestors().OfType<ComboBox>().Any(comboBox => comboBox.IsDropDownOpen))
+        {
+            return true;
+        }
+
+        var isListInput = control is ListBox || control.GetVisualAncestors().OfType<ListBox>().Any();
+        return isListInput && action is NavigationAction.Up or NavigationAction.Down;
     }
 }

@@ -240,11 +240,11 @@
   <data name="ProtonToolsHeading" xml:space="preserve">
     <value>Proton instalados</value>
   </data>
-  <data name="AvailableProtonVersionsHeading" xml:space="preserve">
-    <value>Versiones disponibles</value>
+  <data name="ProtonReleaseProvidersHeading" xml:space="preserve">
+    <value>Proveedores de versiones</value>
   </data>
-  <data name="RefreshProtonCatalog" xml:space="preserve">
-    <value>Actualizar catálogo</value>
+  <data name="RefreshProtonTools" xml:space="preserve">
+    <value>Actualizar herramientas</value>
   </data>
   <data name="NoProtonToolsInstalled" xml:space="preserve">
     <value>No se encontraron herramientas Proton.</value>
@@ -255,8 +255,8 @@
   <data name="ProtonLinuxOnly" xml:space="preserve">
     <value>La gestión de Proton está disponible en Linux.</value>
   </data>
-  <data name="NoProtonCatalogsLoaded" xml:space="preserve">
-    <value>No hay catálogos de versiones disponibles. Selecciona Actualizar para volver a intentarlo.</value>
+  <data name="NoProtonProvidersAvailable" xml:space="preserve">
+    <value>No hay proveedores de versiones disponibles.</value>
   </data>
   <data name="ProtonRefreshError" xml:space="preserve">
     <value>No se pudieron actualizar las herramientas Proton: {0}</value>
@@ -271,7 +271,7 @@
     <value>{0} instalado.</value>
   </data>
   <data name="ProtonCatalogLoadError" xml:space="preserve">
-    <value>No se pudo cargar este catálogo: {0}</value>
+    <value>No se pudieron cargar las versiones: {0}</value>
   </data>
   <data name="ProtonManagedSource" xml:space="preserve">
     <value>Hatband</value>
@@ -282,6 +282,10 @@
   <data name="ProtonPublishedLabel" xml:space="preserve">
     <value>Publicado: {0:d}</value>
   </data>
+  <data name="ProtonProviderVersionsTitle" xml:space="preserve"><value>Versiones de {0}</value></data>
+  <data name="ProtonProviderVersionsHint" xml:space="preserve"><value>Selecciona una versión de Proton para instalar.</value></data>
+  <data name="LoadingProtonVersions" xml:space="preserve"><value>Cargando versiones…</value></data>
+  <data name="Retry" xml:space="preserve"><value>Reintentar</value></data>
   <data name="ProtonOptionsPlaceholder" xml:space="preserve">
     <value>Aquí aparecerán opciones específicas, como la configuración de Proton.</value>
   </data>
@@ -830,5 +834,30 @@
   </data>
   <data name="GameSessionOverlayTitle" xml:space="preserve">
     <value>Juego en ejecución</value>
+  </data>
+  <data name="CompatibilityLinuxOnly" xml:space="preserve"><value>Las opciones de compatibilidad están disponibles para juegos añadidos manualmente en Linux.</value></data>
+  <data name="CompatibilityMode" xml:space="preserve"><value>Modo de ejecución</value></data>
+  <data name="NativeExecution" xml:space="preserve"><value>Nativo</value></data>
+  <data name="UseProton" xml:space="preserve"><value>Usar Proton</value></data>
+  <data name="ProtonVersion" xml:space="preserve"><value>Versión de Proton</value></data>
+  <data name="Refresh" xml:space="preserve"><value>Actualizar</value></data>
+  <data name="SelectProtonVersion" xml:space="preserve"><value>Selecciona una versión de Proton instalada</value></data>
+  <data name="CompatibilityToolMissing" xml:space="preserve"><value>Esta instalación de Proton ya no está disponible. Selecciona otra versión o usa la ejecución nativa.</value></data>
+  <data name="GamePrefix" xml:space="preserve"><value>Prefijo del juego</value></data>
+  <data name="ManagedPrefix" xml:space="preserve"><value>Carpeta de Hatband</value></data>
+  <data name="CustomPrefix" xml:space="preserve"><value>Elegir una carpeta</value></data>
+  <data name="SelectGamePrefixFolder" xml:space="preserve"><value>Selecciona la carpeta del prefijo del juego</value></data>
+  <data name="CompatibilityToolsLoadError" xml:space="preserve"><value>No se pudieron cargar las versiones instaladas de Proton: {0}</value></data>
+  <data name="CompatibilityToolRequired" xml:space="preserve"><value>Selecciona una versión de Proton instalada.</value></data>
+  <data name="CompatibilityPrefixRequired" xml:space="preserve"><value>Selecciona una carpeta para el prefijo del juego.</value></data>
+  <data name="CompatibilityPrefixMustBeAbsolute" xml:space="preserve"><value>La ruta del prefijo del juego debe ser absoluta.</value></data>
+  <data name="CompatibilityPrefixInvalid" xml:space="preserve"><value>La ruta del prefijo del juego no es válida.</value></data>
+  <data name="CompatibilityToolsRefreshing" xml:space="preserve"><value>Espera a que se carguen las versiones instaladas de Proton.</value></data>
+  <data name="CompatibilitySaveError" xml:space="preserve"><value>No se pudo guardar la configuración de compatibilidad: {0}</value></data>
+  <data name="GameLaunchPreparing" xml:space="preserve"><value>Preparando juego…</value></data>
+  <data name="GameLaunchFailed" xml:space="preserve"><value>No se pudo iniciar el juego. Consulta los registros de ejecución.</value></data>
+  <data name="GameLaunchTimedOut" xml:space="preserve"><value>El juego no se inició dentro del tiempo esperado.</value></data>
+  <data name="GameLaunchNotObserved" xml:space="preserve">
+    <value>El runner terminó, pero no se detectó el proceso del juego. Consulta los registros de ejecución.</value>
   </data>
 </root>

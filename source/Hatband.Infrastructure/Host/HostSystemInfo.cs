@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Hatband.Core.Enums.Host;
 
 namespace Hatband.Infrastructure.Host;
@@ -16,6 +17,9 @@ public sealed class HostSystemInfo : IHostSystemInfo
     }
 
     public HostOperatingSystem Platform => _platform;
+
+    [SupportedOSPlatformGuard("linux")]
+    public bool IsLinux => _platform == HostOperatingSystem.Linux;
 
     public Architecture OperatingSystemArchitecture => _operatingSystemArchitecture;
 

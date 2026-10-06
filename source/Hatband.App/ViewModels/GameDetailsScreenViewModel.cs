@@ -13,11 +13,13 @@ namespace Hatband.App.ViewModels;
 public partial class GameDetailsScreenViewModel : ScreenViewModel
 {
     private readonly IModalService _modals;
+    private readonly IHostSystemInfo _hostSystemInfo;
 
-    public GameDetailsScreenViewModel(LibrarySessionViewModel session, IModalService modals)
+    public GameDetailsScreenViewModel(LibrarySessionViewModel session, IModalService modals, IHostSystemInfo hostSystemInfo)
     {
         Session = session;
         _modals = modals;
+        _hostSystemInfo = hostSystemInfo;
     }
 
     public LibrarySessionViewModel Session { get; }
@@ -25,6 +27,8 @@ public partial class GameDetailsScreenViewModel : ScreenViewModel
     public override string KeyboardHelpText => Resources.KeyboardDetailsHelp;
 
     public event Action<GameCardViewModel>? EditRequested;
+
+    public event Action<GameCardViewModel>? CompatibilityRequested;
 
     public event Action? ManualGameDeleted;
 
@@ -71,7 +75,7 @@ public partial class GameDetailsScreenViewModel : ScreenViewModel
             return;
         }
 
-        var options = new GameOptionsViewModel(game, Session.CanUninstallSelectedGame);
+        var options = new GameOptionsViewModel(game, Session.CanUninstallSelectedGame, _hostSystemInfo.Platform == HostOperatingSystem.Linux);
         var completion = await _modals.ShowAsync(options, this);
         if (completion.Outcome != ModalOutcome.Confirmed)
         {
@@ -113,6 +117,7 @@ public partial class GameDetailsScreenViewModel : ScreenViewModel
                 }
                 break;
             case GameOptionAction.Compatibility:
+                CompatibilityRequested?.Invoke(game);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(completion));

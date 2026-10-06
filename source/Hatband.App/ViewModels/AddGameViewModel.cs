@@ -18,6 +18,7 @@ public partial class AddGameViewModel : ScreenViewModel
     public const string GameSectionId = "game";
     public const string ActionsSectionId = "actions";
     public const string ImagesSectionId = "images";
+    public const string CompatibilitySectionId = "compatibility";
 
     private readonly IGameRepository _gameRepository;
     private readonly IGameLibraryRepository _libraryRepository;
@@ -29,6 +30,7 @@ public partial class AddGameViewModel : ScreenViewModel
     private string? _metadataStoreGameId;
     private GameSourceId? _metadataStoreSourceId;
     private GamePlatform? _nativePlatforms;
+    private Guid _draftGameId = Guid.CreateVersion7();
     private GameArtworkImage? _selectedCoverImage;
     private GameArtworkImage? _selectedBackgroundImage;
     private CancellationTokenSource? _metadataSearchCancellation;
@@ -40,7 +42,8 @@ public partial class AddGameViewModel : ScreenViewModel
         IEnumerable<IGameMetadataProvider> metadataProviders,
         IEnumerable<IGameArtworkProvider> artworkProviders,
         ArtworkImageLoader artworkImageLoader,
-        IModalService modalService)
+        IModalService modalService,
+        CompatibilityEditorViewModel compatibilityEditor)
     {
         ArgumentNullException.ThrowIfNull(gameRepository);
         ArgumentNullException.ThrowIfNull(libraryRepository);
@@ -49,11 +52,13 @@ public partial class AddGameViewModel : ScreenViewModel
         ArgumentNullException.ThrowIfNull(artworkProviders);
         ArgumentNullException.ThrowIfNull(artworkImageLoader);
         ArgumentNullException.ThrowIfNull(modalService);
+        ArgumentNullException.ThrowIfNull(compatibilityEditor);
         _gameRepository = gameRepository;
         _libraryRepository = libraryRepository;
         _artworkStorage = artworkStorage;
         _metadataProviders = metadataProviders.ToArray();
         _modalService = modalService;
+        CompatibilityEditor = compatibilityEditor;
         ArtworkPicker = new GameArtworkPickerViewModel(artworkProviders, artworkImageLoader);
         Sections =
         [
@@ -61,6 +66,10 @@ public partial class AddGameViewModel : ScreenViewModel
             new AddGameSectionViewModel(ActionsSectionId, Resources.GameActionsSection, FluentIconGlyph.Play),
             new AddGameSectionViewModel(ImagesSectionId, Resources.ManualGameImagesSection, FluentIconGlyph.Image)
         ];
+        if (CompatibilityEditor.IsLinux)
+        {
+            Sections.Add(new AddGameSectionViewModel(CompatibilitySectionId, Resources.Compatibility, FluentIconGlyph.Toolbox));
+        }
         var gameSection = Sections.Single(section => section.Id == GameSectionId);
         SelectedSectionIndex = Sections.IndexOf(gameSection);
         gameSection.IsSelected = true;
@@ -122,6 +131,8 @@ public partial class AddGameViewModel : ScreenViewModel
 
     public bool IsImagesSectionSelected => SelectedSection.Id == ImagesSectionId;
 
+    public bool IsCompatibilitySectionSelected => SelectedSection.Id == CompatibilitySectionId;
+
     public bool HasMetadataSources => MetadataSources.Count > 0;
 
     public bool HasNoMetadataSources => !HasMetadataSources;
@@ -129,6 +140,8 @@ public partial class AddGameViewModel : ScreenViewModel
     public bool CanOpenMetadataSearch => HasMetadataSources;
 
     public GameArtworkPickerViewModel ArtworkPicker { get; }
+
+    public CompatibilityEditorViewModel CompatibilityEditor { get; }
 
     /// <summary>Publishes the saved game or validation/storage failure for shell-level navigation handling.</summary>
     public event Action<AddGameCreationResult>? CreationCompleted;
@@ -367,6 +380,8 @@ public partial class AddGameViewModel : ScreenViewModel
         StatusMessage = null;
         SteamArtworkAssociationStatus = Resources.SteamArtworkNeedsMetadata;
         Actions.Clear();
+        _draftGameId = Guid.CreateVersion7();
+        CompatibilityEditor.Load(null, null, _draftGameId);
         SelectedSectionIndex = Sections.IndexOf(Sections.Single(section => section.Id == GameSectionId));
         IsContentActive = false;
         SelectedFieldIndex = 0;
@@ -462,6 +477,7 @@ public partial class AddGameViewModel : ScreenViewModel
         OnPropertyChanged(nameof(IsGameSectionSelected));
         OnPropertyChanged(nameof(IsActionsSectionSelected));
         OnPropertyChanged(nameof(IsImagesSectionSelected));
+        OnPropertyChanged(nameof(IsCompatibilitySectionSelected));
     }
 
     partial void OnNameChanged(string value)
@@ -500,6 +516,7 @@ public partial class AddGameViewModel : ScreenViewModel
         var trimmedInstallDirectory = TrimToNull(InstallDirectory);
         var game = new Game
         {
+            Id = _draftGameId,
             Name = trimmedName,
             SourceId = GameSourceId.Manual,
             Metadata = new GameMetadata
@@ -520,6 +537,18 @@ public partial class AddGameViewModel : ScreenViewModel
                 : new GameInstallationInfo { InstallDirectory = trimmedInstallDirectory }
         };
 
+        var compatibilityError = CompatibilityEditor.IsLinux
+            ? CompatibilityEditor.ValidateConfiguration()
+            : null;
+        if (compatibilityError is not null)
+        {
+            CompatibilityEditor.ErrorMessage = compatibilityError;
+            SelectedSectionIndex = Sections.IndexOf(Sections.Single(section => section.Id == CompatibilitySectionId));
+            IsContentActive = true;
+            SelectedFieldIndex = 0;
+            return;
+        }
+
         var configuredActions = Actions
             .Where(action => !string.IsNullOrWhiteSpace(action.Target))
             .ToList();
@@ -539,6 +568,12 @@ public partial class AddGameViewModel : ScreenViewModel
 
         try
         {
+            if (CompatibilityEditor.IsLinux)
+            {
+                game.CompatibilityTool = CompatibilityEditor.ConfiguredTool;
+                game.CompatibilityPrefix = CompatibilityEditor.CreatePrefix(game.Id);
+            }
+
             var libraries = await _libraryRepository.GetAllAsync(cancellationToken);
             var library = libraries.FirstOrDefault();
             if (library is null)

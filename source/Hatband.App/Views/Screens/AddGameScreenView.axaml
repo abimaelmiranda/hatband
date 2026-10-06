@@ -255,6 +255,12 @@
                                         Click="OnAddActionClick" />
                             </StackPanel>
 
+                            <StackPanel x:Name="CompatibilityPanel"
+                                        IsVisible="{Binding IsCompatibilitySectionSelected}"
+                                        Spacing="14">
+                                <components:CompatibilityEditorView DataContext="{Binding CompatibilityEditor}" />
+                            </StackPanel>
+
                             <StackPanel x:Name="ImagesPanel"
                                         IsVisible="{Binding IsImagesSectionSelected}"
                                         Spacing="14">

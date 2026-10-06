@@ -5,5 +5,6 @@ public enum GameProcessMonitorEvent
     Started,
     Stopped,
     StartTimedOut,
+    StartNotObserved,
     Failed
 }

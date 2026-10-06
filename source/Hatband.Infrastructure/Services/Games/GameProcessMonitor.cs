@@ -1,16 +1,26 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Versioning;
 using System.Security;
 using Hatband.Core.Enums.Games;
 using Hatband.Core.Models;
+using Hatband.Infrastructure.Services.CompatibilityTools;
 
 namespace Hatband.Infrastructure.Services.Games;
 
 public sealed class GameProcessMonitor : IGameProcessMonitor
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan StartTimeout = TimeSpan.FromMinutes(10);
+    private readonly ProtonExecutionService _protonExecutionService;
+
+    public GameProcessMonitor(ProtonExecutionService protonExecutionService)
+    {
+        ArgumentNullException.ThrowIfNull(protonExecutionService);
+        _protonExecutionService = protonExecutionService;
+    }
+
+    private static readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan _startTimeout = TimeSpan.FromMinutes(10);
     private const int MissingPollsBeforeStop = 3;
 
     public async IAsyncEnumerable<GameProcessMonitorEvent> WatchAsync(
@@ -24,41 +34,83 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
         var startedAt = Stopwatch.StartNew();
         var hasStarted = false;
         var consecutiveMissingPolls = 0;
-
-        while (true)
+        var hasReportedStartTimeout = false;
+        var protonProcess = target.ProtonProcess;
+        if (protonProcess is not null)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentException.ThrowIfNullOrWhiteSpace(protonProcess.ExecutablePath);
+        }
 
-            var processIsRunning = IsGameProcessRunning(installDirectory);
-            if (processIsRunning)
+        try
+        {
+            while (true)
             {
-                consecutiveMissingPolls = 0;
-                if (!hasStarted)
-                {
-                    hasStarted = true;
-                    yield return GameProcessMonitorEvent.Started;
-                }
-            }
-            else if (hasStarted)
-            {
-                consecutiveMissingPolls++;
-                if (consecutiveMissingPolls >= MissingPollsBeforeStop)
-                {
-                    yield return GameProcessMonitorEvent.Stopped;
-                    yield break;
-                }
-            }
-            else if (startedAt.Elapsed >= StartTimeout)
-            {
-                yield return GameProcessMonitorEvent.StartTimedOut;
-                yield break;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
+                if (protonProcess is not null)
+                {
+                    var completedExitCode = _protonExecutionService.GetCompletedExitCode(protonProcess.GameId);
+                    if (completedExitCode is not null)
+                    {
+                        if (completedExitCode != 0)
+                        {
+                            yield return GameProcessMonitorEvent.Failed;
+                        }
+                        else if (!hasStarted)
+                        {
+                            yield return GameProcessMonitorEvent.StartNotObserved;
+                        }
+                        else
+                        {
+                            yield return GameProcessMonitorEvent.Stopped;
+                        }
+
+                        yield break;
+                    }
+                }
+
+                var processIsRunning = IsGameProcessRunning(installDirectory, protonProcess);
+                if (processIsRunning)
+                {
+                    consecutiveMissingPolls = 0;
+                    if (!hasStarted)
+                    {
+                        hasStarted = true;
+                        yield return GameProcessMonitorEvent.Started;
+                    }
+                }
+                else if (hasStarted && protonProcess is null)
+                {
+                    consecutiveMissingPolls++;
+                    if (consecutiveMissingPolls >= MissingPollsBeforeStop)
+                    {
+                        yield return GameProcessMonitorEvent.Stopped;
+                        yield break;
+                    }
+                }
+                else if (!hasStarted && !hasReportedStartTimeout && startedAt.Elapsed >= _startTimeout)
+                {
+                    hasReportedStartTimeout = true;
+                    yield return GameProcessMonitorEvent.StartTimedOut;
+                    if (protonProcess is null)
+                    {
+                        yield break;
+                    }
+                }
+
+                await Task.Delay(_pollInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            if (protonProcess is not null)
+            {
+                _protonExecutionService.ForgetLaunch(protonProcess.GameId);
+            }
         }
     }
 
-    private static bool IsGameProcessRunning(string installDirectory)
+    private static bool IsGameProcessRunning(string installDirectory, ProtonProcessWatchTarget? protonProcess)
     {
         var pathComparison = OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
@@ -74,6 +126,16 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
             {
                 try
                 {
+                    if (protonProcess is not null && OperatingSystem.IsLinux())
+                    {
+                        if (IsProtonGameProcess(process, protonProcess))
+                        {
+                            return true;
+                        }
+
+                        continue;
+                    }
+
                     var executablePath = process.MainModule?.FileName;
                     if (string.IsNullOrWhiteSpace(executablePath))
                     {
@@ -108,5 +170,53 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
                 process.Dispose();
             }
         }
+    }
+
+    [SupportedOSPlatform("linux")]
+    private static bool IsProtonGameProcess(Process process, ProtonProcessWatchTarget target)
+    {
+        var environmentPath = $"/proc/{process.Id}/environ";
+        if (!LinuxProcessFileReader.TryReadAllText(environmentPath, out var environmentContent))
+        {
+            return false;
+        }
+
+        var environment = environmentContent.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        var marker = $"HATBAND_GAME_ID={target.GameId:N}";
+        if (!environment.Contains(marker, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        var executablePath = process.MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return false;
+        }
+
+        var executableName = Path.GetFileName(executablePath);
+        if (!executableName.StartsWith("wine", StringComparison.OrdinalIgnoreCase) &&
+            !executableName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!LinuxProcessFileReader.TryReadAllText($"/proc/{process.Id}/cmdline", out var commandLineContent))
+        {
+            return false;
+        }
+
+        var commandLine = commandLineContent.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        var targetExecutableName = Path.GetFileName(target.ExecutablePath);
+        foreach (var argument in commandLine)
+        {
+            var name = Path.GetFileName(argument.Replace('\\', '/'));
+            if (string.Equals(name, targetExecutableName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

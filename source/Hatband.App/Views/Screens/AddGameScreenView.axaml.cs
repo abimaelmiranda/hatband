@@ -371,6 +371,7 @@ public partial class AddGameScreenView : FullScreenView
             AddGameViewModel.GameSectionId => GamePanel,
             AddGameViewModel.ActionsSectionId => ActionsPanel,
             AddGameViewModel.ImagesSectionId => ImagesPanel,
+            AddGameViewModel.CompatibilitySectionId => CompatibilityPanel,
             _ => throw new InvalidOperationException($"Unknown add-game section '{viewModel.SelectedSection.Id}'.")
         };
         return activePanel.GetVisualDescendants()

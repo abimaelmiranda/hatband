@@ -31,6 +31,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly LibrarySyncProgressViewModel _librarySyncProgress;
     private List<GameCardViewModel> _allGames = [];
     private readonly Dictionary<Guid, bool> _pendingInstallationStates = [];
+    private readonly HashSet<Guid> _pendingLaunchGameIds = [];
     private readonly SemaphoreSlim _installationStateRefreshGate = new(1, 1);
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
     private CancellationTokenSource? _installationPollingCancellation;
@@ -191,10 +192,46 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         _pendingInstallationStates.TryGetValue(gameCard.Game.Id, out var isInstalled) &&
         !isInstalled;
 
-    public bool IsSelectedGameManagementPending =>
-        SelectedGameCard is { } gameCard && _pendingInstallationStates.ContainsKey(gameCard.Game.Id);
+    public bool IsSelectedGameManagementPending
+    {
+        get
+        {
+            var gameCard = SelectedGameCard;
+            if (gameCard is null)
+            {
+                return false;
+            }
 
-    public bool IsPrimaryGameActionEnabled => SelectedGameCard?.IsCompatibleWithHost ?? true;
+            var gameId = gameCard.Game.Id;
+            return _pendingInstallationStates.ContainsKey(gameId) || _pendingLaunchGameIds.Contains(gameId);
+        }
+    }
+
+    public bool IsPrimaryGameActionEnabled
+    {
+        get
+        {
+            var gameCard = SelectedGameCard;
+            if (gameCard is null)
+            {
+                return true;
+            }
+
+            if (!gameCard.IsCompatibleWithHost || IsSelectedGameManagementPending)
+            {
+                return false;
+            }
+
+            var game = gameCard.Game;
+            if (_hostSystemInfo.Platform != HostOperatingSystem.Linux ||
+                game.SourceId != GameSourceId.Manual || game.CompatibilityTool is null)
+            {
+                return true;
+            }
+
+            return !_activeMonitoredGames.ContainsKey(game.Id);
+        }
+    }
 
     public string SelectedGameHiddenActionLabel => SelectedGameCard?.Game.IsHidden == true
         ? Resources.UnhideGame
@@ -369,6 +406,22 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     {
         var game = gameCard.Game;
         var isInstall = game.SourceId == GameSourceId.Steam && game.InstallationInfo is null;
+        var isProtonLaunch = _hostSystemInfo.Platform == HostOperatingSystem.Linux &&
+            game.SourceId == GameSourceId.Manual && game.CompatibilityTool is not null;
+        if (_pendingLaunchGameIds.Contains(game.Id) ||
+            (isProtonLaunch && _activeMonitoredGames.ContainsKey(game.Id)))
+        {
+            return null;
+        }
+
+        var processMonitoringStarted = false;
+        if (isProtonLaunch)
+        {
+            _pendingLaunchGameIds.Add(game.Id);
+            NotifyGameLaunchStateChanged();
+            StatusMessage = Resources.GameLaunchPreparing;
+        }
+
         try
         {
             if (isInstall)
@@ -394,6 +447,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                     GameManagementResult.GameActionStarted)
             {
                 StartGameProcessMonitoring(gameCard, processWatchTarget);
+                processMonitoringStarted = true;
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -402,7 +456,16 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
         catch (Exception exception)
         {
+            _logger.LogError(exception, "Could not launch game {GameId}.", game.Id);
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameManagementError, exception.Message);
+        }
+        finally
+        {
+            if (!processMonitoringStarted)
+            {
+                _pendingLaunchGameIds.Remove(game.Id);
+                NotifyGameLaunchStateChanged();
+            }
         }
 
         return null;
@@ -454,6 +517,14 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     {
         _gameProcessSessionService.Stop();
         _activeMonitoredGames.Clear();
+        _pendingLaunchGameIds.Clear();
+        NotifyGameLaunchStateChanged();
+    }
+
+    private void NotifyGameLaunchStateChanged()
+    {
+        OnPropertyChanged(nameof(IsSelectedGameManagementPending));
+        OnPropertyChanged(nameof(IsPrimaryGameActionEnabled));
     }
 
     private void StartGameProcessMonitoring(GameCardViewModel gameCard, GameProcessWatchTarget target)
@@ -493,9 +564,17 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private void ApplyGameProcessMonitorEvent(GameCardViewModel gameCard, GameProcessMonitorEvent monitorEvent)
     {
         var gameId = gameCard.Game.Id;
+        if (monitorEvent != GameProcessMonitorEvent.StartTimedOut)
+        {
+            _pendingLaunchGameIds.Remove(gameId);
+        }
         switch (monitorEvent)
         {
             case GameProcessMonitorEvent.Started:
+                if (gameCard.Game.SourceId == GameSourceId.Manual && gameCard.Game.CompatibilityTool is not null)
+                {
+                    StatusMessage = Resources.GameLaunchStarted;
+                }
                 var wasAnyGameActive = _activeMonitoredGames.Count > 0;
                 _activeMonitoredGames.TryAdd(gameId, gameCard);
                 if (!wasAnyGameActive)
@@ -510,6 +589,10 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 break;
             case GameProcessMonitorEvent.Stopped:
             case GameProcessMonitorEvent.Failed:
+                if (monitorEvent == GameProcessMonitorEvent.Failed)
+                {
+                    StatusMessage = Resources.GameLaunchFailed;
+                }
                 if (_activeMonitoredGames.Remove(gameId) && _activeMonitoredGames.Count == 0)
                 {
                     ActiveGameSessionName = null;
@@ -528,10 +611,16 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
                 break;
             case GameProcessMonitorEvent.StartTimedOut:
+                StatusMessage = Resources.GameLaunchTimedOut;
+                break;
+            case GameProcessMonitorEvent.StartNotObserved:
+                StatusMessage = Resources.GameLaunchNotObserved;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(monitorEvent), monitorEvent, null);
         }
+
+        NotifyGameLaunchStateChanged();
     }
 
     /// <summary>

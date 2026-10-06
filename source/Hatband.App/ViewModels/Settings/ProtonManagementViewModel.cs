@@ -1,33 +1,37 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
+using Hatband.App.Navigation;
+using Hatband.App.ViewModels.Navigation;
 using Microsoft.Extensions.Logging;
 
 namespace Hatband.App.ViewModels.Settings;
 
 public partial class ProtonManagementViewModel : ObservableObject
 {
-    private readonly ICompatibilityToolReleaseCatalogService compatibilityToolReleaseCatalogService;
-    private readonly ICompatibilityToolDiscoveryService compatibilityToolDiscoveryService;
-    private readonly ICompatibilityToolInstallationService compatibilityToolInstallationService;
-    private readonly IHostSystemInfo hostSystemInfo;
-    private readonly ILogger<ProtonManagementViewModel> logger;
+    private readonly ICompatibilityToolReleaseCatalogService _compatibilityToolReleaseCatalogService;
+    private readonly ICompatibilityToolDiscoveryService _compatibilityToolDiscoveryService;
+    private readonly ICompatibilityToolInstallationService _compatibilityToolInstallationService;
+    private readonly IHostSystemInfo _hostSystemInfo;
+    private readonly IModalService _modalService;
+    private readonly ILogger<ProtonManagementViewModel> _logger;
 
     [ObservableProperty]
     public partial ObservableCollection<ProtonToolViewModel> InstalledTools { get; set; } = [];
 
     [ObservableProperty]
-    public partial ObservableCollection<ProtonReleaseCatalogViewModel> Catalogs { get; set; } = [];
+    public partial ObservableCollection<ProtonReleaseProviderViewModel> Providers { get; set; } = [];
 
     [ObservableProperty]
-    public partial ProtonReleaseCatalogViewModel? SelectedCatalog { get; set; }
+    public partial ProtonReleaseProviderViewModel? SelectedProvider { get; set; }
 
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
-    public partial bool HasLoadedCatalog { get; set; }
+    public partial bool HasLoadedProviders { get; set; }
 
     [ObservableProperty]
     public partial bool IsInstalling { get; set; }
@@ -43,21 +47,24 @@ public partial class ProtonManagementViewModel : ObservableObject
         ICompatibilityToolDiscoveryService compatibilityToolDiscoveryService,
         ICompatibilityToolInstallationService compatibilityToolInstallationService,
         IHostSystemInfo hostSystemInfo,
+        IModalService modalService,
         ILogger<ProtonManagementViewModel> logger)
     {
         ArgumentNullException.ThrowIfNull(compatibilityToolReleaseCatalogService);
         ArgumentNullException.ThrowIfNull(compatibilityToolDiscoveryService);
         ArgumentNullException.ThrowIfNull(compatibilityToolInstallationService);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
+        ArgumentNullException.ThrowIfNull(modalService);
         ArgumentNullException.ThrowIfNull(logger);
-        this.compatibilityToolReleaseCatalogService = compatibilityToolReleaseCatalogService;
-        this.compatibilityToolDiscoveryService = compatibilityToolDiscoveryService;
-        this.compatibilityToolInstallationService = compatibilityToolInstallationService;
-        this.hostSystemInfo = hostSystemInfo;
-        this.logger = logger;
+        _compatibilityToolReleaseCatalogService = compatibilityToolReleaseCatalogService;
+        _compatibilityToolDiscoveryService = compatibilityToolDiscoveryService;
+        _compatibilityToolInstallationService = compatibilityToolInstallationService;
+        _hostSystemInfo = hostSystemInfo;
+        _modalService = modalService;
+        _logger = logger;
     }
 
-    public bool IsLinuxSupported => hostSystemInfo.Platform == HostOperatingSystem.Linux;
+    public bool IsLinuxSupported => _hostSystemInfo.Platform == HostOperatingSystem.Linux;
 
     public bool CanBrowseCatalogs => IsLinuxSupported;
 
@@ -67,7 +74,7 @@ public partial class ProtonManagementViewModel : ObservableObject
 
     public bool HasNoInstalledTools => !HasInstalledTools;
 
-    public bool HasNoCatalogs => Catalogs.Count == 0;
+    public bool HasNoProviders => Providers.Count == 0;
 
     public bool HasErrorMessage => !string.IsNullOrWhiteSpace(ErrorMessage);
 
@@ -79,10 +86,10 @@ public partial class ProtonManagementViewModel : ObservableObject
 
     public bool CanInteract => !IsInstalling;
 
-    public int NavigationFieldCount => Catalogs.Count + (SelectedCatalog?.Releases.Count ?? 0) + 1;
+    public int NavigationFieldCount => Providers.Count + 1;
 
     [RelayCommand]
-    private async Task RefreshAsync()
+    private async Task RefreshAsync(CancellationToken cancellationToken)
     {
         if (!CanBrowseCatalogs)
         {
@@ -95,26 +102,21 @@ public partial class ProtonManagementViewModel : ObservableObject
         StatusMessage = null;
         try
         {
-            if (IsLinuxSupported)
-            {
-                await RefreshInstalledToolsAsync();
-            }
-
-            var catalogs = await compatibilityToolReleaseCatalogService.GetCatalogsAsync();
-            Catalogs = new ObservableCollection<ProtonReleaseCatalogViewModel>(
-                catalogs.Select(catalog => new ProtonReleaseCatalogViewModel(
-                    catalog,
-                    InstallReleaseAsync,
-                    SelectCatalog,
-                    IsLinuxSupported)));
-            SelectCatalog(Catalogs.FirstOrDefault());
-            HasLoadedCatalog = true;
-            OnPropertyChanged(nameof(NavigationFieldCount));
+            await RefreshInstalledToolsAsync(cancellationToken);
+            var providers = _compatibilityToolReleaseCatalogService.GetProviders();
+            Providers = new ObservableCollection<ProtonReleaseProviderViewModel>(providers
+                .Select(provider => new ProtonReleaseProviderViewModel(provider, OpenProviderVersionsAsync)));
+            SelectProvider(null);
+            HasLoadedProviders = true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Could not refresh Proton compatibility tools.");
-            ErrorMessage = string.Format(Resources.ProtonRefreshError, exception.Message);
+            _logger.LogError(exception, "Could not refresh Proton compatibility providers.");
+            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resources.ProtonRefreshError, exception.Message);
         }
         finally
         {
@@ -122,20 +124,38 @@ public partial class ProtonManagementViewModel : ObservableObject
         }
     }
 
-    private void SelectCatalog(ProtonReleaseCatalogViewModel? catalog)
+    public void SelectProvider(ProtonReleaseProviderViewModel? provider)
     {
-        if (catalog is not null && !Catalogs.Contains(catalog))
+        if (provider is not null && !Providers.Contains(provider))
         {
-            throw new ArgumentException("The Proton catalog does not belong to this view model.", nameof(catalog));
+            throw new ArgumentException("The Proton release provider does not belong to this view model.", nameof(provider));
         }
 
-        foreach (var availableCatalog in Catalogs)
+        foreach (var availableProvider in Providers)
         {
-            availableCatalog.IsSelected = availableCatalog == catalog;
+            availableProvider.IsSelected = availableProvider == provider;
         }
 
-        SelectedCatalog = catalog;
-        OnPropertyChanged(nameof(NavigationFieldCount));
+        SelectedProvider = provider;
+    }
+
+    private async Task OpenProviderVersionsAsync(ProtonReleaseProviderViewModel provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        if (!CanBrowseCatalogs || IsInstalling)
+        {
+            return;
+        }
+
+        SelectProvider(provider);
+        var modal = new ProtonReleaseSelectionModalViewModel(
+            provider.Provider,
+            _compatibilityToolReleaseCatalogService);
+        var completion = await _modalService.ShowAsync(modal);
+        if (completion.Outcome == ModalOutcome.Confirmed)
+        {
+            await InstallReleaseAsync(completion.GetConfirmedValue());
+        }
     }
 
     private async Task InstallReleaseAsync(CompatibilityToolRelease release)
@@ -151,26 +171,25 @@ public partial class ProtonManagementViewModel : ObservableObject
         StatusMessage = string.Format(Resources.ProtonInstalling, release.DisplayName);
         try
         {
-            await compatibilityToolInstallationService.InstallAsync(release);
+            await _compatibilityToolInstallationService.InstallAsync(release);
             await RefreshInstalledToolsAsync();
             StatusMessage = string.Format(Resources.ProtonInstallComplete, release.DisplayName);
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Could not install Proton release {ReleaseId}.", release.Id);
+            _logger.LogError(exception, "Could not install Proton release {ReleaseId}.", release.Id);
             ErrorMessage = string.Format(Resources.ProtonInstallError, release.DisplayName, exception.Message);
             StatusMessage = null;
         }
         finally
         {
             IsInstalling = false;
-            OnPropertyChanged(nameof(CanInteract));
         }
     }
 
-    private async Task RefreshInstalledToolsAsync()
+    private async Task RefreshInstalledToolsAsync(CancellationToken cancellationToken = default)
     {
-        var protonTools = await compatibilityToolDiscoveryService.DiscoverInstalledToolsAsync();
+        var protonTools = await _compatibilityToolDiscoveryService.DiscoverInstalledToolsAsync(cancellationToken);
         InstalledTools = new ObservableCollection<ProtonToolViewModel>(
             protonTools.Select(protonTool => new ProtonToolViewModel(protonTool)));
     }
@@ -181,12 +200,13 @@ public partial class ProtonManagementViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoInstalledTools));
     }
 
-    partial void OnCatalogsChanged(ObservableCollection<ProtonReleaseCatalogViewModel> value)
+    partial void OnProvidersChanged(ObservableCollection<ProtonReleaseProviderViewModel> value)
     {
-        OnPropertyChanged(nameof(HasNoCatalogs));
+        OnPropertyChanged(nameof(HasNoProviders));
+        OnPropertyChanged(nameof(NavigationFieldCount));
     }
 
-    partial void OnSelectedCatalogChanged(ProtonReleaseCatalogViewModel? value)
+    partial void OnSelectedProviderChanged(ProtonReleaseProviderViewModel? value)
     {
         OnPropertyChanged(nameof(NavigationFieldCount));
     }
@@ -197,13 +217,7 @@ public partial class ProtonManagementViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoErrorMessage));
     }
 
-    partial void OnStatusMessageChanged(string? value)
-    {
-        OnPropertyChanged(nameof(HasStatusMessage));
-    }
+    partial void OnStatusMessageChanged(string? value) => OnPropertyChanged(nameof(HasStatusMessage));
 
-    partial void OnIsInstallingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanInteract));
-    }
+    partial void OnIsInstallingChanged(bool value) => OnPropertyChanged(nameof(CanInteract));
 }

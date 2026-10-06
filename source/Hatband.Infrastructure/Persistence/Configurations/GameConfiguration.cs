@@ -49,6 +49,11 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
             tool.Property(value => value.InstallationPath).HasColumnName("CompatibilityTool_InstallationPath");
             tool.Property(value => value.Source).HasColumnName("CompatibilityTool_Source");
         }).Navigation(game => game.CompatibilityTool).IsRequired(false);
+        builder.OwnsOne(game => game.CompatibilityPrefix, prefix =>
+        {
+            prefix.Property(value => value.IsManaged).HasColumnName("CompatibilityPrefix_IsManaged");
+            prefix.Property(value => value.Path).HasColumnName("CompatibilityPrefix_Path");
+        }).Navigation(game => game.CompatibilityPrefix).IsRequired(false);
         builder.OwnsOne(game => game.InstallationInfo, installation =>
         {
             installation.Property(value => value.InstallDirectory).HasColumnName("InstallationInfo_InstallDirectory");

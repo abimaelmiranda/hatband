@@ -1,3 +1,3 @@
 namespace Hatband.Core.Models;
 
-public sealed record GameProcessWatchTarget(string InstallDirectory);
+public sealed record GameProcessWatchTarget(string InstallDirectory, ProtonProcessWatchTarget? ProtonProcess = null);

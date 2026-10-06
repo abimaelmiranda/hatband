@@ -322,7 +322,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         Navigation.ActivateSection();
         if (Navigation.IsCompatibilitySection &&
             ProtonManagement.CanBrowseCatalogs &&
-            !ProtonManagement.HasLoadedCatalog &&
+            !ProtonManagement.HasLoadedProviders &&
             !ProtonManagement.IsLoading)
         {
             ProtonManagement.RefreshCommand.Execute(null);

@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
@@ -54,14 +55,27 @@ internal sealed class DirectionalFocusNavigator
                 NavigationStrategyOverride = XYFocusNavigationStrategy.Projection
             });
 
-        if (nextElement is not null &&
+        if (nextElement is Control nextControl &&
+            !ReferenceEquals(nextControl, focusedControl) &&
+            IsInDirection(focusedControl, nextControl, navigationRoot, direction.Value) &&
             focusManager.Focus(nextElement, NavigationMethod.Directional, KeyModifiers.None))
+        {
+            var focusedAfterMove = navigationRoot.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(control => control.IsFocused);
+            if (focusedAfterMove is not null && !ReferenceEquals(focusedAfterMove, focusedControl))
+            {
+                return true;
+            }
+        }
+
+        var directionalNeighbor = FindDirectionalNeighbor(navigationRoot, focusedControl, direction.Value);
+        if (directionalNeighbor is not null && Focus(directionalNeighbor))
         {
             return true;
         }
 
-        return FocusAdjacentInTabOrder(navigationRoot, focusedControl, direction.Value == NavigationDirection.Up) ||
-               isInsideNavigationScope;
+        return isInsideNavigationScope;
     }
 
     public static bool Focus(Control control) => control.Focus(NavigationMethod.Directional);
@@ -140,22 +154,82 @@ internal sealed class DirectionalFocusNavigator
         return Focus(reverse ? candidates[^1] : candidates[0]);
     }
 
-    private static bool FocusAdjacentInTabOrder(Control navigationRoot, Control focusedControl, bool reverse)
+    private static Control? FindDirectionalNeighbor(
+        Control navigationRoot,
+        Control focusedControl,
+        NavigationDirection direction)
     {
-        var candidates = GetFocusableControls(navigationRoot);
-        var focusedIndex = candidates.IndexOf(focusedControl);
-        if (focusedIndex < 0 || candidates.Count < 2)
+        var origin = GetCenter(focusedControl, navigationRoot);
+        if (origin is null)
+        {
+            return null;
+        }
+
+        Control? closestControl = null;
+        var closestScore = double.PositiveInfinity;
+        foreach (var candidate in GetFocusableControls(navigationRoot))
+        {
+            if (ReferenceEquals(candidate, focusedControl))
+            {
+                continue;
+            }
+
+            var candidateCenter = GetCenter(candidate, navigationRoot);
+            if (candidateCenter is null)
+            {
+                continue;
+            }
+
+            var horizontalDistance = candidateCenter.Value.X - origin.Value.X;
+            var verticalDistance = candidateCenter.Value.Y - origin.Value.Y;
+            var (primaryDistance, secondaryDistance) = direction switch
+            {
+                NavigationDirection.Up when verticalDistance < 0 => (-verticalDistance, Math.Abs(horizontalDistance)),
+                NavigationDirection.Down when verticalDistance > 0 => (verticalDistance, Math.Abs(horizontalDistance)),
+                NavigationDirection.Left when horizontalDistance < 0 => (-horizontalDistance, Math.Abs(verticalDistance)),
+                NavigationDirection.Right when horizontalDistance > 0 => (horizontalDistance, Math.Abs(verticalDistance)),
+                _ => (double.PositiveInfinity, double.PositiveInfinity)
+            };
+            var score = primaryDistance + secondaryDistance * 1.5;
+            if (score < closestScore)
+            {
+                closestScore = score;
+                closestControl = candidate;
+            }
+        }
+
+        return closestControl;
+    }
+
+    private static Point? GetCenter(Control control, Control relativeTo)
+    {
+        var topLeft = control.TranslatePoint(new Point(0, 0), relativeTo);
+        return topLeft is null
+            ? null
+            : new Point(topLeft.Value.X + control.Bounds.Width / 2, topLeft.Value.Y + control.Bounds.Height / 2);
+    }
+
+    private static bool IsInDirection(
+        Control originControl,
+        Control candidateControl,
+        Control relativeTo,
+        NavigationDirection direction)
+    {
+        var origin = GetCenter(originControl, relativeTo);
+        var candidate = GetCenter(candidateControl, relativeTo);
+        if (origin is null || candidate is null)
         {
             return false;
         }
 
-        var nextIndex = focusedIndex + (reverse ? -1 : 1);
-        if (nextIndex < 0 || nextIndex >= candidates.Count)
+        return direction switch
         {
-            return false;
-        }
-
-        return Focus(candidates[nextIndex]);
+            NavigationDirection.Up => candidate.Value.Y < origin.Value.Y,
+            NavigationDirection.Down => candidate.Value.Y > origin.Value.Y,
+            NavigationDirection.Left => candidate.Value.X < origin.Value.X,
+            NavigationDirection.Right => candidate.Value.X > origin.Value.X,
+            _ => false
+        };
     }
 
     private static List<Control> GetFocusableControls(Control navigationRoot)

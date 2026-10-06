@@ -1,0 +1,86 @@
+<navigation:ModalView xmlns="https://github.com/avaloniaui"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:vm="using:Hatband.App.ViewModels.Settings"
+                      xmlns:core="using:Hatband.Core.Models.Compatibility"
+                      xmlns:navigation="using:Hatband.App.Views.Navigation"
+                      xmlns:lang="using:Hatband.App.Localization"
+                      x:Class="Hatband.App.Views.Modals.ProtonReleaseSelectionModalView"
+                      x:DataType="vm:ProtonReleaseSelectionModalViewModel">
+    <Border Width="720"
+            Height="650"
+            MaxWidth="780"
+            MaxHeight="780"
+            Padding="26"
+            CornerRadius="14"
+            Background="#202932"
+            BorderBrush="#46535D"
+            BorderThickness="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="14">
+            <StackPanel Spacing="5">
+                <TextBlock Text="{Binding Title}" FontSize="24" FontWeight="Bold" />
+                <TextBlock Text="{x:Static lang:Resources.ProtonProviderVersionsHint}"
+                           Foreground="#AFC0CC"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Spacing="10">
+                <ProgressBar IsVisible="{Binding IsLoading}" IsIndeterminate="True" MinHeight="4" />
+                <TextBlock Text="{x:Static lang:Resources.LoadingProtonVersions}"
+                           Foreground="#AFC0CC"
+                           IsVisible="{Binding IsLoading}" />
+                <TextBlock Text="{Binding ErrorLabel}"
+                           Foreground="#FF9D8F"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasError}" />
+                <Button x:Name="RetryButton"
+                        Content="{x:Static lang:Resources.Retry}"
+                        Classes="subtle-action"
+                        HorizontalAlignment="Left"
+                        Command="{Binding LoadCatalogCommand}"
+                        IsEnabled="{Binding !IsLoading}"
+                        IsVisible="{Binding HasError}" />
+                <TextBlock Text="{x:Static lang:Resources.NoProtonVersionsAvailable}"
+                           Foreground="#AFC0CC"
+                           IsVisible="{Binding HasNoReleases}" />
+            </StackPanel>
+
+            <ListBox x:Name="ReleaseList"
+                     Grid.Row="2"
+                     ItemsSource="{Binding Releases}"
+                     SelectedItem="{Binding SelectedRelease}"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="core:CompatibilityToolRelease">
+                        <Border Padding="12,9" Margin="0,0,0,6" Background="#151C21" CornerRadius="5">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Version}" Foreground="#AFC0CC" FontSize="12" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Variant}"
+                                           Foreground="#AFC0CC"
+                                           VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button x:Name="CancelButton"
+                        Content="{x:Static lang:Resources.Cancel}"
+                        Classes="subtle-action standard-action"
+                        Command="{Binding CancelSelectionCommand}" />
+                <Button x:Name="SelectButton"
+                        Content="{x:Static lang:Resources.Install}"
+                        Classes="console-action standard-action"
+                        Command="{Binding ConfirmSelectionCommand}"
+                        IsEnabled="{Binding CanConfirm}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</navigation:ModalView>
