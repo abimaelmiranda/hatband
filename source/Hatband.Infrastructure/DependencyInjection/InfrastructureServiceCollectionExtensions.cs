@@ -1,3 +1,4 @@
+using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Models.Settings;
 using Hatband.Infrastructure.Archives;
 using Hatband.Infrastructure.FileSystem;
@@ -5,14 +6,16 @@ using Hatband.Infrastructure.Host;
 using Hatband.Infrastructure.Persistence;
 using Hatband.Infrastructure.Persistence.Repositories;
 using Hatband.Infrastructure.Services.CompatibilityTools;
+using Hatband.Infrastructure.Services.Caching;
 using Hatband.Infrastructure.Services.Games;
 using Hatband.Infrastructure.Settings;
 using Hatband.Infrastructure.Storage.Artwork;
 using Hatband.Integrations;
+using Hatband.Integrations.HowLongToBeat;
 using Hatband.Integrations.Steam;
 using Hatband.Integrations.Steam.Abstractions;
+using Hatband.Integrations.Steam.Protondb;
 using Hatband.Integrations.Settings;
-using Hatband.Integrations.HowLongToBeat;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -32,10 +35,13 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddLogging();
         services.AddDbContextFactory<HatbandDbContext>(options => options.UseSqlite(connectionString));
+        services.AddMemoryCache();
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<ICacheService, CacheService>();
         services.AddHttpClient(string.Empty, client => client.Timeout = TimeSpan.FromSeconds(25));
         services.AddHttpClient("Artwork", client => client.Timeout = TimeSpan.FromSeconds(20));
         services.AddHttpClient("SteamPlayer", client => client.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient("Protondb", client => client.Timeout = TimeSpan.FromSeconds(10));
         services.AddSingleton(appDataFileSystem);
         services.TryAddSingleton<IHostSystemInfo, HostSystemInfo>();
         services.AddSingleton<DatabaseInitializer>();
@@ -59,6 +65,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
+        services.AddSingleton<ProtondbMetadataProvider>();
         services.AddSingleton<ISteamPlayerService, SteamPlayerService>();
         services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();

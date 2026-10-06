@@ -29,6 +29,7 @@ public partial class AddGameViewModel : ScreenViewModel
     private string? _metadataStoreName;
     private string? _metadataStoreGameId;
     private GameSourceId? _metadataStoreSourceId;
+    private GameCompatibilityTier? _metadataCompatibilityTier;
     private GamePlatform? _nativePlatforms;
     private Guid _draftGameId = Guid.CreateVersion7();
     private GameArtworkImage? _selectedCoverImage;
@@ -283,7 +284,7 @@ public partial class AddGameViewModel : ScreenViewModel
             if (completion.Outcome == ModalOutcome.Confirmed)
             {
                 var selectedSource = completion.GetConfirmedValue();
-                selectedSource.ApplyCommand.Execute(null);
+                await selectedSource.ApplyAsync(cancellation.Token);
             }
         }
         finally
@@ -415,8 +416,9 @@ public partial class AddGameViewModel : ScreenViewModel
         };
     }
 
-    private void ApplyMetadata(GameMetadata metadata)
+    private void ApplyMetadata(GameMetadata metadata, GameCompatibilityTier? compatibilityTier)
     {
+        _metadataCompatibilityTier = compatibilityTier;
         if (!string.IsNullOrWhiteSpace(metadata.StoreName))
         {
             Name = metadata.StoreName;
@@ -570,8 +572,23 @@ public partial class AddGameViewModel : ScreenViewModel
         {
             if (CompatibilityEditor.IsLinux)
             {
-                game.CompatibilityTool = CompatibilityEditor.ConfiguredTool;
-                game.CompatibilityPrefix = CompatibilityEditor.CreatePrefix(game.Id);
+                var configuredTool = CompatibilityEditor.ConfiguredTool;
+                game.CompatibilityLayer = configuredTool is null
+                    ? null
+                    : new CompatibilityLayer
+                    {
+                        Tool = configuredTool,
+                        Prefix = CompatibilityEditor.CreatePrefix(game.Id)
+                            ?? throw new InvalidOperationException("A configured compatibility tool requires a prefix."),
+                        Tier = GameCompatibilityTier.Unknown
+                };
+            }
+
+            if (_metadataCompatibilityTier is GameCompatibilityTier compatibilityTier)
+            {
+                var compatibilityLayer = game.CompatibilityLayer ?? new CompatibilityLayer();
+                compatibilityLayer.Tier = compatibilityTier;
+                game.CompatibilityLayer = compatibilityLayer;
             }
 
             var libraries = await _libraryRepository.GetAllAsync(cancellationToken);

@@ -8,7 +8,7 @@ namespace Hatband.App.ViewModels;
 public partial class GameMetadataSourceViewModel : ObservableObject
 {
     private readonly IGameMetadataProvider _provider;
-    private readonly Action<GameMetadata> _applyMetadata;
+    private readonly Action<GameMetadata, GameCompatibilityTier?> _applyMetadata;
     private Game? _game;
     private string _languageTag = string.Empty;
     private string _region = string.Empty;
@@ -34,7 +34,9 @@ public partial class GameMetadataSourceViewModel : ObservableObject
     [ObservableProperty]
     public partial bool HasSearched { get; set; }
 
-    public GameMetadataSourceViewModel(IGameMetadataProvider provider, Action<GameMetadata> applyMetadata)
+    public GameMetadataSourceViewModel(
+        IGameMetadataProvider provider,
+        Action<GameMetadata, GameCompatibilityTier?> applyMetadata)
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(applyMetadata);
@@ -139,14 +141,34 @@ public partial class GameMetadataSourceViewModel : ObservableObject
     private void CloseCustomSearch() => IsCustomSearchOpen = false;
 
     [RelayCommand]
-    private void Apply()
+    public async Task ApplyAsync(CancellationToken cancellationToken = default)
     {
         if (IsSearching || SelectedSearchResult is not { } metadata)
         {
             return;
         }
 
-        _applyMetadata(metadata);
-        StatusMessage = Resources.MetadataSourceApplied;
+        IsSearching = true;
+        try
+        {
+            GameCompatibilityTier? compatibilityTier = null;
+            if (_provider is IGameCompatibilityTierProvider tierProvider &&
+                metadata.StoreSourceId == GameSourceId.Steam &&
+                !string.IsNullOrWhiteSpace(metadata.StoreGameId))
+            {
+                compatibilityTier = await tierProvider.GetCompatibilityTierAsync(metadata.StoreGameId, cancellationToken);
+            }
+
+            _applyMetadata(metadata, compatibilityTier);
+            StatusMessage = Resources.MetadataSourceApplied;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        finally
+        {
+            IsSearching = false;
+        }
     }
 }

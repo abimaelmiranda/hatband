@@ -3,6 +3,7 @@ using System;
 using Hatband.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,29 +11,14 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Hatband.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(HatbandDbContext))]
-    partial class HatbandDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261006170357_AllowTierOnlyCompatibilityLayer")]
+    partial class AllowTierOnlyCompatibilityLayer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
-
-            modelBuilder.Entity("Hatband.Core.Models.CacheEntry", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateOnly>("ExpiresAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Key");
-
-                    b.ToTable("CacheEntries", (string)null);
-                });
 
             modelBuilder.Entity("Hatband.Core.Models.Games.Game", b =>
                 {

@@ -224,7 +224,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
             var game = gameCard.Game;
             if (_hostSystemInfo.Platform != HostOperatingSystem.Linux ||
-                game.SourceId != GameSourceId.Manual || game.CompatibilityTool is null)
+                game.SourceId != GameSourceId.Manual || game.GetCompatibilityTool() is null)
             {
                 return true;
             }
@@ -407,7 +407,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         var game = gameCard.Game;
         var isInstall = game.SourceId == GameSourceId.Steam && game.InstallationInfo is null;
         var isProtonLaunch = _hostSystemInfo.Platform == HostOperatingSystem.Linux &&
-            game.SourceId == GameSourceId.Manual && game.CompatibilityTool is not null;
+            game.SourceId == GameSourceId.Manual && game.GetCompatibilityTool() is not null;
         if (_pendingLaunchGameIds.Contains(game.Id) ||
             (isProtonLaunch && _activeMonitoredGames.ContainsKey(game.Id)))
         {
@@ -571,7 +571,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         switch (monitorEvent)
         {
             case GameProcessMonitorEvent.Started:
-                if (gameCard.Game.SourceId == GameSourceId.Manual && gameCard.Game.CompatibilityTool is not null)
+                if (gameCard.Game.SourceId == GameSourceId.Manual && gameCard.Game.GetCompatibilityTool() is not null)
                 {
                     StatusMessage = Resources.GameLaunchStarted;
                 }

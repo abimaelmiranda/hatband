@@ -61,9 +61,9 @@ public sealed class ProtonExecutionService
 
         var parsedArguments = ParseArguments(arguments);
 
-        var compatibilityTool = game.CompatibilityTool
+        var compatibilityTool = game.GetCompatibilityTool()
             ?? throw new InvalidOperationException($"No Proton compatibility tool is configured for '{game.Name}'.");
-        var prefix = game.CompatibilityPrefix
+        var prefix = game.GetCompatibilityPrefix()
             ?? throw new InvalidOperationException($"No Proton prefix is configured for '{game.Name}'.");
 
         ValidateProtonTool(compatibilityTool);

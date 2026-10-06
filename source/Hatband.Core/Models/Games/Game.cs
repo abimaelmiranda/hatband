@@ -2,6 +2,7 @@ using Hatband.Core.Enums.Games;
 using Hatband.Core.Enums.Host;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models;
+using Hatband.Core.Models.Compatibility;
 
 namespace Hatband.Core.Models.Games;
 
@@ -57,15 +58,7 @@ public sealed class Game : ModelBase
 
     public GameArtwork? DefaultArtwork { get; set; }
 
-    /// <summary>
-    /// Compatibility runtime selected for this game. When null, the platform's default behavior is used.
-    /// </summary>
-    public CompatibilityTool? CompatibilityTool { get; set; }
-
-    /// <summary>
-    /// Configured compatibility prefix directory. Null means no prefix has been configured.
-    /// </summary>
-    public GameCompatibilityPrefix? CompatibilityPrefix { get; set; }
+    public CompatibilityLayer? CompatibilityLayer { get; set; }
 
     public GameTimeToBeat? TimeToBeat { get; set; }
 
@@ -104,5 +97,15 @@ public sealed class Game : ModelBase
     public long? InstallSizeBytes { get; set; }
 
     public List<GameAction> GameActions { get; set; } = [];
+
+    public CompatibilityTool? GetCompatibilityTool()
+    {
+        return CompatibilityLayer?.Tool;
+    }
+
+    public GameCompatibilityPrefix? GetCompatibilityPrefix()
+    {
+        return CompatibilityLayer?.Prefix;
+    }
 
 }

@@ -25,6 +25,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     private bool restoreCover;
     private bool restoreBackground;
     private GamePlatform? selectedNativePlatforms;
+    private GameCompatibilityTier? selectedCompatibilityTier;
     private GameSourceId? _selectedStoreSourceId;
     private string? _selectedStoreGameId;
 
@@ -119,6 +120,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         game = selectedGame;
         selectedNativePlatforms = null;
+        selectedCompatibilityTier = null;
         _selectedStoreSourceId = selectedGame.Metadata.StoreSourceId;
         _selectedStoreGameId = selectedGame.Metadata.StoreGameId;
         Name = selectedGame.Name;
@@ -237,8 +239,9 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     public Task SearchMetadataSourcesAsync(CancellationToken cancellationToken = default) =>
         SelectedMetadataSource?.SearchAsync(cancellationToken) ?? Task.CompletedTask;
 
-    private void ApplyMetadata(GameMetadata metadata)
+    private void ApplyMetadata(GameMetadata metadata, GameCompatibilityTier? compatibilityTier)
     {
+        selectedCompatibilityTier = compatibilityTier;
         selectedNativePlatforms = metadata.NativePlatforms;
         if (metadata.StoreSourceId is { } storeSourceId && !string.IsNullOrWhiteSpace(metadata.StoreGameId))
         {
@@ -313,6 +316,12 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
             game.Name = Name.Trim();
             game.Metadata = metadata;
             game.Artwork = artwork;
+            if (selectedCompatibilityTier is GameCompatibilityTier compatibilityTier)
+            {
+                var compatibilityLayer = game.CompatibilityLayer ?? new CompatibilityLayer();
+                compatibilityLayer.Tier = compatibilityTier;
+                game.CompatibilityLayer = compatibilityLayer;
+            }
             await gameRepository.UpdateAsync(game, cancellationToken);
             Saved?.Invoke(this, game);
         }

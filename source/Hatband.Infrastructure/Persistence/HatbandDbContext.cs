@@ -1,3 +1,4 @@
+using Hatband.Core.Models;
 using Hatband.Core.Models.Games;
 using Hatband.Core.Models.Libraries;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,8 @@ public sealed class HatbandDbContext : DbContext
     public DbSet<GameLibrary> Libraries => Set<GameLibrary>();
 
     public DbSet<Game> Games => Set<Game>();
+
+    public DbSet<CacheEntry> CacheEntries => Set<CacheEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

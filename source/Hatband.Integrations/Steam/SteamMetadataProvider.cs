@@ -5,18 +5,21 @@ using System.Text.RegularExpressions;
 using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Enums.Games;
 using Hatband.Core.Enums.Stores;
+using Hatband.Core.Models.Compatibility;
 using Hatband.Core.Models.Games;
 using Hatband.Integrations.Steam.Models;
+using Hatband.Integrations.Steam.Protondb;
 
 namespace Hatband.Integrations.Steam;
 
 /// <summary>
 /// Reads descriptive metadata from the Steam store.
 /// </summary>
-public sealed partial class SteamMetadataProvider : IGameMetadataProvider
+public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGameCompatibilityTierProvider
 {
     private const int MaximumNameSearchResults = 5;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ProtondbMetadataProvider _protondbMetadataProvider;
 
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex HtmlTagPattern();
@@ -35,10 +38,14 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider
     [GeneratedRegex("\\bdata-ds-packageid\\s*=", RegexOptions.IgnoreCase)]
     private static partial Regex SearchResultPackageIdPattern();
 
-    public SteamMetadataProvider(IHttpClientFactory httpClientFactory)
+    public SteamMetadataProvider(
+        IHttpClientFactory httpClientFactory,
+        ProtondbMetadataProvider protondbMetadataProvider)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(protondbMetadataProvider);
         _httpClientFactory = httpClientFactory;
+        _protondbMetadataProvider = protondbMetadataProvider;
     }
 
     public GameSourceId? SourceId => GameSourceId.Steam;
@@ -113,8 +120,22 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider
             return null;
         }
 
-        return await GetMetadataForAppAsync(sourceGameId, languageTag, cancellationToken);
+        var metadata = await GetMetadataForAppAsync(sourceGameId, languageTag, cancellationToken);
+        if (metadata is not null)
+        {
+            var tier = await GetCompatibilityTierAsync(sourceGameId, cancellationToken);
+            var layer = game.CompatibilityLayer ?? new CompatibilityLayer();
+            layer.Tier = tier;
+            game.CompatibilityLayer = layer;
+        }
+
+        return metadata;
     }
+
+    public Task<GameCompatibilityTier> GetCompatibilityTierAsync(
+        string storeGameId,
+        CancellationToken cancellationToken = default) =>
+        _protondbMetadataProvider.GetCompatibilityTierAsync(storeGameId, cancellationToken);
 
     private async Task<IReadOnlyList<GameMetadata>> SearchByNameAsync(
         string gameName,

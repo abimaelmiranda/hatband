@@ -50,7 +50,7 @@ public partial class CompatibilitySettingsScreenViewModel : ScreenViewModel
         _game = game;
         GameName = game.Name;
         ErrorMessage = null;
-        Editor.Load(game.CompatibilityTool, game.CompatibilityPrefix, game.Id);
+        Editor.Load(game.GetCompatibilityTool(), game.GetCompatibilityPrefix(), game.Id);
     }
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
@@ -76,25 +76,30 @@ public partial class CompatibilitySettingsScreenViewModel : ScreenViewModel
 
         IsSaving = true;
         ErrorMessage = null;
-        var originalTool = game.CompatibilityTool;
-        var originalPrefix = game.CompatibilityPrefix;
+        var originalCompatibilityLayer = game.CompatibilityLayer;
         try
         {
-            game.CompatibilityTool = Editor.ConfiguredTool;
-            game.CompatibilityPrefix = Editor.CreatePrefix(game.Id);
+            var configuredTool = Editor.ConfiguredTool;
+            game.CompatibilityLayer = configuredTool is null
+                ? null
+                : new CompatibilityLayer
+                {
+                    Tool = configuredTool,
+                    Prefix = Editor.CreatePrefix(game.Id)
+                        ?? throw new InvalidOperationException("A configured compatibility tool requires a prefix."),
+                    Tier = originalCompatibilityLayer?.Tier ?? GameCompatibilityTier.Unknown
+                };
             await _gameRepository.UpdateAsync(game, cancellationToken);
             Saved?.Invoke(this, game);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            game.CompatibilityTool = originalTool;
-            game.CompatibilityPrefix = originalPrefix;
+            game.CompatibilityLayer = originalCompatibilityLayer;
             throw;
         }
         catch (Exception exception)
         {
-            game.CompatibilityTool = originalTool;
-            game.CompatibilityPrefix = originalPrefix;
+            game.CompatibilityLayer = originalCompatibilityLayer;
             ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resources.CompatibilitySaveError, exception.Message);
         }
         finally

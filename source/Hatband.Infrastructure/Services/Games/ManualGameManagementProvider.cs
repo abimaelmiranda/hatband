@@ -76,7 +76,7 @@ public sealed class ManualGameManagementProvider : IGameManagementService
             return GameManagementResult.Unsupported;
         }
 
-        if (_hostSystemInfo.Platform == HostOperatingSystem.Linux && game.CompatibilityTool is not null)
+        if (_hostSystemInfo.Platform == HostOperatingSystem.Linux && game.GetCompatibilityTool() is not null)
         {
             var protonStarted = await _protonExecutionService.LaunchAsync(
                 game,
@@ -100,7 +100,7 @@ public sealed class ManualGameManagementProvider : IGameManagementService
     {
         ArgumentNullException.ThrowIfNull(game);
 
-        if (_hostSystemInfo.Platform == HostOperatingSystem.Linux && game.CompatibilityTool is not null)
+        if (_hostSystemInfo.Platform == HostOperatingSystem.Linux && game.GetCompatibilityTool() is not null)
         {
             var primaryAction = game.GameActions.FirstOrDefault(action => action.IsPrimary);
             if (primaryAction?.Type != GameActionType.Executable)
