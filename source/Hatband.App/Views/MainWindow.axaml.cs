@@ -235,7 +235,9 @@ public partial class MainWindow : Window
             return false;
         }
 
-        if ((source == InputSource.Gamepad || action == NavigationAction.Back) &&
+        if ((source == InputSource.Gamepad ||
+             action == NavigationAction.Back ||
+             action is NavigationAction.Up or NavigationAction.Down) &&
             FocusedControlNavigationAdapter.TryHandleOpenComboBox(target.NavigationRoot, action))
         {
             return true;

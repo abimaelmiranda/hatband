@@ -3,6 +3,7 @@ using System.Reflection;
 using System.ComponentModel.DataAnnotations;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -10,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.ViewModels.Settings.Fields;
+using Hatband.App.Views.Components;
 using Hatband.Core.Models.Settings;
 using AppResources = Hatband.App.Localization.Resources;
 
@@ -522,7 +524,7 @@ public partial class SettingsSectionEditorView : UserControl
 
         if (type.IsEnum)
         {
-            var comboBox = new ComboBox
+            var comboBox = new SettingsComboBox
             {
                 ItemsSource = Enum.GetValues(type),
                 SelectedItem = currentValue,
@@ -530,12 +532,17 @@ public partial class SettingsSectionEditorView : UserControl
             };
             if (type == typeof(ControllerDisplayMode))
             {
-                comboBox.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<ControllerDisplayMode>(
-                    (mode, _) => new TextBlock { Text = mode == ControllerDisplayMode.Xbox ? AppResources.ControllerDisplayXbox : AppResources.ControllerDisplayPlayStation },
-                    supportsRecycling: true);
+                comboBox.ItemTemplate = new FuncDataTemplate<ControllerDisplayMode>(
+                    (mode, _) => new TextBlock
+                    {
+                        Text = mode == ControllerDisplayMode.Xbox
+                            ? AppResources.ControllerDisplayXbox
+                            : AppResources.ControllerDisplayPlayStation
+                    },
+                    supportsRecycling: false);
             }
 
-            comboBox.SelectionChanged += (_, _) => SaveValue(field.PropertyPath, comboBox.SelectedItem);
+            comboBox.SelectionCommitted += (_, _) => SaveValue(field.PropertyPath, comboBox.SelectedItem);
             return comboBox;
         }
 
@@ -543,30 +550,14 @@ public partial class SettingsSectionEditorView : UserControl
         {
             var viewModel = observedViewModel
                 ?? throw new InvalidOperationException("The settings editor requires a settings screen view model.");
-            var comboBox = CreateOptionsComboBox(viewModel.LanguageOptions, (string?)currentValue);
-            comboBox.SelectionChanged += (_, _) =>
-            {
-                if (comboBox.SelectedItem is SettingsOptionViewModel option)
-                {
-                    SaveValue(field.PropertyPath, option.Value);
-                }
-            };
-            return comboBox;
+            return CreateOptionsEditor(field, viewModel.LanguageOptions, (string?)currentValue);
         }
 
         if (type == typeof(string) && IsGeneralSetting(field, nameof(GeneralSettings.TimeZoneId)))
         {
             var viewModel = observedViewModel
                 ?? throw new InvalidOperationException("The settings editor requires a settings screen view model.");
-            var comboBox = CreateOptionsComboBox(viewModel.TimeZoneOptions, (string?)currentValue);
-            comboBox.SelectionChanged += (_, _) =>
-            {
-                if (comboBox.SelectedItem is SettingsOptionViewModel option)
-                {
-                    SaveValue(field.PropertyPath, option.Value);
-                }
-            };
-            return comboBox;
+            return CreateOptionsEditor(field, viewModel.TimeZoneOptions, (string?)currentValue);
         }
 
         if (type == typeof(string))
@@ -614,16 +605,44 @@ public partial class SettingsSectionEditorView : UserControl
         return current;
     }
 
-    private static ComboBox CreateOptionsComboBox(
+    private SettingsComboBox CreateOptionsEditor(
+        SettingsPanelDefinition.Field field,
         IReadOnlyList<SettingsOptionViewModel> options,
-        string? selectedValue) => new()
+        string? selectedValue)
     {
-        ItemsSource = options,
-        SelectedItem = options.FirstOrDefault(option => option.Value == selectedValue),
-        MinHeight = 38,
-        ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<SettingsOptionViewModel>(
-            (option, _) => new TextBlock { Text = option.Label }, supportsRecycling: true)
-    };
+        var comboBox = CreateOptionsComboBox(options, selectedValue);
+        comboBox.SelectionCommitted += (_, _) =>
+        {
+            if (comboBox.SelectedItem is SettingsOptionViewModel option)
+            {
+                SaveValue(field.PropertyPath, option.Value);
+            }
+        };
+        return comboBox;
+    }
+
+    private static SettingsComboBox CreateOptionsComboBox(
+        IReadOnlyList<SettingsOptionViewModel> options,
+        string? selectedValue)
+    {
+        return new SettingsComboBox
+        {
+            ItemsSource = options,
+            SelectedItem = options.FirstOrDefault(option => option.Value == selectedValue),
+            MinHeight = 38,
+            ItemTemplate = new FuncDataTemplate<SettingsOptionViewModel?>(
+                (option, _) =>
+                {
+                    if (option is null)
+                    {
+                        return null;
+                    }
+
+                    return new TextBlock { Text = option.Label };
+                },
+                supportsRecycling: false)
+        };
+    }
 
     private Border CreateFieldRow(PropertyInfo property, Control editor, int fieldIndex)
     {

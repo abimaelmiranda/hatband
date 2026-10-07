@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Hatband.App.Navigation;
+using Hatband.App.Views.Components;
 
 namespace Hatband.App.Views.Navigation;
 
@@ -22,7 +23,14 @@ internal static class FocusedControlNavigationAdapter
         switch (action)
         {
             case NavigationAction.Back:
+                comboBox.SetCurrentValue(ComboBox.IsDropDownOpenProperty, false);
+                DirectionalFocusNavigator.Focus(comboBox);
+                return true;
             case NavigationAction.Confirm:
+                if (comboBox is SettingsComboBox settingsComboBox)
+                {
+                    settingsComboBox.ConfirmSelection();
+                }
                 comboBox.SetCurrentValue(ComboBox.IsDropDownOpenProperty, false);
                 DirectionalFocusNavigator.Focus(comboBox);
                 return true;
