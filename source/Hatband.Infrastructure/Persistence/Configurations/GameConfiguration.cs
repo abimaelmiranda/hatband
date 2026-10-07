@@ -34,7 +34,7 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                 metadata.Property(value => value.NativePlatforms).HasColumnName("Metadata_NativePlatforms");
             });
 
-        builder.OwnsOne(
+        builder.ComplexProperty(
             game => game.Artwork,
             artwork =>
             {
@@ -42,16 +42,15 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                 artwork.Property(value => value.BackgroundImagePath).HasColumnName("Artwork_BackgroundImagePath");
                 artwork.Property(value => value.IconPath).HasColumnName("Artwork_IconPath");
             });
-        builder.OwnsOne(
+        builder.ComplexProperty(
             game => game.DefaultArtwork,
             artwork =>
             {
+                artwork.HasDiscriminator();
                 artwork.Property(value => value.CoverImagePath).HasColumnName("DefaultArtwork_CoverImagePath");
                 artwork.Property(value => value.BackgroundImagePath).HasColumnName("DefaultArtwork_BackgroundImagePath");
                 artwork.Property(value => value.IconPath).HasColumnName("DefaultArtwork_IconPath");
-            })
-            .Navigation(game => game.DefaultArtwork)
-            .IsRequired(false);
+            });
 
         builder.OwnsOne(
             game => game.CompatibilityLayer,
