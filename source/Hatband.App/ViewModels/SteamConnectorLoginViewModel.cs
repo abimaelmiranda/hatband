@@ -75,7 +75,8 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
                 SetQrCode(null);
                 ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectedSyncing, profile.DisplayName);
 
-                var gameCount = await synchronizeLibrary(linkedCancellation.Token);
+                // Authentication follows this screen's lifetime; library sync belongs to the app session.
+                var gameCount = await synchronizeLibrary(CancellationToken.None);
                 ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectedAs, profile.DisplayName)
                     + " " + FormatSyncStatus(gameCount);
             }

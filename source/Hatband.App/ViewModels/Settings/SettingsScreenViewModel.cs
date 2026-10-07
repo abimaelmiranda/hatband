@@ -712,6 +712,10 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             var gameCount = await SynchronizeSteamLibraryAsync(cancellationToken);
             _steamConnectorLogin.SetConnectionStatus(SteamConnectorLoginViewModel.FormatSyncStatus(gameCount));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             SettingsError?.Invoke(string.Format(CultureInfo.CurrentCulture, Resources.SteamSyncError, exception.Message));

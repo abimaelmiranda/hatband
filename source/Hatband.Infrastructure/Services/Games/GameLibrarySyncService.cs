@@ -49,33 +49,36 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
 
     public async Task<IReadOnlyList<Game>> SynchronizeAsync(
         GameSourceId sourceId,
+        IProgress<GameLibrarySyncProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         await syncGate.WaitAsync(cancellationToken);
         try
         {
             var integration = storeIntegrations.Single(item => item.SourceId == sourceId);
-            var libraries = await libraryRepository.GetAllAsync(cancellationToken);
-            var library = libraries.FirstOrDefault() ?? await CreateDefaultLibraryAsync(cancellationToken);
+            progress?.Report(new GameLibrarySyncProgress(GameLibrarySyncStage.RetrievingCatalog));
+            var library = await GetOrCreateLibraryAsync(cancellationToken);
             var importedGames = await integration.GetLibraryAsync(cancellationToken);
             var settings = await settingsApi.GetSectionAsync<GeneralSettings>(cancellationToken);
+
+            var completedGames = 0;
             foreach (var importedGame in importedGames)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                importedGame.SourceId = sourceId;
-                var existingGame = importedGame.SourceGameId is { } sourceGameId
-                    ? await gameRepository.GetBySourceIdentityAsync(sourceId, sourceGameId, cancellationToken)
-                    : null;
-                var game = existingGame is null ? importedGame : MergeImportedGame(existingGame, importedGame);
-                await EnrichImportedGameAsync(game, sourceId, settings.LanguageTag, cancellationToken);
-                if (existingGame is null)
-                {
-                    await gameRepository.AddAsync(library.Id, game, cancellationToken);
-                }
-                else
-                {
-                    await gameRepository.UpdateAsync(game, cancellationToken);
-                }
+                var game = await SynchronizeGameAsync(
+                    importedGame,
+                    sourceId,
+                    library.Id,
+                    settings.LanguageTag,
+                    cancellationToken);
+
+                completedGames++;
+                progress?.Report(new GameLibrarySyncProgress(
+                    GameLibrarySyncStage.UpdatingGames,
+                    completedGames,
+                    importedGames.Count,
+                    game.Name,
+                    game));
             }
 
             return await gameRepository.GetAllAsync(cancellationToken);
@@ -84,6 +87,51 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         {
             syncGate.Release();
         }
+    }
+
+    private async Task<GameLibrary> GetOrCreateLibraryAsync(CancellationToken cancellationToken)
+    {
+        var libraries = await libraryRepository.GetAllAsync(cancellationToken);
+        var library = libraries.FirstOrDefault();
+        if (library is not null)
+        {
+            return library;
+        }
+
+        return await CreateDefaultLibraryAsync(cancellationToken);
+    }
+
+    private async Task<Game> SynchronizeGameAsync(
+        Game importedGame,
+        GameSourceId sourceId,
+        Guid libraryId,
+        string languageTag,
+        CancellationToken cancellationToken)
+    {
+        importedGame.SourceId = sourceId;
+        Game? existingGame = null;
+        if (importedGame.SourceGameId is { } sourceGameId)
+        {
+            existingGame = await gameRepository.GetBySourceIdentityAsync(sourceId, sourceGameId, cancellationToken);
+        }
+
+        var game = importedGame;
+        if (existingGame is not null)
+        {
+            game = MergeImportedGame(existingGame, importedGame);
+        }
+
+        await EnrichImportedGameAsync(game, sourceId, languageTag, cancellationToken);
+        if (existingGame is null)
+        {
+            await gameRepository.AddAsync(libraryId, game, cancellationToken);
+        }
+        else
+        {
+            await gameRepository.UpdateAsync(game, cancellationToken);
+        }
+
+        return game;
     }
 
     public async Task RefreshMetadataAsync(CancellationToken cancellationToken = default)

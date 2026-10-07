@@ -10,6 +10,7 @@ public interface IGameLibrarySyncService
 {
     Task<IReadOnlyList<Game>> SynchronizeAsync(
         GameSourceId sourceId,
+        IProgress<GameLibrarySyncProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

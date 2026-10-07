@@ -670,6 +670,15 @@
   <data name="SteamSyncActivity" xml:space="preserve">
     <value>Steam · syncing library…</value>
   </data>
+  <data name="SteamSyncLoadingLibrary" xml:space="preserve">
+    <value>Steam · loading game list…</value>
+  </data>
+  <data name="SteamSyncUpdatingGame" xml:space="preserve">
+    <value>Steam · {0}/{1} · {2}</value>
+  </data>
+  <data name="SteamSyncRefreshingLibrary" xml:space="preserve">
+    <value>Refreshing the game library…</value>
+  </data>
   <data name="Brand" xml:space="preserve">
     <value>HATBAND</value>
   </data>

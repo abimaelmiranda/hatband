@@ -842,6 +842,10 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
             await Task.WhenAll(_allGames.Select(game => game.LoadCoverAsync(_artworkImageLoader)));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.LoadLibraryError, exception.Message);
@@ -902,20 +906,23 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     public async Task<int> SynchronizeSteamLibraryAsync(CancellationToken cancellationToken)
     {
         IsLibrarySyncRunning = true;
-        _librarySyncProgress.BeginSync("Steam");
+        _librarySyncProgress.BeginLibrarySync();
         StatusMessage = null;
         try
         {
+            var progress = new Progress<GameLibrarySyncProgress>(ReportLibrarySyncProgress);
             var games = await _gameLibrarySyncService.SynchronizeAsync(
                 GameSourceId.Steam,
+                progress,
                 cancellationToken);
-            await LoadGamesAsync(cancellationToken);
+            await FinishLibrarySyncAsync(games);
             HasCompletedSteamSync = true;
             _librarySyncProgress.CompleteSync("Steam");
             return games.Count;
         }
         catch (Exception exception)
         {
+            await LoadGamesAsync(CancellationToken.None);
             _librarySyncProgress.CompleteSync("Steam", exception);
             throw;
         }
@@ -923,6 +930,71 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         {
             IsLibrarySyncRunning = false;
         }
+    }
+
+    private async Task FinishLibrarySyncAsync(IReadOnlyList<Game> games)
+    {
+        _librarySyncProgress.ReportLibrarySyncProgress(new GameLibrarySyncProgress(
+            GameLibrarySyncStage.RefreshingLibrary,
+            games.Count,
+            games.Count));
+
+        await Dispatcher.UIThread.InvokeAsync(() => AddMissingSynchronizedGames(games));
+        await Task.WhenAll(_allGames.Select(card => card.LoadCoverAsync(_artworkImageLoader)));
+    }
+
+    private void AddMissingSynchronizedGames(IReadOnlyList<Game> games)
+    {
+        var existingIds = _allGames.Select(card => card.Game.Id).ToHashSet();
+        foreach (var game in games)
+        {
+            if (existingIds.Add(game.Id))
+            {
+                AddSynchronizedGame(game);
+            }
+        }
+    }
+
+    private void ReportLibrarySyncProgress(GameLibrarySyncProgress progress)
+    {
+        _librarySyncProgress.ReportLibrarySyncProgress(progress);
+        if (progress.UpdatedGame is not { } game)
+        {
+            return;
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplySynchronizedGame(game));
+            return;
+        }
+
+        ApplySynchronizedGame(game);
+    }
+
+    private void ApplySynchronizedGame(Game game)
+    {
+        if (_allGames.Any(card => card.Game.Id == game.Id))
+        {
+            UpdateGameCard(game);
+            return;
+        }
+
+        AddSynchronizedGame(game);
+    }
+
+    private void AddSynchronizedGame(Game game)
+    {
+        var card = new GameCardViewModel(game, _dateTimeDisplayFormatter, _hostSystemInfo);
+        _allGames.Add(card);
+        if (game.IsHidden == IsShowingHiddenGames)
+        {
+            Games.Add(card);
+            SelectedGameCard ??= card;
+        }
+
+        OnLibraryActivityChanged();
+        _ = card.LoadCoverAsync(_artworkImageLoader);
     }
 
     private void OnLibrarySyncProgressPropertyChanged(object? sender, PropertyChangedEventArgs args)
