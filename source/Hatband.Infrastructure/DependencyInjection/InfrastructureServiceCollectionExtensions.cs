@@ -1,6 +1,8 @@
 using Hatband.Core.Abstractions.Services;
+using Hatband.Core.Abstractions.Authentication;
 using Hatband.Core.Models.Settings;
 using Hatband.Infrastructure.Archives;
+using Hatband.Infrastructure.Authentication;
 using Hatband.Infrastructure.FileSystem;
 using Hatband.Infrastructure.Host;
 using Hatband.Infrastructure.Persistence;
@@ -51,6 +53,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISettingsSection, GeneralSettingsSection>();
         services.AddSingleton<ISettingsSection, ConnectorsSettingsSection>();
         services.AddSingleton<ISettingsApi, JsonSettingsApi>();
+        services.AddSingleton<ISecureSecretVault, OperatingSystemSecretVault>();
+        services.AddSingleton<IConnectorSessionStore, EncryptedConnectorSessionStore>();
         services.AddSingleton<IArchiveExtractionService, SharpCompressArchiveExtractionService>();
         services.AddSingleton<ICompatibilityToolReleaseCatalogService, CompatibilityToolReleaseCatalogService>();
         services.AddSingleton<ICompatibilityToolDiscoveryService, CompatibilityToolDiscoveryService>();
@@ -67,6 +71,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
         services.AddSingleton<ProtondbMetadataProvider>();
         services.AddSingleton<ISteamPlayerService, SteamPlayerService>();
+        services.AddSingleton<ISteamTokenRefresher, SteamKitTokenRefresher>();
         services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
 
