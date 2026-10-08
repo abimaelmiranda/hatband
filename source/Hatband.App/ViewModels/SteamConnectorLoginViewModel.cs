@@ -70,15 +70,24 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
 
             try
             {
-                var profile = await session.WaitForAuthenticationAsync(linkedCancellation.Token);
+                var authenticatedSession = await session.WaitForAuthenticationAsync(linkedCancellation.Token);
+                var profile = authenticatedSession.Profile;
                 ActiveAccountName = profile.DisplayName;
                 SetQrCode(null);
                 ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectedSyncing, profile.DisplayName);
+                if (!authenticatedSession.IsPersisted)
+                {
+                    ConnectionStatus += " " + Resources.SteamSessionTemporary;
+                }
 
                 // Authentication follows this screen's lifetime; library sync belongs to the app session.
                 var gameCount = await synchronizeLibrary(CancellationToken.None);
                 ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectedAs, profile.DisplayName)
                     + " " + FormatSyncStatus(gameCount);
+                if (sessionProvider.CurrentSession is { IsPersisted: false })
+                {
+                    ConnectionStatus += " " + Resources.SteamSessionTemporary;
+                }
             }
             finally
             {
@@ -96,6 +105,11 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
             ConnectionStatus = sessionProvider.CurrentAccount is null
                 ? Resources.SteamLoginFailure
                 : Resources.SteamSyncAfterLoginFailure;
+            if (sessionProvider.CurrentSession is { IsPersisted: false })
+            {
+                ConnectionStatus += " " + Resources.SteamSessionTemporary;
+            }
+
             ErrorOccurred?.Invoke(string.Format(CultureInfo.CurrentCulture, Resources.ConnectSteamSyncError, exception.Message));
         }
         finally
@@ -144,6 +158,13 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
         ConnectionStatus = account is not null
             ? string.Format(CultureInfo.CurrentCulture, Resources.ConnectedAs, account.DisplayName)
             : Resources.NotConnected;
+    }
+
+    public async Task<bool> RestoreSessionAsync(CancellationToken cancellationToken = default)
+    {
+        var restored = await sessionProvider.RestoreAsync(cancellationToken);
+        RefreshConnectionStatus();
+        return restored;
     }
 
     public async Task DisconnectAsync(CancellationToken cancellationToken)

@@ -30,12 +30,13 @@ public sealed class SteamStoreIntegration : IGameStoreIntegration, IQrCodeLoginP
 
     public ConnectorAccount? CurrentAccount => steamPlayerService.CurrentAccount;
 
-    public Task DisconnectAsync(CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        steamPlayerService.Disconnect();
-        return Task.CompletedTask;
-    }
+    public ConnectorSession? CurrentSession => steamPlayerService.CurrentSession;
+
+    public Task<bool> RestoreAsync(CancellationToken cancellationToken = default) =>
+        steamPlayerService.RestoreAsync(cancellationToken);
+
+    public Task DisconnectAsync(CancellationToken cancellationToken = default) =>
+        steamPlayerService.DisconnectAsync(cancellationToken);
 
     public Task<IQrCodeLoginSession> BeginQrLoginAsync(CancellationToken cancellationToken = default)
     {

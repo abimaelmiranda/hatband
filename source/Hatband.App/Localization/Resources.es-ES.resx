@@ -529,6 +529,9 @@
   <data name="SteamSyncError" xml:space="preserve">
     <value>No se pudo sincronizar la biblioteca de Steam: {0}</value>
   </data>
+  <data name="SteamSessionTemporary" xml:space="preserve">
+    <value>La sesión es temporal; tendrás que iniciar sesión la próxima vez.</value>
+  </data>
   <data name="EnterGameName" xml:space="preserve">
     <value>Escribe el nombre del juego.</value>
   </data>

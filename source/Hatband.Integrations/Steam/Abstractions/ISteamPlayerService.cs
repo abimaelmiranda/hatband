@@ -9,9 +9,13 @@ namespace Hatband.Integrations.Steam.Abstractions;
 /// </summary>
 public interface ISteamPlayerService
 {
+    ConnectorSession? CurrentSession { get; }
+
     ConnectorAccount? CurrentAccount { get; }
 
-    void Disconnect();
+    Task DisconnectAsync(CancellationToken cancellationToken = default);
+
+    Task<bool> RestoreAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Starts a QR-code login flow.

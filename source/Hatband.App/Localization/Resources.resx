@@ -529,6 +529,9 @@
   <data name="SteamSyncError" xml:space="preserve">
     <value>Could not sync the Steam library: {0}</value>
   </data>
+  <data name="SteamSessionTemporary" xml:space="preserve">
+    <value>Session is temporary; you’ll need to sign in again next time.</value>
+  </data>
   <data name="EnterGameName" xml:space="preserve">
     <value>Enter the game name.</value>
   </data>

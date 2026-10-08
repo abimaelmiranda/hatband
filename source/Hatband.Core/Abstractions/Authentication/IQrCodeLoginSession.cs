@@ -11,5 +11,5 @@ public interface IQrCodeLoginSession : IAsyncDisposable
 
     event EventHandler<QrChallengeUriChangedEventArgs>? ChallengeUriChanged;
 
-    Task<ConnectorAccount> WaitForAuthenticationAsync(CancellationToken cancellationToken = default);
+    Task<ConnectorSession> WaitForAuthenticationAsync(CancellationToken cancellationToken = default);
 }

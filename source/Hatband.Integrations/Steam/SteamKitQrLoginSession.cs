@@ -1,6 +1,7 @@
 using Hatband.Core.Abstractions.Authentication;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Authentication;
+using Hatband.Integrations.Authentication;
 using SteamKit2;
 using SteamKit2.Authentication;
 
@@ -13,9 +14,9 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
     private readonly QrAuthSession authSession;
     private readonly Task callbackPump;
     private readonly CancellationTokenSource callbackPumpCancellation;
-    private readonly Action<ConnectorAccount, string> onAuthenticated;
+    private readonly Func<ConnectorSession, CancellationToken, Task<bool>> onAuthenticated;
     private readonly Task<SteamUser.LoggedOnCallback> loginCompletion;
-    private Task<ConnectorAccount>? authenticationTask;
+    private Task<ConnectorSession>? authenticationTask;
     private bool disposed;
 
     private SteamKitQrLoginSession(
@@ -25,7 +26,7 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
         Task<SteamUser.LoggedOnCallback> loginCompletion,
         Task callbackPump,
         CancellationTokenSource callbackPumpCancellation,
-        Action<ConnectorAccount, string> onAuthenticated)
+        Func<ConnectorSession, CancellationToken, Task<bool>> onAuthenticated)
     {
         this.steamClient = steamClient;
         this.steamUser = steamUser;
@@ -43,7 +44,7 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
     public event EventHandler<QrChallengeUriChangedEventArgs>? ChallengeUriChanged;
 
     public static async Task<SteamKitQrLoginSession> CreateAsync(
-        Action<ConnectorAccount, string> onAuthenticated,
+        Func<ConnectorSession, CancellationToken, Task<bool>> onAuthenticated,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(onAuthenticated);
@@ -80,7 +81,7 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
             {
                 DeviceFriendlyName = "Hatband",
                 IsPersistentSession = true,
-                WebsiteID = "Client"
+                WebsiteID = "Client",
             });
 
             var result = new SteamKitQrLoginSession(
@@ -103,14 +104,14 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
         }
     }
 
-    public Task<ConnectorAccount> WaitForAuthenticationAsync(CancellationToken cancellationToken = default)
+    public Task<ConnectorSession> WaitForAuthenticationAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         authenticationTask ??= AuthenticateAsync(cancellationToken);
         return authenticationTask;
     }
 
-    private async Task<ConnectorAccount> AuthenticateAsync(CancellationToken cancellationToken)
+    private async Task<ConnectorSession> AuthenticateAsync(CancellationToken cancellationToken)
     {
         var authResult = await authSession.PollingWaitForResultAsync(cancellationToken);
         steamUser.LogOn(new SteamUser.LogOnDetails
@@ -143,8 +144,16 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
             AccountId = authenticatedSteamId.ConvertToUInt64().ToString(),
             DisplayName = authResult.AccountName
         };
-        onAuthenticated(profile, authResult.AccessToken);
-        return profile;
+        var session = new ConnectorSession
+        {
+            SourceId = GameSourceId.Steam,
+            Profile = profile,
+            AccessToken = authResult.AccessToken,
+            RefreshToken = authResult.RefreshToken,
+            AccessTokenExpiresAt = JwtTokenUtilities.GetExpiration(authResult.AccessToken)
+        };
+        session.IsPersisted = await onAuthenticated(session, cancellationToken);
+        return session;
     }
 
     private void OnChallengeUrlChanged()
@@ -153,7 +162,7 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
         ChallengeUriChanged?.Invoke(this, new QrChallengeUriChangedEventArgs(ChallengeUri));
     }
 
-    private static void RunCallbackPump(CallbackManager callbackManager, CancellationToken cancellationToken)
+    internal static void RunCallbackPump(CallbackManager callbackManager, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {

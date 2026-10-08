@@ -246,6 +246,20 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         SyncConnectedSteamLibraryCommand.NotifyCanExecuteChanged();
     }
 
+    public Task<bool> RestoreSteamSessionAsync(CancellationToken cancellationToken = default)
+    {
+        return _steamConnectorLogin.RestoreSessionAsync(cancellationToken);
+    }
+
+    public void ReportSteamRestoreError(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        SettingsError?.Invoke(string.Format(
+            CultureInfo.CurrentCulture,
+            Resources.SteamSyncError,
+            exception.Message));
+    }
+
     /// <summary>Supplies the session-owned metadata refresh command used by the general settings view.</summary>
     public void SetRefreshMetadataCommand(ICommand command)
     {

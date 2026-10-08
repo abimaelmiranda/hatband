@@ -37,6 +37,7 @@ public partial class App : Application
             services.AddSingleton<IAppDataFileSystem>(appDataFileSystem);
             services.AddLogging(logging => logging
                 .SetMinimumLevel(LogLevel.Information)
+                .AddFilter("System.Net.Http.HttpClient.SteamPlayer", LogLevel.Warning)
                 .AddProvider(new FileLoggerProvider(appDataFileSystem.GetPath("hatband.log"))));
             services.AddHatbandInfrastructure($"Data Source={databasePath}", appDataFileSystem);
             services.AddSingleton<GamepadInputService>();
