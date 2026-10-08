@@ -33,6 +33,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly Dictionary<Guid, bool> _pendingInstallationStates = [];
     private readonly HashSet<Guid> _pendingLaunchGameIds = [];
     private readonly SemaphoreSlim _installationStateRefreshGate = new(1, 1);
+    private readonly SemaphoreSlim _steamSyncGate = new(1, 1);
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
     private CancellationTokenSource? _installationPollingCancellation;
     private CancellationTokenSource? _statusMessageTimeoutCancellation;
@@ -905,16 +906,30 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     /// </summary>
     public async Task<int> SynchronizeSteamLibraryAsync(CancellationToken cancellationToken)
     {
-        IsLibrarySyncRunning = true;
-        _librarySyncProgress.BeginLibrarySync();
-        StatusMessage = null;
+        return await SynchronizeSteamLibraryAsync(cancellationToken, GameLibrarySyncMode.Full);
+    }
+
+    public async Task<int> RescanSteamLibraryAsync(CancellationToken cancellationToken)
+    {
+        return await SynchronizeSteamLibraryAsync(cancellationToken, GameLibrarySyncMode.Incremental);
+    }
+
+    private async Task<int> SynchronizeSteamLibraryAsync(
+        CancellationToken cancellationToken,
+        GameLibrarySyncMode mode)
+    {
+        await _steamSyncGate.WaitAsync(cancellationToken);
         try
         {
+            IsLibrarySyncRunning = true;
+            _librarySyncProgress.BeginLibrarySync();
+            StatusMessage = null;
             var progress = new Progress<GameLibrarySyncProgress>(ReportLibrarySyncProgress);
             var games = await _gameLibrarySyncService.SynchronizeAsync(
                 GameSourceId.Steam,
                 progress,
-                cancellationToken);
+                cancellationToken,
+                mode);
             await FinishLibrarySyncAsync(games);
             HasCompletedSteamSync = true;
             _librarySyncProgress.CompleteSync("Steam");
@@ -929,6 +944,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         finally
         {
             IsLibrarySyncRunning = false;
+            _steamSyncGate.Release();
         }
     }
 

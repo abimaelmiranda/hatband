@@ -1,4 +1,5 @@
 using Hatband.Core.Enums.Stores;
+using Hatband.Core.Enums.Games;
 using Hatband.Core.Models.Games;
 
 namespace Hatband.Core.Abstractions.Games;
@@ -11,7 +12,8 @@ public interface IGameLibrarySyncService
     Task<IReadOnlyList<Game>> SynchronizeAsync(
         GameSourceId sourceId,
         IProgress<GameLibrarySyncProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        GameLibrarySyncMode mode = GameLibrarySyncMode.Full);
 
     /// <summary>
     /// Explicitly refreshes metadata for all games supported by their source providers.

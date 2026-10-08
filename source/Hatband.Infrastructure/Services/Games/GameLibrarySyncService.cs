@@ -50,7 +50,8 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
     public async Task<IReadOnlyList<Game>> SynchronizeAsync(
         GameSourceId sourceId,
         IProgress<GameLibrarySyncProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        GameLibrarySyncMode mode = GameLibrarySyncMode.Full)
     {
         await syncGate.WaitAsync(cancellationToken);
         try
@@ -70,7 +71,8 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
                     sourceId,
                     library.Id,
                     settings.LanguageTag,
-                    cancellationToken);
+                    cancellationToken,
+                    mode);
 
                 completedGames++;
                 progress?.Report(new GameLibrarySyncProgress(
@@ -106,7 +108,8 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         GameSourceId sourceId,
         Guid libraryId,
         string languageTag,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        GameLibrarySyncMode mode)
     {
         importedGame.SourceId = sourceId;
         Game? existingGame = null;
@@ -118,10 +121,13 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         var game = importedGame;
         if (existingGame is not null)
         {
-            game = MergeImportedGame(existingGame, importedGame);
+            game = MergeImportedGame(existingGame, importedGame, mode == GameLibrarySyncMode.Full);
         }
 
-        await EnrichImportedGameAsync(game, sourceId, languageTag, cancellationToken);
+        if (existingGame is null || mode == GameLibrarySyncMode.Full)
+        {
+            await EnrichImportedGameAsync(game, sourceId, languageTag, cancellationToken);
+        }
         if (existingGame is null)
         {
             await gameRepository.AddAsync(libraryId, game, cancellationToken);
@@ -251,14 +257,17 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         return library;
     }
 
-    private static Game MergeImportedGame(Game existingGame, Game importedGame)
+    private static Game MergeImportedGame(Game existingGame, Game importedGame, bool updatePlayCount)
     {
         existingGame.Metadata = existingGame.Metadata.MergeDownloaded(importedGame.Metadata, importedGame.Metadata.LanguageTag ?? "en-US");
         existingGame.InstallationInfo = importedGame.InstallationInfo;
         existingGame.Version = importedGame.Version;
         existingGame.InstallSizeBytes = importedGame.InstallSizeBytes;
         existingGame.PlaytimeSeconds = importedGame.PlaytimeSeconds;
-        existingGame.PlayCount = importedGame.PlayCount;
+        if (updatePlayCount)
+        {
+            existingGame.PlayCount = importedGame.PlayCount;
+        }
         existingGame.LastActivity = importedGame.LastActivity;
         existingGame.Added ??= importedGame.Added;
         if (existingGame.GameActions.Count == 0)

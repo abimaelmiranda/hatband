@@ -21,6 +21,8 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly AddGameViewModel _addGame;
     private readonly GameMetadataEditorViewModel _editor;
     private readonly CompatibilitySettingsScreenViewModel _compatibilityEditor;
+    private readonly CancellationTokenSource _startupCancellation = new();
+    private Task? _steamStartupImport;
 
     public MainWindowViewModel(
         NavigationCoordinator navigation,
@@ -78,6 +80,25 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         await _settings.InitializeAsync(cancellationToken);
         await Session.LoadGamesAsync(cancellationToken);
+        _steamStartupImport ??= RestoreAndImportSteamLibraryAsync(_startupCancellation.Token);
+    }
+
+    private async Task RestoreAndImportSteamLibraryAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (await _settings.RestoreSteamSessionAsync(cancellationToken))
+            {
+                await Session.RescanSteamLibraryAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _settings.ReportSteamRestoreError(exception);
+        }
     }
 
     [RelayCommand]
@@ -260,6 +281,8 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _startupCancellation.Cancel();
+        _startupCancellation.Dispose();
         Navigation.DismissModalChain();
         _settings.SettingsSaved -= OnSettingsSaved;
         _settings.SettingsError -= OnSettingsError;
