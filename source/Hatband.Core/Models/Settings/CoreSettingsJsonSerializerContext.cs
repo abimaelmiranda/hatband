@@ -6,6 +6,7 @@ namespace Hatband.Core.Models.Settings;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(GeneralSettings))]
+[JsonSerializable(typeof(AppearanceSettings))]
 internal partial class CoreSettingsJsonSerializerContext : JsonSerializerContext
 {
 }

@@ -126,6 +126,9 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     /// <summary>Raised with the saved controller legend style, including after settings initialize.</summary>
     public event Action<ControllerDisplayMode>? ControllerDisplayModeChanged;
 
+    /// <summary>Raised with validated appearance settings after loading or editing, before saving.</summary>
+    public event Action<AppearanceSettings>? AppearanceSettingsChanged;
+
     /// <summary>Owns section, field, tab, and focus-selection state for this screen.</summary>
     public SettingsNavigationViewModel Navigation { get; }
 
@@ -349,6 +352,11 @@ public partial class SettingsScreenViewModel : ScreenViewModel
                 }
 
                 var settings = await _settingsApi.GetSectionAsync(descriptor, cancellationToken);
+                if (settings is AppearanceSettings appearanceSettings)
+                {
+                    ValidateAppearanceSettings(appearanceSettings);
+                }
+
                 settingsSection.SetSettings(settings);
                 _settingsByType.Add(descriptor.SettingsType, settings);
             }
@@ -362,6 +370,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             _dateTimeDisplayFormatter.SetTimeZone(generalSettings.TimeZoneId);
             TypographyScale.Apply(generalSettings.TextScalePercent);
             ControllerDisplayModeChanged?.Invoke(generalSettings.ControllerDisplayMode);
+            AppearanceSettingsChanged?.Invoke(GetSettings<AppearanceSettings>());
             UpdateSelectedSettingsOptions();
             IsSteamSilentModeEnabled = TryGetSettings<ConnectorsSettings>(out var connectorSettings) &&
                 connectorSettings is not null &&
@@ -496,6 +505,19 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         }
 
         var property = propertyPath[^1];
+        if (settings is AppearanceSettings appearanceSettings)
+        {
+            try
+            {
+                ValidateAppearanceField(appearanceSettings, propertyPath, value);
+            }
+            catch (InvalidOperationException exception)
+            {
+                SettingsError?.Invoke(string.Format(CultureInfo.CurrentCulture, Resources.SaveSettingsError, exception.Message));
+                return;
+            }
+        }
+
         if (propertyPath.Count == 1 && descriptor.SettingsType == typeof(GeneralSettings) &&
             property.Name == nameof(GeneralSettings.LanguageTag))
         {
@@ -537,6 +559,11 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         }
 
         property.SetValue(target, value);
+        if (settings is AppearanceSettings updatedAppearanceSettings)
+        {
+            AppearanceSettingsChanged?.Invoke(updatedAppearanceSettings);
+        }
+
         if (descriptor.SettingsType == typeof(GeneralSettings) && property.Name == nameof(GeneralSettings.TextScalePercent))
         {
             if (value is not int textScalePercent)
@@ -700,6 +727,67 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         var callback = _steamLibrarySyncCallback
             ?? throw new InvalidOperationException("The Steam library synchronization callback has not been configured.");
         return await callback(cancellationToken);
+    }
+
+    private static void ValidateAppearanceSettings(AppearanceSettings settings)
+    {
+        if (!Enum.IsDefined(settings.TitleFont))
+        {
+            throw new InvalidOperationException("The library title font must be a supported value.");
+        }
+
+        if (!Enum.IsDefined(settings.LibraryPosition))
+        {
+            throw new InvalidOperationException("The library position must be a supported value.");
+        }
+
+        if (settings.BackgroundDimmingPercent is < 0 or > 100)
+        {
+            throw new InvalidOperationException("The background dimming must be an integer percentage between 0 and 100.");
+        }
+    }
+
+    private static void ValidateAppearanceField(
+        AppearanceSettings settings,
+        IReadOnlyList<PropertyInfo> propertyPath,
+        object? value)
+    {
+        if (propertyPath.Count != 1)
+        {
+            throw new InvalidOperationException("The selected appearance field is not writable.");
+        }
+
+        ValidateAppearanceSettings(settings);
+        switch (propertyPath[0].Name)
+        {
+            case nameof(AppearanceSettings.TitleFont):
+                if (value is not LibraryTitleFont titleFont || !Enum.IsDefined(titleFont))
+                {
+                    throw new InvalidOperationException("The library title font must be a supported value.");
+                }
+
+                break;
+            case nameof(AppearanceSettings.LibraryPosition):
+                if (value is not LibraryPosition position || !Enum.IsDefined(position))
+                {
+                    throw new InvalidOperationException("The library position must be a supported value.");
+                }
+
+                break;
+            case nameof(AppearanceSettings.BackgroundDimmingPercent):
+                if (value is not int percentage || percentage is < 0 or > 100)
+                {
+                    throw new InvalidOperationException("The background dimming must be an integer percentage between 0 and 100.");
+                }
+
+                break;
+            case nameof(AppearanceSettings.ShowCoverTitles):
+            case nameof(AppearanceSettings.ShowSelectedGameTitle):
+                GetRequiredBoolean(value, propertyPath[0].Name);
+                break;
+            default:
+                throw new InvalidOperationException("The selected appearance field is not writable.");
+        }
     }
 
     private static string GetRequiredString(object? value, string propertyName) => value is string text

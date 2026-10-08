@@ -51,6 +51,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IGameLibraryRepository, GameLibraryRepository>();
         services.AddSingleton<IGameArtworkStorage>(provider => new FileSystemGameArtworkStorage(appDataFileSystem));
         services.AddSingleton<ISettingsSection, GeneralSettingsSection>();
+        services.AddSingleton<ISettingsSection, AppearanceSettingsSection>();
         services.AddSingleton<ISettingsSection, ConnectorsSettingsSection>();
         services.AddSingleton<ISettingsApi, JsonSettingsApi>();
         services.AddSingleton<ISecureSecretVault, OperatingSystemSecretVault>();
