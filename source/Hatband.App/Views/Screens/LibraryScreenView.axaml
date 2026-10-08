@@ -18,7 +18,7 @@
                    Source="{Binding Session.BackgroundImage}"
                    Opacity="{Binding Session.BackgroundImageOpacity}"
                    Stretch="UniformToFill" />
-            <Border Grid.RowSpan="3" Background="#24000000" />
+            <Border Grid.RowSpan="3" Background="{Binding BackgroundDimmingBrush}" />
             <Border Grid.RowSpan="3">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
@@ -46,43 +46,64 @@
                 </Border>
             </Grid>
 
-            <ListBox x:Name="GameCarousel"
-                     Grid.Row="2"
-                     Classes="game-carousel"
-                     ItemsSource="{Binding Session.Games}"
-                     SelectedItem="{Binding Session.SelectedGameCard, Mode=TwoWay}"
-                     SelectionMode="Single"
-                     HorizontalAlignment="Center"
-                     MaxWidth="1600"
-                     Height="280"
-                     Margin="0,0,0,60"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                     IsTabStop="True">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="models:GameCardViewModel">
-                        <Border Width="{Binding CardWidth}"
-                                Height="{Binding CardHeight}"
-                                CornerRadius="9"
-                                BorderBrush="{Binding SelectionBrush}"
-                                BorderThickness="{Binding SelectionBorderThickness}"
-                                Padding="3">
-                            <Border.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Width" Duration="0:0:0.18" />
-                                    <DoubleTransition Property="Height" Duration="0:0:0.18" />
-                                </Transitions>
-                            </Border.Transitions>
-                            <components:GameArtworkView ShowTitle="True" />
-                        </Border>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+            <Grid Grid.Row="1"
+                  Grid.RowSpan="2"
+                  Margin="0,8,0,60"
+                  IsVisible="{Binding !Session.IsLibraryEmpty}">
+                <Grid RowDefinitions="Auto,Auto"
+                      MaxWidth="1600"
+                      VerticalAlignment="{Binding LibraryAlignment}"
+                      IsVisible="{Binding !Session.IsLibraryBusy}">
+                    <TextBlock Grid.Row="{Binding TitleRow}"
+                               Text="{Binding Session.SelectedGameCard.Name}"
+                               IsVisible="{Binding ShowSelectedGameTitle}"
+                               FontSize="{DynamicResource Typography.LibraryGameTitle}"
+                               LineHeight="{DynamicResource Typography.LibraryGameTitleLineHeight}"
+                               FontFamily="{Binding TitleFontFamily}"
+                               FontWeight="{Binding TitleFontWeight}"
+                               Foreground="White"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"
+                               MaxLines="2"
+                               Margin="24,4,24,4" />
+                    <ListBox x:Name="GameCarousel"
+                             Grid.Row="{Binding CarouselRow}"
+                             Classes="game-carousel"
+                             ItemsSource="{Binding Session.Games}"
+                             SelectedItem="{Binding Session.SelectedGameCard, Mode=TwoWay}"
+                             SelectionMode="Single"
+                             HorizontalAlignment="Center"
+                             MaxWidth="1600"
+                             Height="280"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                             IsTabStop="True">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:GameCardViewModel">
+                                <Border Width="{Binding CardWidth}"
+                                        Height="{Binding CardHeight}"
+                                        CornerRadius="9"
+                                        BorderBrush="{Binding SelectionBrush}"
+                                        BorderThickness="{Binding SelectionBorderThickness}"
+                                        Padding="3">
+                                    <Border.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Property="Width" Duration="0:0:0.18" />
+                                            <DoubleTransition Property="Height" Duration="0:0:0.18" />
+                                        </Transitions>
+                                    </Border.Transitions>
+                                    <components:GameArtworkView ShowTitle="{Binding $parent[navigation:FullScreenView].((vm:LibraryScreenViewModel)DataContext).ShowCoverTitles}" />
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Grid>
 
             <Grid Grid.Row="1"
                   Grid.RowSpan="3"

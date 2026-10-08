@@ -485,7 +485,7 @@
     <value>Appearance</value>
   </data>
   <data name="AppearanceDescription" xml:space="preserve">
-    <value>Themes, background artwork, and library presentation</value>
+    <value>Customize covers, background dimming, and the selected game title.</value>
   </data>
   <data name="Controls" xml:space="preserve">
     <value>Controls</value>
@@ -949,5 +949,44 @@
   <data name="GameLaunchTimedOut" xml:space="preserve"><value>The game did not start within the expected time.</value></data>
   <data name="GameLaunchNotObserved" xml:space="preserve">
     <value>The runner finished, but the game process was not detected. Check the launch logs.</value>
+  </data>
+  <data name="LibraryPositionLabel" xml:space="preserve">
+    <value>Library position</value>
+  </data>
+  <data name="LibraryPositionTop" xml:space="preserve">
+    <value>Top</value>
+  </data>
+  <data name="LibraryPositionCenter" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="LibraryPositionBottom" xml:space="preserve">
+    <value>Bottom</value>
+  </data>
+  <data name="ShowCoverTitles" xml:space="preserve">
+    <value>Show names on covers</value>
+  </data>
+  <data name="BackgroundDimmingPercent" xml:space="preserve">
+    <value>Background dimming (%)</value>
+  </data>
+  <data name="ShowSelectedGameTitle" xml:space="preserve">
+    <value>Show title in library</value>
+  </data>
+  <data name="BackgroundDimmingHint" xml:space="preserve">
+    <value>At 0%, uniform dimming is removed. The bottom gradient remains.</value>
+  </data>
+  <data name="LibraryTitleFontLabel" xml:space="preserve">
+    <value>Title font</value>
+  </data>
+  <data name="LibraryTitleFontCinema" xml:space="preserve">
+    <value>Cinema — Bebas Neue</value>
+  </data>
+  <data name="LibraryTitleFontFuturistic" xml:space="preserve">
+    <value>Futuristic — Rajdhani</value>
+  </data>
+  <data name="LibraryTitleFontEditorial" xml:space="preserve">
+    <value>Editorial — Spectral</value>
+  </data>
+  <data name="LibraryTitleFontLight" xml:space="preserve">
+    <value>Light — Lato Light</value>
   </data>
 </root>

@@ -485,7 +485,7 @@
     <value>Aparência</value>
   </data>
   <data name="AppearanceDescription" xml:space="preserve">
-    <value>Temas, arte de fundo e apresentação da biblioteca</value>
+    <value>Personalize as capas, o escurecimento do fundo e o título do jogo selecionado.</value>
   </data>
   <data name="Controls" xml:space="preserve">
     <value>Controles</value>
@@ -949,5 +949,44 @@
   <data name="GameLaunchTimedOut" xml:space="preserve"><value>O jogo não iniciou dentro do tempo esperado.</value></data>
   <data name="GameLaunchNotObserved" xml:space="preserve">
     <value>O runner terminou, mas o processo do jogo não foi detectado. Consulte os logs de execução.</value>
+  </data>
+  <data name="LibraryPositionLabel" xml:space="preserve">
+    <value>Posição dos jogos</value>
+  </data>
+  <data name="LibraryPositionTop" xml:space="preserve">
+    <value>Topo</value>
+  </data>
+  <data name="LibraryPositionCenter" xml:space="preserve">
+    <value>Meio</value>
+  </data>
+  <data name="LibraryPositionBottom" xml:space="preserve">
+    <value>Embaixo</value>
+  </data>
+  <data name="ShowCoverTitles" xml:space="preserve">
+    <value>Mostrar nomes nas capas</value>
+  </data>
+  <data name="BackgroundDimmingPercent" xml:space="preserve">
+    <value>Escurecimento do fundo (%)</value>
+  </data>
+  <data name="ShowSelectedGameTitle" xml:space="preserve">
+    <value>Mostrar título na biblioteca</value>
+  </data>
+  <data name="BackgroundDimmingHint" xml:space="preserve">
+    <value>Em 0%, o escurecimento uniforme é removido. O degradê inferior permanece.</value>
+  </data>
+  <data name="LibraryTitleFontLabel" xml:space="preserve">
+    <value>Fonte do título</value>
+  </data>
+  <data name="LibraryTitleFontCinema" xml:space="preserve">
+    <value>Cinema — Bebas Neue</value>
+  </data>
+  <data name="LibraryTitleFontFuturistic" xml:space="preserve">
+    <value>Futurista — Rajdhani</value>
+  </data>
+  <data name="LibraryTitleFontEditorial" xml:space="preserve">
+    <value>Editorial — Spectral</value>
+  </data>
+  <data name="LibraryTitleFontLight" xml:space="preserve">
+    <value>Leve — Lato Light</value>
   </data>
 </root>

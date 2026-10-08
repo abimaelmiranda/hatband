@@ -47,6 +47,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _settings.SetCanRefreshMetadata(Session.CanRefreshMetadata);
         _settings.SettingsSaved += OnSettingsSaved;
         _settings.SettingsError += OnSettingsError;
+        _settings.AppearanceSettingsChanged += OnAppearanceSettingsChanged;
         Session.PropertyChanged += OnSessionPropertyChanged;
         Session.GameVisibilityChanged += OnGameVisibilityChanged;
         _library.GameOpened += OpenGame;
@@ -248,6 +249,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Session.StatusMessage = Resources.SettingsSaved;
     }
 
+    private void OnAppearanceSettingsChanged(AppearanceSettings settings)
+    {
+        _library.ApplyAppearance(settings);
+    }
+
     private void OnSettingsError(string message)
     {
         Session.StatusMessage = message;
@@ -286,6 +292,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Navigation.DismissModalChain();
         _settings.SettingsSaved -= OnSettingsSaved;
         _settings.SettingsError -= OnSettingsError;
+        _settings.AppearanceSettingsChanged -= OnAppearanceSettingsChanged;
         Session.PropertyChanged -= OnSessionPropertyChanged;
         Session.GameVisibilityChanged -= OnGameVisibilityChanged;
         _library.GameOpened -= OpenGame;

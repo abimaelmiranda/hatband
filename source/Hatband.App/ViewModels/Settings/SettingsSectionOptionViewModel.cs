@@ -8,6 +8,7 @@ namespace Hatband.App.ViewModels.Settings;
 
 public partial class SettingsSectionOptionViewModel : ObservableObject
 {
+    public const string AppearanceSectionId = "hatband.appearance";
     public const string GeneralSectionId = "hatband.general";
     public const string CompatibilitySectionId = "hatband.compatibility-tools";
     public const string ConnectorsSectionId = "hatband.connectors";
@@ -20,12 +21,14 @@ public partial class SettingsSectionOptionViewModel : ObservableObject
         Title = descriptor.Id switch
         {
             GeneralSectionId => Resources.General,
+            AppearanceSectionId => Resources.Appearance,
             ConnectorsSectionId => Resources.ConnectorsFallback,
             _ => descriptor.DisplayName
         };
         IconGlyph = descriptor.Id switch
         {
             GeneralSectionId => FluentIconGlyph.Settings,
+            AppearanceSectionId => FluentIconGlyph.Image,
             ConnectorsSectionId => FluentIconGlyph.ArrowSwap,
             _ => FluentIconGlyph.Toolbox
         };

@@ -485,7 +485,7 @@
     <value>Apariencia</value>
   </data>
   <data name="AppearanceDescription" xml:space="preserve">
-    <value>Temas, fondos y presentación de la biblioteca</value>
+    <value>Personaliza las portadas, el oscurecimiento del fondo y el título del juego seleccionado.</value>
   </data>
   <data name="Controls" xml:space="preserve">
     <value>Controles</value>
@@ -949,5 +949,44 @@
   <data name="GameLaunchTimedOut" xml:space="preserve"><value>El juego no se inició dentro del tiempo esperado.</value></data>
   <data name="GameLaunchNotObserved" xml:space="preserve">
     <value>El runner terminó, pero no se detectó el proceso del juego. Consulta los registros de ejecución.</value>
+  </data>
+  <data name="LibraryPositionLabel" xml:space="preserve">
+    <value>Posición de los juegos</value>
+  </data>
+  <data name="LibraryPositionTop" xml:space="preserve">
+    <value>Arriba</value>
+  </data>
+  <data name="LibraryPositionCenter" xml:space="preserve">
+    <value>Centro</value>
+  </data>
+  <data name="LibraryPositionBottom" xml:space="preserve">
+    <value>Abajo</value>
+  </data>
+  <data name="ShowCoverTitles" xml:space="preserve">
+    <value>Mostrar nombres en las portadas</value>
+  </data>
+  <data name="BackgroundDimmingPercent" xml:space="preserve">
+    <value>Oscurecimiento del fondo (%)</value>
+  </data>
+  <data name="ShowSelectedGameTitle" xml:space="preserve">
+    <value>Mostrar título en la biblioteca</value>
+  </data>
+  <data name="BackgroundDimmingHint" xml:space="preserve">
+    <value>Al 0%, se elimina el oscurecimiento uniforme. El degradado inferior se mantiene.</value>
+  </data>
+  <data name="LibraryTitleFontLabel" xml:space="preserve">
+    <value>Fuente del título</value>
+  </data>
+  <data name="LibraryTitleFontCinema" xml:space="preserve">
+    <value>Cine — Bebas Neue</value>
+  </data>
+  <data name="LibraryTitleFontFuturistic" xml:space="preserve">
+    <value>Futurista — Rajdhani</value>
+  </data>
+  <data name="LibraryTitleFontEditorial" xml:space="preserve">
+    <value>Editorial — Spectral</value>
+  </data>
+  <data name="LibraryTitleFontLight" xml:space="preserve">
+    <value>Ligera — Lato Light</value>
   </data>
 </root>

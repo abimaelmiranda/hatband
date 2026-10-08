@@ -8,7 +8,9 @@
         <Grid>
             <Border Background="{Binding AccentBrush}" />
             <Image Source="{Binding CoverImage}" Stretch="UniformToFill" />
-            <Border VerticalAlignment="Bottom" Padding="10,26,10,10">
+            <Border VerticalAlignment="Bottom" Padding="10,26,10,10"
+                    x:CompileBindings="False"
+                    IsVisible="{Binding ShowTitle, ElementName=Root}">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                         <GradientStop Color="#00101820" Offset="0" />
@@ -16,8 +18,6 @@
                     </LinearGradientBrush>
                 </Border.Background>
                 <TextBlock Text="{Binding Name}"
-                           x:CompileBindings="False"
-                           IsVisible="{Binding ShowTitle, ElementName=Root}"
                            FontSize="{DynamicResource Typography.Caption}"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"

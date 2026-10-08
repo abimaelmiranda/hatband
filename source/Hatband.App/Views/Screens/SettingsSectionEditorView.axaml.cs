@@ -9,11 +9,14 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Hatband.App.Services;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.ViewModels.Settings.Fields;
 using Hatband.App.Views.Components;
 using Hatband.Core.Models.Settings;
 using AppResources = Hatband.App.Localization.Resources;
+using LayoutHorizontalAlignment = Avalonia.Layout.HorizontalAlignment;
+using LayoutVerticalAlignment = Avalonia.Layout.VerticalAlignment;
 
 namespace Hatband.App.Views.Screens;
 
@@ -287,6 +290,7 @@ public partial class SettingsSectionEditorView : UserControl
             Text = descriptor.Id switch
             {
                 SettingsSectionOptionViewModel.GeneralSectionId => AppResources.General,
+                SettingsSectionOptionViewModel.AppearanceSectionId => AppResources.Appearance,
                 SettingsSectionOptionViewModel.ConnectorsSectionId => AppResources.ConnectorsFallback,
                 _ => descriptor.DisplayName
             },
@@ -294,11 +298,14 @@ public partial class SettingsSectionEditorView : UserControl
             FontWeight = FontWeight.SemiBold
         });
         SettingsFieldsPanel.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#39454F")) });
-        if (!string.IsNullOrWhiteSpace(descriptor.Description))
+        var sectionDescription = descriptor.Id == SettingsSectionOptionViewModel.AppearanceSectionId
+            ? AppResources.AppearanceDescription
+            : descriptor.Description;
+        if (!string.IsNullOrWhiteSpace(sectionDescription))
         {
             SettingsFieldsPanel.Children.Add(new TextBlock
             {
-                Text = descriptor.Description,
+                Text = sectionDescription,
                 Foreground = new SolidColorBrush(Color.Parse("#AEBBC5")),
                 Classes = { "typography-caption" },
                 TextWrapping = TextWrapping.Wrap
@@ -541,6 +548,48 @@ public partial class SettingsSectionEditorView : UserControl
                     },
                     supportsRecycling: false);
             }
+            else if (type == typeof(LibraryPosition))
+            {
+                comboBox.ItemTemplate = new FuncDataTemplate<LibraryPosition>(
+                    (position, _) => new TextBlock
+                    {
+                        Text = position switch
+                        {
+                            LibraryPosition.Top => AppResources.LibraryPositionTop,
+                            LibraryPosition.Center => AppResources.LibraryPositionCenter,
+                            LibraryPosition.Bottom => AppResources.LibraryPositionBottom,
+                            _ => throw new InvalidOperationException($"Unknown library position '{position}'.")
+                        }
+                    },
+                    supportsRecycling: false);
+            }
+            else if (type == typeof(LibraryTitleFont))
+            {
+                comboBox.Height = 44;
+                comboBox.Width = 300;
+                comboBox.HorizontalAlignment = LayoutHorizontalAlignment.Left;
+                comboBox.ItemTemplate = new FuncDataTemplate<LibraryTitleFont>(
+                    (font, _) => new TextBlock
+                    {
+                        Text = font switch
+                        {
+                            LibraryTitleFont.Cinema => AppResources.LibraryTitleFontCinema,
+                            LibraryTitleFont.Futuristic => AppResources.LibraryTitleFontFuturistic,
+                            LibraryTitleFont.Editorial => AppResources.LibraryTitleFontEditorial,
+                            LibraryTitleFont.Light => AppResources.LibraryTitleFontLight,
+                            _ => throw new InvalidOperationException($"Unknown library title font '{font}'.")
+                        },
+                        FontFamily = LibraryTitleTypography.GetFontFamily(font),
+                        FontWeight = LibraryTitleTypography.GetFontWeight(font),
+                        Height = 28,
+                        FontSize = 16,
+                        LineHeight = 24,
+                        VerticalAlignment = LayoutVerticalAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                        TextWrapping = TextWrapping.NoWrap
+                    },
+                    supportsRecycling: false);
+            }
 
             comboBox.SelectionCommitted += (_, _) => SaveValue(field.PropertyPath, comboBox.SelectedItem);
             return comboBox;
@@ -655,7 +704,17 @@ public partial class SettingsSectionEditorView : UserControl
                 nameof(GeneralSettings.ControllerDisplayMode) => AppResources.ControllerDisplayMode,
                 _ => SettingsFieldConvention.GetDisplayName(property)
             }
-            : SettingsFieldConvention.GetDisplayName(property);
+            : property.DeclaringType == typeof(AppearanceSettings)
+                ? property.Name switch
+                {
+                    nameof(AppearanceSettings.LibraryPosition) => AppResources.LibraryPositionLabel,
+                    nameof(AppearanceSettings.ShowCoverTitles) => AppResources.ShowCoverTitles,
+                    nameof(AppearanceSettings.BackgroundDimmingPercent) => AppResources.BackgroundDimmingPercent,
+                    nameof(AppearanceSettings.ShowSelectedGameTitle) => AppResources.ShowSelectedGameTitle,
+                    nameof(AppearanceSettings.TitleFont) => AppResources.LibraryTitleFontLabel,
+                    _ => SettingsFieldConvention.GetDisplayName(property)
+                }
+                : SettingsFieldConvention.GetDisplayName(property);
         if (Section?.IsConnectorsSection == true && editor is CheckBox connectorCheckBox)
         {
             connectorCheckBox.Content = fieldLabel;
@@ -689,6 +748,26 @@ public partial class SettingsSectionEditorView : UserControl
             };
         }
 
+        if (property.DeclaringType == typeof(AppearanceSettings) &&
+            property.Name == nameof(AppearanceSettings.BackgroundDimmingPercent))
+        {
+            editorContent = new StackPanel
+            {
+                Spacing = 4,
+                Children =
+                {
+                    editor,
+                    new TextBlock
+                    {
+                        Text = AppResources.BackgroundDimmingHint,
+                        Foreground = new SolidColorBrush(Color.Parse("#9EABB5")),
+                        Classes = { "typography-micro" },
+                        TextWrapping = TextWrapping.Wrap
+                    }
+                }
+            };
+        }
+
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("170,*"),
@@ -697,6 +776,7 @@ public partial class SettingsSectionEditorView : UserControl
         grid.Children.Add(new TextBlock
         {
             Text = fieldLabel,
+            TextWrapping = TextWrapping.Wrap,
             Classes = { "typography-body-small" },
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
         });
