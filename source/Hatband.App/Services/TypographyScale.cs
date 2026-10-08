@@ -14,6 +14,8 @@ public static class TypographyScale
     public const string SectionTitle = "Typography.SectionTitle";
     public const string ScreenTitle = "Typography.ScreenTitle";
     public const string GameTitle = "Typography.GameTitle";
+    public const string LibraryGameTitle = "Typography.LibraryGameTitle";
+    public const string LibraryGameTitleLineHeight = "Typography.LibraryGameTitleLineHeight";
     public const string Display = "Typography.Display";
 
     public static void Apply(int scalePercent)
@@ -34,6 +36,8 @@ public static class TypographyScale
         resources[SectionTitle] = 20 * scale;
         resources[ScreenTitle] = 24 * scale;
         resources[GameTitle] = 30 * scale;
+        resources[LibraryGameTitle] = 40 * scale;
+        resources[LibraryGameTitleLineHeight] = 48 * scale;
         resources[Display] = 32 * scale;
     }
 }
