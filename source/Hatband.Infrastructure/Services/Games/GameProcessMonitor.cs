@@ -5,20 +5,11 @@ using System.Runtime.Versioning;
 using System.Security;
 using Hatband.Core.Enums.Games;
 using Hatband.Core.Models;
-using Hatband.Infrastructure.Services.CompatibilityTools;
 
 namespace Hatband.Infrastructure.Services.Games;
 
 public sealed class GameProcessMonitor : IGameProcessMonitor
 {
-    private readonly ProtonExecutionService _protonExecutionService;
-
-    public GameProcessMonitor(ProtonExecutionService protonExecutionService)
-    {
-        ArgumentNullException.ThrowIfNull(protonExecutionService);
-        _protonExecutionService = protonExecutionService;
-    }
-
     private static readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan _startTimeout = TimeSpan.FromMinutes(10);
     private const int MissingPollsBeforeStop = 3;
@@ -35,82 +26,79 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
         var hasStarted = false;
         var consecutiveMissingPolls = 0;
         var hasReportedStartTimeout = false;
-        var protonProcess = target.ProtonProcess;
-        if (protonProcess is not null)
+        var runtimeProcess = target.RuntimeProcess;
+        if (runtimeProcess is not null)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(protonProcess.ExecutablePath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(runtimeProcess.ExecutablePath);
         }
 
-        try
+        while (true)
         {
-            while (true)
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (runtimeProcess is not null && runtimeProcess.Completion.IsCompleted)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (protonProcess is not null)
+                var completionFailed = false;
+                var completedExitCode = 0;
+                try
                 {
-                    var completedExitCode = _protonExecutionService.GetCompletedExitCode(protonProcess.GameId);
-                    if (completedExitCode is not null)
-                    {
-                        if (completedExitCode != 0)
-                        {
-                            yield return GameProcessMonitorEvent.Failed;
-                        }
-                        else if (!hasStarted)
-                        {
-                            yield return GameProcessMonitorEvent.StartNotObserved;
-                        }
-                        else
-                        {
-                            yield return GameProcessMonitorEvent.Stopped;
-                        }
-
-                        yield break;
-                    }
+                    completedExitCode = await runtimeProcess.Completion.ConfigureAwait(false);
+                }
+                catch
+                {
+                    completionFailed = true;
                 }
 
-                var processIsRunning = IsGameProcessRunning(installDirectory, protonProcess);
-                if (processIsRunning)
+                if (completionFailed || completedExitCode != 0)
                 {
-                    consecutiveMissingPolls = 0;
-                    if (!hasStarted)
-                    {
-                        hasStarted = true;
-                        yield return GameProcessMonitorEvent.Started;
-                    }
+                    yield return GameProcessMonitorEvent.Failed;
                 }
-                else if (hasStarted && protonProcess is null)
+                else if (!hasStarted)
                 {
-                    consecutiveMissingPolls++;
-                    if (consecutiveMissingPolls >= MissingPollsBeforeStop)
-                    {
-                        yield return GameProcessMonitorEvent.Stopped;
-                        yield break;
-                    }
+                    yield return GameProcessMonitorEvent.StartNotObserved;
                 }
-                else if (!hasStarted && !hasReportedStartTimeout && startedAt.Elapsed >= _startTimeout)
+                else
                 {
-                    hasReportedStartTimeout = true;
-                    yield return GameProcessMonitorEvent.StartTimedOut;
-                    if (protonProcess is null)
-                    {
-                        yield break;
-                    }
+                    yield return GameProcessMonitorEvent.Stopped;
                 }
 
-                await Task.Delay(_pollInterval, cancellationToken).ConfigureAwait(false);
+                yield break;
             }
-        }
-        finally
-        {
-            if (protonProcess is not null)
+
+            var processIsRunning = IsGameProcessRunning(installDirectory, runtimeProcess);
+            if (processIsRunning)
             {
-                _protonExecutionService.ForgetLaunch(protonProcess.GameId);
+                consecutiveMissingPolls = 0;
+                if (!hasStarted)
+                {
+                    hasStarted = true;
+                    yield return GameProcessMonitorEvent.Started;
+                }
             }
+            else if (hasStarted && runtimeProcess is null)
+            {
+                consecutiveMissingPolls++;
+                if (consecutiveMissingPolls >= MissingPollsBeforeStop)
+                {
+                    yield return GameProcessMonitorEvent.Stopped;
+                    yield break;
+                }
+            }
+            else if (!hasStarted && !hasReportedStartTimeout && startedAt.Elapsed >= _startTimeout)
+            {
+                hasReportedStartTimeout = true;
+                yield return GameProcessMonitorEvent.StartTimedOut;
+                if (runtimeProcess is null)
+                {
+                    yield break;
+                }
+            }
+
+            await Task.Delay(_pollInterval, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private static bool IsGameProcessRunning(string installDirectory, ProtonProcessWatchTarget? protonProcess)
+    private static bool IsGameProcessRunning(string installDirectory, GameRuntimeProcessWatchTarget? runtimeProcess)
     {
         var pathComparison = OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
@@ -126,9 +114,9 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
             {
                 try
                 {
-                    if (protonProcess is not null && OperatingSystem.IsLinux())
+                    if (runtimeProcess is not null && OperatingSystem.IsLinux())
                     {
-                        if (IsProtonGameProcess(process, protonProcess))
+                        if (IsRuntimeGameProcess(process, runtimeProcess))
                         {
                             return true;
                         }
@@ -173,7 +161,7 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
     }
 
     [SupportedOSPlatform("linux")]
-    private static bool IsProtonGameProcess(Process process, ProtonProcessWatchTarget target)
+    private static bool IsRuntimeGameProcess(Process process, GameRuntimeProcessWatchTarget target)
     {
         var environmentPath = $"/proc/{process.Id}/environ";
         if (!LinuxProcessFileReader.TryReadAllText(environmentPath, out var environmentContent))

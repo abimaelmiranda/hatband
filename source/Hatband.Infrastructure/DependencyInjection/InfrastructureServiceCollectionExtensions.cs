@@ -61,10 +61,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICompatibilityToolDiscoveryService, CompatibilityToolDiscoveryService>();
         services.AddSingleton<ICompatibilityToolInstallationService, CompatibilityToolInstallationService>();
         services.AddSingleton<UmuDependencyService>();
-        services.AddSingleton<ProtonExecutionService>();
+        services.AddSingleton<IGameCompatibilityRuntime, UmuGameRuntime>();
         services.AddSingleton<IGameManagementService, GameManagementService>();
-        services.AddKeyedSingleton<IGameManagementService, ManualGameManagementProvider>(GameSourceId.Manual);
-        services.AddKeyedSingleton<IGameManagementService, SteamGameManagementProvider>(GameSourceId.Steam);
+        services.AddSingleton<IGameManagementProvider, ManualGameManagementProvider>();
+        services.AddSingleton<IGameManagementProvider, SteamGameManagementProvider>();
         services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
@@ -75,6 +75,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISteamTokenRefresher, SteamKitTokenRefresher>();
         services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
+        services.AddSingleton<SteamGameLaunchOptionsProvider>();
 
         services.Scan(scan => scan
             .FromAssemblyOf<IntegrationAssemblyMarker>()

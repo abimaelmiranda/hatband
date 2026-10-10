@@ -1,41 +1,32 @@
+using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Abstractions.Host;
-using Hatband.Core.Enums.Host;
-using Hatband.Infrastructure.Services.CompatibilityTools;
+using Hatband.Core.Enums.Games;
+using Hatband.Core.Enums.Stores;
+using Hatband.Core.Models;
+using Hatband.Core.Models.Games;
 
 namespace Hatband.Infrastructure.Services.Games;
 
-public sealed class ManualGameManagementProvider : IGameManagementService
+public sealed class ManualGameManagementProvider : IGameManagementProvider
 {
     private readonly IHostApplicationLauncher _hostApplicationLauncher;
-    private readonly IHostSystemInfo _hostSystemInfo;
-    private readonly ProtonExecutionService _protonExecutionService;
 
-    public ManualGameManagementProvider(
-        IHostApplicationLauncher hostApplicationLauncher,
-        IHostSystemInfo hostSystemInfo,
-        ProtonExecutionService protonExecutionService)
+    public ManualGameManagementProvider(IHostApplicationLauncher hostApplicationLauncher)
     {
         ArgumentNullException.ThrowIfNull(hostApplicationLauncher);
-        ArgumentNullException.ThrowIfNull(hostSystemInfo);
-        ArgumentNullException.ThrowIfNull(protonExecutionService);
         _hostApplicationLauncher = hostApplicationLauncher;
-        _hostSystemInfo = hostSystemInfo;
-        _protonExecutionService = protonExecutionService;
     }
 
-    public Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(
-        Game game,
-        CancellationToken cancellationToken = default)
+    public GameSourceId SourceId => GameSourceId.Manual;
+
+    public Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult<IReadOnlyList<GameInstallLocation>>([]);
     }
 
-    public Task<GameManagementResult> InstallAsync(
-        Game game,
-        GameInstallLocation? location = null,
-        CancellationToken cancellationToken = default)
+    public Task<GameManagementResult> InstallAsync(Game game, GameInstallLocation? location = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,93 +40,87 @@ public sealed class ManualGameManagementProvider : IGameManagementService
         return Task.FromResult(GameManagementResult.Unsupported);
     }
 
-    public async Task<GameManagementResult> LaunchAsync(Game game, CancellationToken cancellationToken = default)
+    public async Task<GameLaunchResult> LaunchOriginalAsync(Game game, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
         cancellationToken.ThrowIfCancellationRequested();
-
-        var primaryAction = game.GameActions.FirstOrDefault(action => action.IsPrimary);
-        if (primaryAction is null)
+        var action = GetPrimaryAction(game);
+        if (action.Type == GameActionType.Uri)
         {
-            return GameManagementResult.Unsupported;
-        }
-
-        if (primaryAction.Type == GameActionType.Uri)
-        {
-            if (!Uri.TryCreate(primaryAction.Target, UriKind.Absolute, out var uri))
+            if (!Uri.TryCreate(action.Target, UriKind.Absolute, out var uri))
             {
-                return GameManagementResult.Unavailable;
+                return new GameLaunchResult(GameManagementResult.Unavailable);
             }
 
             var opened = await _hostApplicationLauncher.TryOpenUriAsync(uri, cancellationToken);
-            return opened ? GameManagementResult.ProtocolOpened : GameManagementResult.Unavailable;
-        }
-
-        if (primaryAction.Type != GameActionType.Executable)
-        {
-            return GameManagementResult.Unsupported;
-        }
-
-        if (_hostSystemInfo.Platform == HostOperatingSystem.Linux && game.GetCompatibilityTool() is not null)
-        {
-            var protonStarted = await _protonExecutionService.LaunchAsync(
-                game,
-                primaryAction.Target,
-                primaryAction.Arguments,
-                primaryAction.WorkingDirectory,
-                cancellationToken);
-            return protonStarted ? GameManagementResult.GameActionStarted : GameManagementResult.Unavailable;
+            return new GameLaunchResult(opened ? GameManagementResult.ProtocolOpened : GameManagementResult.Unavailable);
         }
 
         var started = await _hostApplicationLauncher.TryLaunchApplicationAsync(
-            primaryAction.Target,
-            primaryAction.Arguments,
-            primaryAction.WorkingDirectory,
+            action.Target,
+            action.Arguments,
+            action.WorkingDirectory,
             cancellationToken);
+        if (!started)
+        {
+            return new GameLaunchResult(GameManagementResult.Unavailable);
+        }
 
-        return started ? GameManagementResult.GameActionStarted : GameManagementResult.Unavailable;
+        var installDirectory = GetInstallDirectory(game, action.Target);
+        var watchTarget = installDirectory is null ? null : new GameProcessWatchTarget(installDirectory);
+        return new GameLaunchResult(GameManagementResult.GameActionStarted, watchTarget);
     }
 
-    public GameProcessWatchTarget? GetProcessWatchTarget(Game game)
+    public Task<GameLaunchCommand> PrepareCustomLaunchAsync(Game game, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
-
-        if (_hostSystemInfo.Platform == HostOperatingSystem.Linux && game.GetCompatibilityTool() is not null)
+        cancellationToken.ThrowIfCancellationRequested();
+        var action = GetPrimaryAction(game);
+        if (action.Type != GameActionType.Executable)
         {
-            var primaryAction = game.GameActions.FirstOrDefault(action => action.IsPrimary);
-            if (primaryAction?.Type != GameActionType.Executable)
-            {
-                return null;
-            }
-
-            var executablePath = primaryAction.Target;
-            if (!Path.IsPathFullyQualified(executablePath) || !File.Exists(executablePath))
-            {
-                return null;
-            }
-
-            var protonInstallDirectory = game.InstallationInfo?.InstallDirectory;
-            if (string.IsNullOrWhiteSpace(protonInstallDirectory) || !Directory.Exists(protonInstallDirectory))
-            {
-                protonInstallDirectory = Path.GetDirectoryName(executablePath);
-            }
-
-            if (string.IsNullOrWhiteSpace(protonInstallDirectory))
-            {
-                return null;
-            }
-
-            return new GameProcessWatchTarget(
-                protonInstallDirectory,
-                new ProtonProcessWatchTarget(game.Id, executablePath));
+            throw new InvalidOperationException("Custom Proton requires an executable launch action.");
         }
 
+        ValidateExecutable(action.Target);
+        var layer = game.CompatibilityLayer
+            ?? throw new InvalidOperationException($"Custom compatibility is not configured for '{game.Name}'.");
+        return Task.FromResult(new GameLaunchCommand(
+            action.Target,
+            action.Arguments,
+            layer.WorkingDirectory ?? action.WorkingDirectory ?? Path.GetDirectoryName(action.Target),
+            new Dictionary<string, string>(StringComparer.Ordinal)));
+    }
+
+    public Task<IReadOnlyList<GameLaunchOption>> GetLaunchOptionsAsync(Game game, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyList<GameLaunchOption>>([]);
+    }
+
+    private static GameAction GetPrimaryAction(Game game) =>
+        game.GameActions.FirstOrDefault(action => action.IsPrimary)
+        ?? throw new InvalidOperationException($"No primary launch action is configured for '{game.Name}'.");
+
+    private static string? GetInstallDirectory(Game game, string executablePath)
+    {
         var installDirectory = game.InstallationInfo?.InstallDirectory;
-        if (string.IsNullOrWhiteSpace(installDirectory) || !Directory.Exists(installDirectory))
+        if (!string.IsNullOrWhiteSpace(installDirectory) && Directory.Exists(installDirectory))
         {
-            return null;
+            return installDirectory;
         }
 
-        return new GameProcessWatchTarget(installDirectory);
+        var executableDirectory = Path.GetDirectoryName(executablePath);
+        return !string.IsNullOrWhiteSpace(executableDirectory) && Directory.Exists(executableDirectory)
+            ? executableDirectory
+            : null;
+    }
+
+    private static void ValidateExecutable(string executablePath)
+    {
+        if (!Path.IsPathFullyQualified(executablePath) || !File.Exists(executablePath))
+        {
+            throw new FileNotFoundException("The configured game executable must be an existing absolute path.", executablePath);
+        }
     }
 }

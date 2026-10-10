@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace Hatband.Infrastructure.Services.CompatibilityTools;
 
 /// <summary>
-/// Locates UMU or installs the pinned Hatband-managed copy on first use.
+/// Installs and resolves Hatband's pinned UMU copy on first use.
 /// </summary>
 public sealed class UmuDependencyService
 {
@@ -28,6 +28,7 @@ public sealed class UmuDependencyService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<UmuDependencyService> _logger;
     private readonly SemaphoreSlim _installationLock = new(1, 1);
+    private bool _initialized;
 
     public UmuDependencyService(
         IAppDataFileSystem appDataFileSystem,
@@ -55,19 +56,20 @@ public sealed class UmuDependencyService
             throw new PlatformNotSupportedException("UMU can only be resolved on Linux.");
         }
 
-        var externalExecutable = FindExternalUmuExecutable();
-        if (externalExecutable is not null)
-        {
-            return externalExecutable;
-        }
-
         await _installationLock.WaitAsync(cancellationToken);
         try
         {
             var privateExecutable = Path.Combine(_appDataFileSystem.GetPath(UmuDirectory), "umu-run");
+            if (_initialized)
+            {
+                return privateExecutable;
+            }
+
             if (IsExecutable(privateExecutable))
             {
                 await EnsurePythonVersionAsync(cancellationToken);
+                ApplySteamClientInstallPathPatch(privateExecutable);
+                _initialized = true;
                 return privateExecutable;
             }
 
@@ -88,42 +90,13 @@ public sealed class UmuDependencyService
                 throw new InvalidDataException("The UMU package was installed, but the umu-run executable is missing or not executable.");
             }
 
+            _initialized = true;
             return privateExecutable;
         }
         finally
         {
             _installationLock.Release();
         }
-    }
-
-    [SupportedOSPlatform("linux")]
-    private string? FindExternalUmuExecutable()
-    {
-        var candidates = new List<string>();
-        var pathValue = Environment.GetEnvironmentVariable("PATH");
-        if (!string.IsNullOrWhiteSpace(pathValue))
-        {
-            candidates.AddRange(pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-                .Select(directory => Path.Combine(directory, "umu-run")));
-        }
-
-        candidates.Add(Path.Combine(_hostSystemInfo.UserProfileDirectory, ".local", "bin", "umu-run"));
-        foreach (var candidate in candidates.Distinct(StringComparer.Ordinal))
-        {
-            if (!File.Exists(candidate))
-            {
-                continue;
-            }
-
-            if (!IsExecutable(candidate))
-            {
-                throw new InvalidOperationException($"The UMU executable at '{candidate}' does not have execute permissions.");
-            }
-
-            return Path.GetFullPath(candidate);
-        }
-
-        return null;
     }
 
     private async Task EnsurePythonVersionAsync(CancellationToken cancellationToken)
@@ -197,6 +170,8 @@ public sealed class UmuDependencyService
 
             var executablePath = FindUmuExecutable(stagingDirectory);
             SetExecutablePermissions(executablePath);
+            ApplySteamClientInstallPathPatch(executablePath);
+
             var parentDirectory = Path.GetDirectoryName(targetDirectory)
                 ?? throw new InvalidOperationException("The UMU installation directory must have a parent directory.");
             Directory.CreateDirectory(parentDirectory);
@@ -287,6 +262,16 @@ public sealed class UmuDependencyService
     {
         var mode = File.GetUnixFileMode(executablePath);
         File.SetUnixFileMode(executablePath, mode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+    }
+
+    private void ApplySteamClientInstallPathPatch(string executablePath)
+    {
+        if (UmuZipappCompatibilityPatcher.ApplySteamClientInstallPathPatch(executablePath))
+        {
+            _logger.LogInformation(
+                "Applied the Steam client path compatibility patch to UMU {UmuVersion}.",
+                UmuVersion);
+        }
     }
 
     [SupportedOSPlatform("linux")]
