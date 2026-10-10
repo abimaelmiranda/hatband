@@ -53,7 +53,6 @@ public partial class App : Application
             services.AddSingleton<LibraryScreenViewModel>();
             services.AddSingleton<GameDetailsScreenViewModel>();
             services.AddTransient<CompatibilityEditorViewModel>();
-            services.AddSingleton<CompatibilitySettingsScreenViewModel>();
             services.AddSingleton<AddGameViewModel>();
             services.AddSingleton<GameMetadataEditorViewModel>();
             services.AddSingleton<MainWindowViewModel>();

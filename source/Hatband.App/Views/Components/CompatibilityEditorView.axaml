@@ -16,62 +16,85 @@
         <StackPanel Spacing="6">
             <TextBlock Text="{x:Static lang:Resources.CompatibilityMode}" Foreground="#D9E0E5" />
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="{x:Static lang:Resources.NativeExecution}"
+                <Button Content="{x:Static lang:Resources.CompatibilityOriginal}"
                         Classes="subtle-action"
-                        Background="{Binding NativeButtonBackground}"
-                        Click="OnNativeClick" />
-                <Button Content="{x:Static lang:Resources.UseProton}"
+                        Background="{Binding OriginalButtonBackground}"
+                        Click="OnOriginalClick" />
+                <Button Content="{x:Static lang:Resources.CompatibilityCustom}"
                         Classes="subtle-action"
-                        Background="{Binding ProtonButtonBackground}"
-                        Click="OnProtonClick" />
+                        Background="{Binding CustomButtonBackground}"
+                        Click="OnCustomClick" />
             </StackPanel>
         </StackPanel>
 
-        <StackPanel Spacing="6" IsVisible="{Binding UseProton}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBlock Text="{x:Static lang:Resources.ProtonVersion}" Foreground="#D9E0E5" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Content="{x:Static lang:Resources.Refresh}" Classes="subtle-action" Command="{Binding RefreshToolsCommand}" IsEnabled="{Binding !IsRefreshingTools}" />
-            </Grid>
-            <ComboBox ItemsSource="{Binding InstalledTools}"
-                      SelectedItem="{Binding SelectedTool}"
-                      IsEnabled="{Binding !IsRefreshingTools}"
-                      PlaceholderText="{x:Static lang:Resources.SelectProtonVersion}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="core:CompatibilityTool">
-                        <TextBlock Text="{Binding Name}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <TextBlock Text="{x:Static lang:Resources.CompatibilityToolsRefreshing}"
-                       Foreground="#AFC0CC"
-                       IsVisible="{Binding IsRefreshingTools}" />
-            <TextBlock Text="{x:Static lang:Resources.CompatibilityToolMissing}"
-                       Foreground="#F5D59A"
-                       IsVisible="{Binding HasMissingSelectedTool}" />
-        </StackPanel>
-
-        <StackPanel Spacing="6" IsVisible="{Binding UseProton}">
-            <TextBlock Text="{x:Static lang:Resources.GamePrefix}" Foreground="#D9E0E5" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="{x:Static lang:Resources.ManagedPrefix}"
-                        Classes="subtle-action"
-                        Background="{Binding ManagedPrefixButtonBackground}"
-                        Click="OnManagedPrefixClick" />
-                <Button Content="{x:Static lang:Resources.CustomPrefix}"
-                        Classes="subtle-action"
-                        Background="{Binding CustomPrefixButtonBackground}"
-                        Click="OnCustomPrefixClick" />
+        <StackPanel Spacing="10" IsVisible="{Binding IsCustom}">
+            <StackPanel Spacing="6">
+                <TextBlock Text="{x:Static lang:Resources.ProtonVersion}" Foreground="#D9E0E5" />
+                <ComboBox ItemsSource="{Binding InstalledTools}"
+                          SelectedItem="{Binding SelectedTool}"
+                          IsEnabled="{Binding !IsRefreshing}"
+                          PlaceholderText="{x:Static lang:Resources.SelectProtonVersion}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="core:CompatibilityTool">
+                            <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </StackPanel>
-            <TextBlock Text="{Binding ManagedPrefixPath}" IsVisible="{Binding UseManagedPrefix}" TextWrapping="Wrap" Foreground="#AFC0CC" />
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding !UseManagedPrefix}">
-                <TextBox x:Name="PrefixPathTextBox"
-                         Text="{Binding CustomPrefixPath}"
-                         PlaceholderText="{x:Static lang:Resources.SelectGamePrefixFolder}" />
-                <Button Grid.Column="1"
-                        Content="{x:Static lang:Resources.ChooseFolder}"
+
+            <StackPanel Spacing="6" IsVisible="{Binding IsSteamGame}">
+                <TextBlock Text="{x:Static lang:Resources.CompatibilityLaunchOption}" Foreground="#D9E0E5" />
+                <ComboBox ItemsSource="{Binding LaunchOptions}"
+                          SelectedItem="{Binding SelectedLaunchOption}"
+                          PlaceholderText="{x:Static lang:Resources.CompatibilitySelectLaunchOption}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="core:GameLaunchOption">
+                            <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="{x:Static lang:Resources.CompatibilityExecutableFallback}"
+                           Foreground="#AFC0CC"
+                           IsVisible="{Binding !IsGameInstalled}" />
+                <TextBox Text="{Binding ExecutablePath}"
+                         PlaceholderText="{x:Static lang:Resources.CompatibilityExecutablePath}"
+                         IsVisible="{Binding IsGameInstalled}" />
+                <TextBox Text="{Binding WorkingDirectory}"
+                         PlaceholderText="{x:Static lang:Resources.CompatibilityWorkingDirectory}"
+                         IsVisible="{Binding IsGameInstalled}" />
+                <TextBox Text="{Binding LaunchArguments}"
+                         PlaceholderText="{x:Static lang:Resources.CompatibilityLaunchArguments}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="{x:Static lang:Resources.CompatibilityAdditionalArguments}" Foreground="#D9E0E5" />
+                <TextBox Text="{Binding AdditionalArguments}"
+                         PlaceholderText="{x:Static lang:Resources.CompatibilityArgumentsPlaceholder}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="{x:Static lang:Resources.CompatibilityEnvironment}" Foreground="#D9E0E5" />
+                <ItemsControl ItemsSource="{Binding EnvironmentVariables}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:EnvironmentVariableViewModel">
+                            <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="8" Margin="0,0,0,6">
+                                <TextBox Text="{Binding Name}" PlaceholderText="NAME" />
+                                <TextBox Grid.Column="1" Text="{Binding Value}" PlaceholderText="value" />
+                                <Button Grid.Column="2" Content="−" Classes="subtle-action" Click="OnRemoveEnvironmentVariableClick" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Content="{x:Static lang:Resources.CompatibilityAddEnvironmentVariable}"
                         Classes="subtle-action"
-                        Click="OnChoosePrefixFolderClick" />
-            </Grid>
+                        HorizontalAlignment="Left"
+                        Command="{Binding AddEnvironmentVariableCommand}" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="{x:Static lang:Resources.GamePrefix}" Foreground="#D9E0E5" />
+                <TextBlock Text="{Binding PrefixPath}" TextWrapping="Wrap" Foreground="#AFC0CC" />
+            </StackPanel>
         </StackPanel>
 
         <TextBlock Text="{Binding ErrorMessage}" Foreground="#F5D59A" TextWrapping="Wrap" IsVisible="{Binding HasError}" />

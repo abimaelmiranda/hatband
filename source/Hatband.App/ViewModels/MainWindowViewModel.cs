@@ -20,7 +20,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly SettingsScreenViewModel _settings;
     private readonly AddGameViewModel _addGame;
     private readonly GameMetadataEditorViewModel _editor;
-    private readonly CompatibilitySettingsScreenViewModel _compatibilityEditor;
     private readonly CancellationTokenSource _startupCancellation = new();
     private Task? _steamStartupImport;
 
@@ -31,8 +30,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         GameDetailsScreenViewModel details,
         SettingsScreenViewModel settings,
         AddGameViewModel addGame,
-        GameMetadataEditorViewModel editor,
-        CompatibilitySettingsScreenViewModel compatibilityEditor)
+        GameMetadataEditorViewModel editor)
     {
         Navigation = navigation;
         Session = session;
@@ -41,7 +39,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _settings = settings;
         _addGame = addGame;
         _editor = editor;
-        _compatibilityEditor = compatibilityEditor;
         _settings.SetSteamLibrarySyncCallback(Session.SynchronizeSteamLibraryAsync);
         _settings.SetRefreshMetadataCommand(Session.RefreshMetadataCommand);
         _settings.SetCanRefreshMetadata(Session.CanRefreshMetadata);
@@ -53,14 +50,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _library.GameOpened += OpenGame;
         _library.MenuActionRequested += ActivateMenuOption;
         _details.EditRequested += OpenEditor;
-        _details.CompatibilityRequested += OpenCompatibilityEditor;
         _details.ManualGameDeleted += ReturnToLibrary;
         _addGame.CancelRequested += CancelNewGame;
         _addGame.CreationCompleted += OnAddGameCreationCompleted;
         _editor.CancelRequested += CancelGameEditing;
         _editor.Saved += OnGameMetadataEditorSaved;
-        _compatibilityEditor.CancelRequested += CancelGameEditing;
-        _compatibilityEditor.Saved += OnCompatibilitySettingsSaved;
         Navigation.ReturnToMenuRequested += OnReturnToMenuRequested;
         Navigation.PropertyChanged += OnNavigationPropertyChanged;
         Navigation.Initialize(_library);
@@ -191,12 +185,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Navigation.Navigate(_editor);
     }
 
-    private void OpenCompatibilityEditor(GameCardViewModel game)
-    {
-        _compatibilityEditor.Load(game.Game);
-        Navigation.Navigate(_compatibilityEditor);
-    }
-
     private void CancelNewGame()
     {
         _addGame.Reset();
@@ -213,12 +201,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Session.UpdateGameCard(game);
         Navigation.GoBack();
         Session.StatusMessage = Resources.GameDetailsSaved;
-    }
-
-    private void OnCompatibilitySettingsSaved(object? sender, Game game)
-    {
-        Session.UpdateGameCard(game);
-        Navigation.GoBack();
     }
 
     private async void OnAddGameCreationCompleted(AddGameCreationResult result)
@@ -298,14 +280,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _library.GameOpened -= OpenGame;
         _library.MenuActionRequested -= ActivateMenuOption;
         _details.EditRequested -= OpenEditor;
-        _details.CompatibilityRequested -= OpenCompatibilityEditor;
         _details.ManualGameDeleted -= ReturnToLibrary;
         _addGame.CancelRequested -= CancelNewGame;
         _addGame.CreationCompleted -= OnAddGameCreationCompleted;
         _editor.CancelRequested -= CancelGameEditing;
         _editor.Saved -= OnGameMetadataEditorSaved;
-        _compatibilityEditor.CancelRequested -= CancelGameEditing;
-        _compatibilityEditor.Saved -= OnCompatibilitySettingsSaved;
         Navigation.ReturnToMenuRequested -= OnReturnToMenuRequested;
         Navigation.PropertyChanged -= OnNavigationPropertyChanged;
     }

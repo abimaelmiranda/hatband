@@ -18,6 +18,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     private readonly IGameArtworkStorage artworkStorage;
     private readonly IReadOnlyList<IGameMetadataProvider> metadataProviders;
     private readonly IModalService _modalService;
+    private readonly CompatibilityEditorViewModel compatibilityEditor;
     private CancellationTokenSource? _artworkSearchCancellation;
     private Game? game;
     private GameArtworkImage? selectedCoverImage;
@@ -71,7 +72,8 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         IEnumerable<IGameMetadataProvider> metadataProviders,
         IEnumerable<IGameArtworkProvider> artworkProviders,
         ArtworkImageLoader artworkImageLoader,
-        IModalService modalService)
+        IModalService modalService,
+        CompatibilityEditorViewModel compatibilityEditor)
     {
         ArgumentNullException.ThrowIfNull(gameRepository);
         ArgumentNullException.ThrowIfNull(artworkStorage);
@@ -79,20 +81,26 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         ArgumentNullException.ThrowIfNull(artworkProviders);
         ArgumentNullException.ThrowIfNull(artworkImageLoader);
         ArgumentNullException.ThrowIfNull(modalService);
+        ArgumentNullException.ThrowIfNull(compatibilityEditor);
         this.gameRepository = gameRepository;
         this.artworkStorage = artworkStorage;
         this.metadataProviders = metadataProviders.ToArray();
         _modalService = modalService;
+        this.compatibilityEditor = compatibilityEditor;
         ArtworkPicker = new GameArtworkPickerViewModel(artworkProviders, artworkImageLoader);
     }
 
     public GameArtworkPickerViewModel ArtworkPicker { get; }
+
+    public CompatibilityEditorViewModel CompatibilityEditor => compatibilityEditor;
 
     /// <summary>Publishes the updated game so the shell can refresh selection and return to its prior screen.</summary>
     public event EventHandler<Game>? Saved;
 
     /// <summary>Requests that the shell cancel editing through global navigation.</summary>
     public event Action? CancelRequested;
+
+    public event Action? CompatibilityValidationFailed;
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
@@ -119,6 +127,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         ArgumentNullException.ThrowIfNull(selectedGame);
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         game = selectedGame;
+        CompatibilityEditor.Load(selectedGame);
         selectedNativePlatforms = null;
         selectedCompatibilityTier = null;
         _selectedStoreSourceId = selectedGame.Metadata.StoreSourceId;
@@ -299,8 +308,24 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
 
         IsSaving = true;
         ErrorMessage = null;
+        var originalName = game.Name;
+        var originalMetadata = game.Metadata;
+        var originalArtwork = game.Artwork;
+        var originalCompatibilityLayer = game.CompatibilityLayer;
         try
         {
+            if (CompatibilityEditor.IsLinux)
+            {
+                var compatibilityError = CompatibilityEditor.ValidateConfiguration();
+                if (compatibilityError is not null)
+                {
+                    CompatibilityEditor.ErrorMessage = compatibilityError;
+                    ErrorMessage = compatibilityError;
+                    CompatibilityValidationFailed?.Invoke();
+                    return;
+                }
+            }
+
             var metadata = game.Metadata with
             {
                 Description = Normalize(Description),
@@ -316,27 +341,77 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
             game.Name = Name.Trim();
             game.Metadata = metadata;
             game.Artwork = artwork;
-            if (selectedCompatibilityTier is GameCompatibilityTier compatibilityTier)
+            if (CompatibilityEditor.IsLinux)
             {
-                var compatibilityLayer = game.CompatibilityLayer ?? new CompatibilityLayer();
-                compatibilityLayer.Tier = compatibilityTier;
+                if (CompatibilityEditor.IsCustom || selectedCompatibilityTier is not null || originalCompatibilityLayer is not null)
+                {
+                    var compatibilityLayer = CompatibilityEditor.CreateCompatibilityLayer();
+                    if (selectedCompatibilityTier is GameCompatibilityTier compatibilityTier)
+                    {
+                        compatibilityLayer.Tier = compatibilityTier;
+                    }
+
+                    game.CompatibilityLayer = compatibilityLayer;
+                }
+            }
+            else if (selectedCompatibilityTier is GameCompatibilityTier metadataCompatibilityTier)
+            {
+                var compatibilityLayer = CloneCompatibilityLayer(originalCompatibilityLayer) ?? new CompatibilityLayer();
+                compatibilityLayer.Tier = metadataCompatibilityTier;
                 game.CompatibilityLayer = compatibilityLayer;
             }
+
             await gameRepository.UpdateAsync(game, cancellationToken);
             Saved?.Invoke(this, game);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            RestoreGameDraft(game, originalName, originalMetadata, originalArtwork, originalCompatibilityLayer);
             throw;
         }
         catch (Exception exception)
         {
+            RestoreGameDraft(game, originalName, originalMetadata, originalArtwork, originalCompatibilityLayer);
             ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resources.SaveGameError, exception.Message);
         }
         finally
         {
             IsSaving = false;
         }
+    }
+
+    private static void RestoreGameDraft(
+        Game selectedGame,
+        string originalName,
+        GameMetadata originalMetadata,
+        GameArtwork originalArtwork,
+        CompatibilityLayer? originalCompatibilityLayer)
+    {
+        selectedGame.Name = originalName;
+        selectedGame.Metadata = originalMetadata;
+        selectedGame.Artwork = originalArtwork;
+        selectedGame.CompatibilityLayer = originalCompatibilityLayer;
+    }
+
+    private static CompatibilityLayer? CloneCompatibilityLayer(CompatibilityLayer? source)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        return new CompatibilityLayer
+        {
+            ExecutionMode = source.ExecutionMode,
+            Tool = source.Tool,
+            LaunchOptionId = source.LaunchOptionId,
+            ExecutablePath = source.ExecutablePath,
+            WorkingDirectory = source.WorkingDirectory,
+            LaunchArguments = source.LaunchArguments,
+            AdditionalArguments = source.AdditionalArguments,
+            EnvironmentVariables = source.EnvironmentVariables.ToDictionary(pair => pair.Key, pair => pair.Value),
+            Tier = source.Tier
+        };
     }
 
     private async Task<GameArtwork> ImportSelectedArtworkAsync(Game selectedGame, CancellationToken cancellationToken)

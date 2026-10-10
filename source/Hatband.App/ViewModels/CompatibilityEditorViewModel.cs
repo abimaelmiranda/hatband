@@ -1,280 +1,535 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Globalization;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
+using Hatband.Core.Abstractions.Games;
+using Hatband.Core.Enums.Games;
 using Hatband.Core.Enums.Host;
+using Hatband.Core.Models.Compatibility;
+using Hatband.Core.Models.Games;
 
 namespace Hatband.App.ViewModels;
 
-/// <summary>Shared draft state for choosing native execution or an installed Proton runtime and prefix.</summary>
 public partial class CompatibilityEditorViewModel : ViewModelBase
 {
-    private readonly ICompatibilityToolDiscoveryService _toolDiscoveryService;
-    private readonly IHostSystemInfo _hostSystemInfo;
-    private readonly IAppDataFileSystem _appDataFileSystem;
-    private CompatibilityTool? _originalTool;
+    private readonly ICompatibilityToolDiscoveryService toolDiscoveryService;
+    private readonly IGameManagementService gameManagementService;
+    private readonly IHostSystemInfo hostSystemInfo;
+    private readonly IAppDataFileSystem appDataFileSystem;
+    private CompatibilityLayer? originalLayer;
+    private Game? game;
+    private bool isApplyingLaunchOption;
+    private bool isApplyingRefreshResult;
+    private CancellationTokenSource? refreshCancellation;
+    private long refreshGeneration;
+    private int configurationRevision;
+    private int launchConfigurationRevision;
 
     public CompatibilityEditorViewModel(
         ICompatibilityToolDiscoveryService toolDiscoveryService,
+        IGameManagementService gameManagementService,
         IHostSystemInfo hostSystemInfo,
         IAppDataFileSystem appDataFileSystem)
     {
         ArgumentNullException.ThrowIfNull(toolDiscoveryService);
+        ArgumentNullException.ThrowIfNull(gameManagementService);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
-        _toolDiscoveryService = toolDiscoveryService;
-        _hostSystemInfo = hostSystemInfo;
-        _appDataFileSystem = appDataFileSystem;
+        this.toolDiscoveryService = toolDiscoveryService;
+        this.gameManagementService = gameManagementService;
+        this.hostSystemInfo = hostSystemInfo;
+        this.appDataFileSystem = appDataFileSystem;
+        EnvironmentVariables.CollectionChanged += OnEnvironmentVariablesCollectionChanged;
     }
 
     [ObservableProperty]
-    public partial bool UseProton { get; set; }
+    public partial GameExecutionMode ExecutionMode { get; set; }
 
     [ObservableProperty]
     public partial ObservableCollection<CompatibilityTool> InstalledTools { get; set; } = [];
 
     [ObservableProperty]
-    public partial ObservableCollection<CompatibilityTool> DiscoveredTools { get; set; } = [];
+    public partial ObservableCollection<GameLaunchOption> LaunchOptions { get; set; } = [];
 
     [ObservableProperty]
     public partial CompatibilityTool? SelectedTool { get; set; }
 
     [ObservableProperty]
-    public partial bool UseManagedPrefix { get; set; } = true;
+    public partial GameLaunchOption? SelectedLaunchOption { get; set; }
 
     [ObservableProperty]
-    public partial string? CustomPrefixPath { get; set; }
+    public partial string? ExecutablePath { get; set; }
 
     [ObservableProperty]
-    public partial bool IsRefreshingTools { get; set; }
+    public partial string? WorkingDirectory { get; set; }
+
+    [ObservableProperty]
+    public partial string LaunchArguments { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string AdditionalArguments { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial ObservableCollection<EnvironmentVariableViewModel> EnvironmentVariables { get; set; } = [];
+
+    [ObservableProperty]
+    public partial bool IsRefreshing { get; set; }
 
     [ObservableProperty]
     public partial string? ErrorMessage { get; set; }
 
-    public bool IsLinux => _hostSystemInfo.Platform == HostOperatingSystem.Linux;
+    public bool IsLinux => hostSystemInfo.Platform == HostOperatingSystem.Linux;
 
-    public bool HasMissingSelectedTool => UseProton && SelectedTool is not null &&
-        !DiscoveredTools.Any(tool => IsSameTool(tool, SelectedTool));
+    public bool IsSteamGame => game?.SourceId == GameSourceId.Steam;
 
-    public string ManagedPrefixPath => ConfiguredGameId is Guid gameId
-        ? GetManagedPrefixPath(gameId)
-        : _appDataFileSystem.GetPath("games");
+    public bool IsGameInstalled => game?.InstallationInfo is not null;
 
-    public Guid? ConfiguredGameId { get; private set; }
+    public bool IsCustom => ExecutionMode == GameExecutionMode.Custom;
 
-    public CompatibilityTool? ConfiguredTool => UseProton ? SelectedTool : null;
+    public string? PrefixPath => game is null ? null : appDataFileSystem.GetGamePrefixPath(game.Id);
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
+    public IBrush OriginalButtonBackground => CreateModeBrush(!IsCustom);
+
+    public IBrush CustomButtonBackground => CreateModeBrush(IsCustom);
+
     public string? ValidateConfiguration()
     {
-        if (!UseProton)
+        if (!IsCustom)
         {
             return null;
         }
 
-        if (IsRefreshingTools)
+        if (IsRefreshing)
         {
             return Resources.CompatibilityToolsRefreshing;
         }
 
-        if (SelectedTool is null)
+        if (SelectedTool is null || !Directory.Exists(SelectedTool.InstallationPath))
         {
             return Resources.CompatibilityToolRequired;
         }
 
-        if (HasMissingSelectedTool)
+        if (IsSteamGame && IsGameInstalled && SelectedLaunchOption is null &&
+            string.IsNullOrWhiteSpace(ExecutablePath))
         {
-            return Resources.CompatibilityToolMissing;
+            return Resources.CompatibilityLaunchOptionRequired;
         }
 
-        if (!UseManagedPrefix)
+        if (!ValidateEnvironmentVariables(out var environmentError))
         {
-            if (string.IsNullOrWhiteSpace(CustomPrefixPath))
-            {
-                return Resources.CompatibilityPrefixRequired;
-            }
-
-            var customPrefixPath = CustomPrefixPath.Trim();
-            if (!Path.IsPathFullyQualified(customPrefixPath))
-            {
-                return Resources.CompatibilityPrefixMustBeAbsolute;
-            }
-
-            if (!TryNormalizePrefixPath(customPrefixPath, out _))
-            {
-                return Resources.CompatibilityPrefixInvalid;
-            }
+            return environmentError;
         }
 
         return null;
     }
 
-    public IBrush NativeButtonBackground => CreateModeBrush(!UseProton);
-
-    public IBrush ProtonButtonBackground => CreateModeBrush(UseProton);
-
-    public IBrush ManagedPrefixButtonBackground => CreateModeBrush(UseManagedPrefix);
-
-    public IBrush CustomPrefixButtonBackground => CreateModeBrush(!UseManagedPrefix);
-
-    public GameCompatibilityPrefix? CreatePrefix(Guid gameId)
+    public CompatibilityLayer CreateCompatibilityLayer()
     {
-        if (!UseProton)
+        var layer = new CompatibilityLayer
         {
-            return null;
+            ExecutionMode = originalLayer?.ExecutionMode ?? GameExecutionMode.Original,
+            Tool = originalLayer?.Tool,
+            LaunchOptionId = originalLayer?.LaunchOptionId,
+            ExecutablePath = originalLayer?.ExecutablePath,
+            WorkingDirectory = originalLayer?.WorkingDirectory,
+            LaunchArguments = originalLayer?.LaunchArguments,
+            AdditionalArguments = originalLayer?.AdditionalArguments,
+            EnvironmentVariables = originalLayer?.EnvironmentVariables.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [],
+            Tier = originalLayer?.Tier ?? GameCompatibilityTier.Unknown
+        };
+        layer.ExecutionMode = ExecutionMode;
+        if (!IsCustom)
+        {
+            return layer;
         }
 
-        if (UseManagedPrefix)
-        {
-            if (ConfiguredGameId is Guid configuredGameId && configuredGameId != gameId)
-            {
-                throw new InvalidOperationException("The configured game ID does not match the prefix ID.");
-            }
-
-            return new GameCompatibilityPrefix(true, GetManagedPrefixPath(gameId));
-        }
-
-        if (string.IsNullOrWhiteSpace(CustomPrefixPath))
-        {
-            throw new InvalidOperationException(Resources.CompatibilityPrefixRequired);
-        }
-
-        var customPrefixPath = CustomPrefixPath.Trim();
-        if (!TryNormalizePrefixPath(customPrefixPath, out var normalizedPrefixPath))
-        {
-            throw new InvalidOperationException(Resources.CompatibilityPrefixInvalid);
-        }
-
-        return new GameCompatibilityPrefix(false, normalizedPrefixPath);
+        layer.Tool = SelectedTool ?? throw new InvalidOperationException(Resources.CompatibilityToolRequired);
+        layer.LaunchOptionId = SelectedLaunchOption?.Id;
+        layer.ExecutablePath = NormalizeOptionalPath(ExecutablePath);
+        layer.WorkingDirectory = NormalizeOptionalPath(WorkingDirectory);
+        layer.LaunchArguments = NormalizeOptionalValue(LaunchArguments);
+        layer.AdditionalArguments = string.IsNullOrWhiteSpace(AdditionalArguments) ? null : AdditionalArguments.Trim();
+        layer.EnvironmentVariables = CreateEnvironmentVariables();
+        return layer;
     }
 
-    public void Load(CompatibilityTool? tool, GameCompatibilityPrefix? prefix, Guid? gameId = null)
+    public void Load(Game selectedGame)
     {
-        _originalTool = tool;
-        ConfiguredGameId = gameId;
-        UseProton = tool is not null;
-        SelectedTool = tool;
-        UseManagedPrefix = prefix?.IsManaged ?? true;
-        CustomPrefixPath = prefix is { IsManaged: false } ? prefix.Path : null;
+        ArgumentNullException.ThrowIfNull(selectedGame);
+        refreshCancellation?.Cancel();
+        refreshGeneration++;
+        configurationRevision = 0;
+        game = selectedGame;
+        originalLayer = selectedGame.CompatibilityLayer;
+        ExecutionMode = originalLayer?.ExecutionMode ?? GameExecutionMode.Original;
+        SelectedTool = originalLayer?.Tool;
+        SelectedLaunchOption = null;
+        ExecutablePath = originalLayer?.ExecutablePath;
+        WorkingDirectory = originalLayer?.WorkingDirectory;
+        LaunchArguments = originalLayer?.LaunchArguments ?? string.Empty;
+        AdditionalArguments = originalLayer?.AdditionalArguments ?? string.Empty;
+        foreach (var variable in EnvironmentVariables)
+        {
+            variable.PropertyChanged -= OnEnvironmentVariablePropertyChanged;
+        }
+
+        EnvironmentVariables.Clear();
+        foreach (var variable in (originalLayer?.EnvironmentVariables ?? [])
+            .Select(pair => new EnvironmentVariableViewModel(pair.Key, pair.Value)))
+        {
+            EnvironmentVariables.Add(variable);
+        }
+
+        isApplyingRefreshResult = true;
+        try
+        {
+            LaunchOptions.Clear();
+            InstalledTools.Clear();
+            SelectedTool = originalLayer?.Tool;
+            SelectedLaunchOption = null;
+        }
+        finally
+        {
+            isApplyingRefreshResult = false;
+        }
         ErrorMessage = null;
-        OnPropertyChanged(nameof(ManagedPrefixPath));
-        _ = RefreshToolsAsync();
+        configurationRevision = 0;
+        launchConfigurationRevision = 0;
+        OnPropertyChanged(nameof(IsSteamGame));
+        OnPropertyChanged(nameof(IsGameInstalled));
+        NotifyConfigurationChanged();
+        _ = RefreshAsync();
     }
+
+    public void SetOriginalMode() => ExecutionMode = GameExecutionMode.Original;
+
+    public void SetCustomMode() => ExecutionMode = GameExecutionMode.Custom;
 
     [RelayCommand]
-    private async Task RefreshToolsAsync(CancellationToken cancellationToken = default)
+    private void AddEnvironmentVariable() => EnvironmentVariables.Add(new EnvironmentVariableViewModel());
+
+    [RelayCommand]
+    private void RemoveEnvironmentVariable(EnvironmentVariableViewModel variable) => EnvironmentVariables.Remove(variable);
+
+    [RelayCommand]
+    private async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsLinux || IsRefreshingTools)
+        if (!IsLinux || game is null)
         {
             return;
         }
 
-        IsRefreshingTools = true;
+        refreshCancellation?.Cancel();
+        var currentGame = game;
+        var generation = ++refreshGeneration;
+        var revision = configurationRevision;
+        var launchRevision = launchConfigurationRevision;
+        var refreshSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        refreshCancellation = refreshSource;
+        var refreshToken = refreshSource.Token;
+        IsRefreshing = true;
         ErrorMessage = null;
-        DiscoveredTools = [];
         try
         {
-            var tools = await _toolDiscoveryService.DiscoverInstalledToolsAsync(cancellationToken);
-            var discovered = tools.ToList();
-            DiscoveredTools = new ObservableCollection<CompatibilityTool>(discovered);
-            var refreshed = discovered.ToList();
-            if (_originalTool is not null && !refreshed.Any(tool => IsSameTool(tool, _originalTool)))
+            var tools = await toolDiscoveryService.DiscoverInstalledToolsAsync(refreshToken);
+            if (!IsCurrentRefresh(currentGame, generation, refreshToken))
             {
-                refreshed.Insert(0, _originalTool);
+                return;
             }
 
-            InstalledTools = new ObservableCollection<CompatibilityTool>(refreshed
-                .OrderBy(tool => tool.Name, StringComparer.CurrentCultureIgnoreCase));
+            var selectedToolPath = SelectedTool?.InstallationPath;
             var selectedTool = SelectedTool;
-            if (selectedTool is not null)
+            var draftChanged = configurationRevision != revision;
+            isApplyingRefreshResult = true;
+            try
             {
-                var matchingTool = InstalledTools.FirstOrDefault(tool => IsSameTool(tool, selectedTool));
-                if (matchingTool is not null)
+                ReplaceItems(InstalledTools, tools);
+                if (selectedToolPath is not null)
                 {
-                    SelectedTool = matchingTool;
+                    SelectedTool = tools.FirstOrDefault(tool => PathsEqual(tool.InstallationPath, selectedToolPath)) ?? selectedTool;
+                }
+                else if (!draftChanged && ExecutionMode == GameExecutionMode.Custom)
+                {
+                    SelectedTool = tools.FirstOrDefault();
+                }
+            }
+            finally
+            {
+                isApplyingRefreshResult = false;
+            }
+
+            if (currentGame.SourceId == GameSourceId.Steam && currentGame.InstallationInfo is not null)
+            {
+                var options = await gameManagementService.GetLaunchOptionsAsync(CreateLaunchOptionsQuerySnapshot(currentGame), refreshToken);
+                if (!IsCurrentRefresh(currentGame, generation, refreshToken))
+                {
+                    return;
+                }
+
+                var currentSelectedOption = SelectedLaunchOption;
+                var selectedOption = ResolveRefreshedLaunchOption(
+                    options,
+                    currentSelectedOption,
+                    launchRevision,
+                    out var shouldApplyLaunchOption);
+                isApplyingRefreshResult = true;
+                try
+                {
+                    ReplaceItems(LaunchOptions, options);
+                    SelectedLaunchOption = selectedOption;
+                    if (shouldApplyLaunchOption && selectedOption is not null)
+                    {
+                        ApplyLaunchOption(selectedOption);
+                    }
+                }
+                finally
+                {
+                    isApplyingRefreshResult = false;
                 }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (refreshToken.IsCancellationRequested)
         {
-            throw;
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
         }
         catch (Exception exception)
         {
-            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resources.CompatibilityToolsLoadError, exception.Message);
+            if (IsCurrentRefresh(currentGame, generation, refreshToken))
+            {
+                ErrorMessage = string.Format(CultureInfo.CurrentCulture, Resources.CompatibilityToolsLoadError, exception.Message);
+            }
         }
         finally
         {
-            IsRefreshingTools = false;
-            OnPropertyChanged(nameof(HasMissingSelectedTool));
+            if (generation == refreshGeneration)
+            {
+                IsRefreshing = false;
+                NotifyConfigurationChanged();
+            }
+
+            if (ReferenceEquals(refreshCancellation, refreshSource))
+            {
+                refreshCancellation = null;
+            }
+
+            refreshSource.Dispose();
         }
     }
 
-    partial void OnUseProtonChanged(bool value)
+    partial void OnExecutionModeChanged(GameExecutionMode value) => MarkDraftChanged();
+    partial void OnSelectedToolChanged(CompatibilityTool? value) => MarkDraftChanged();
+    partial void OnSelectedLaunchOptionChanged(GameLaunchOption? value)
     {
-        OnPropertyChanged(nameof(ConfiguredTool));
-        OnPropertyChanged(nameof(HasMissingSelectedTool));
-        OnPropertyChanged(nameof(NativeButtonBackground));
-        OnPropertyChanged(nameof(ProtonButtonBackground));
+        if (value is not null && !isApplyingRefreshResult)
+        {
+            ApplyLaunchOption(value);
+        }
+
+        if (!isApplyingRefreshResult)
+        {
+            configurationRevision++;
+            launchConfigurationRevision++;
+        }
+        NotifyConfigurationChanged();
     }
-
-    partial void OnSelectedToolChanged(CompatibilityTool? value)
-    {
-        OnPropertyChanged(nameof(ConfiguredTool));
-        OnPropertyChanged(nameof(HasMissingSelectedTool));
-    }
-
-    partial void OnInstalledToolsChanged(ObservableCollection<CompatibilityTool> value) =>
-        OnPropertyChanged(nameof(HasMissingSelectedTool));
-
-    partial void OnDiscoveredToolsChanged(ObservableCollection<CompatibilityTool> value) =>
-        OnPropertyChanged(nameof(HasMissingSelectedTool));
-
-    partial void OnUseManagedPrefixChanged(bool value)
-    {
-        OnPropertyChanged(nameof(ManagedPrefixButtonBackground));
-        OnPropertyChanged(nameof(CustomPrefixButtonBackground));
-    }
-
+    partial void OnExecutablePathChanged(string? value) => OnLaunchConfigurationEdited();
+    partial void OnWorkingDirectoryChanged(string? value) => OnLaunchConfigurationEdited();
+    partial void OnLaunchArgumentsChanged(string value) => OnLaunchConfigurationEdited();
+    partial void OnAdditionalArgumentsChanged(string value) => MarkDraftChanged();
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
-    private static IBrush CreateModeBrush(bool isSelected) => new SolidColorBrush(Color.Parse(isSelected ? "#263640" : "#151C21"));
-
-    private string GetManagedPrefixPath(Guid gameId) => _appDataFileSystem.GetPath($"games/{gameId:D}/prefix");
-
-    private static bool TryNormalizePrefixPath(string path, [NotNullWhen(true)] out string? normalizedPath)
+    private bool ValidateEnvironmentVariables(out string? error)
     {
-        normalizedPath = null;
-        if (!Path.IsPathFullyQualified(path))
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var variable in EnvironmentVariables)
         {
-            return false;
+            if (!GameLaunchEnvironmentPolicy.IsValidVariableName(variable.Name))
+            {
+                error = Resources.CompatibilityEnvironmentVariableInvalid;
+                return false;
+            }
+
+            if (GameLaunchEnvironmentPolicy.IsReservedVariableName(variable.Name) || !names.Add(variable.Name))
+            {
+                error = Resources.CompatibilityEnvironmentVariableReserved;
+                return false;
+            }
         }
 
+        error = null;
+        return true;
+    }
+
+    private Dictionary<string, string> CreateEnvironmentVariables() =>
+        EnvironmentVariables.ToDictionary(variable => variable.Name.Trim(), variable => variable.Value);
+
+    private void NotifyConfigurationChanged()
+    {
+        OnPropertyChanged(nameof(IsCustom));
+        OnPropertyChanged(nameof(PrefixPath));
+        OnPropertyChanged(nameof(OriginalButtonBackground));
+        OnPropertyChanged(nameof(CustomButtonBackground));
+    }
+
+    private void OnLaunchConfigurationEdited()
+    {
+        MarkDraftChanged();
+        if (!isApplyingRefreshResult)
+        {
+            launchConfigurationRevision++;
+        }
+
+        if (!isApplyingLaunchOption && SelectedLaunchOption is not null)
+        {
+            SelectedLaunchOption = null;
+        }
+
+        NotifyConfigurationChanged();
+    }
+
+    private void MarkDraftChanged()
+    {
+        if (!isApplyingRefreshResult)
+        {
+            configurationRevision++;
+        }
+
+        NotifyConfigurationChanged();
+    }
+
+    private void ApplyLaunchOption(GameLaunchOption option)
+    {
+        isApplyingLaunchOption = true;
         try
         {
-            normalizedPath = Path.GetFullPath(path);
-            return true;
+            ExecutablePath = option.ExecutablePath;
+            WorkingDirectory = option.WorkingDirectory;
+            LaunchArguments = option.Arguments ?? string.Empty;
         }
-        catch (ArgumentException)
+        finally
         {
-            return false;
-        }
-        catch (NotSupportedException)
-        {
-            return false;
-        }
-        catch (PathTooLongException)
-        {
-            return false;
+            isApplyingLaunchOption = false;
         }
     }
 
-    private static bool IsSameTool(CompatibilityTool left, CompatibilityTool right) =>
-        string.Equals(left.InstallationPath, right.InstallationPath, OperatingSystem.IsWindows()
+    private bool IsCurrentRefresh(Game expectedGame, long generation, CancellationToken cancellationToken) =>
+        !cancellationToken.IsCancellationRequested && generation == refreshGeneration && ReferenceEquals(game, expectedGame);
+
+    private static void ReplaceItems<T>(ObservableCollection<T> collection, IEnumerable<T> items)
+    {
+        collection.Clear();
+        foreach (var item in items)
+        {
+            collection.Add(item);
+        }
+    }
+
+    private static Game CreateLaunchOptionsQuerySnapshot(Game sourceGame) => new()
+    {
+        Id = sourceGame.Id,
+        Name = sourceGame.Name,
+        SourceId = sourceGame.SourceId,
+        SourceGameId = sourceGame.SourceGameId,
+        Metadata = sourceGame.Metadata with { },
+        InstallationInfo = sourceGame.InstallationInfo is { } installationInfo
+            ? new GameInstallationInfo { InstallDirectory = installationInfo.InstallDirectory }
+            : null
+    };
+
+    private GameLaunchOption? ResolveRefreshedLaunchOption(
+        IReadOnlyList<GameLaunchOption> options,
+        GameLaunchOption? currentSelection,
+        int launchRevisionAtStart,
+        out bool shouldApplyOption)
+    {
+        shouldApplyOption = false;
+
+        if (launchConfigurationRevision != launchRevisionAtStart)
+        {
+            return FindOption(options, currentSelection?.Id) ?? currentSelection;
+        }
+
+        if (currentSelection is not null)
+        {
+            var refreshedOption = FindOption(options, currentSelection.Id);
+            shouldApplyOption = refreshedOption is not null;
+            return refreshedOption ?? currentSelection;
+        }
+
+        if (launchRevisionAtStart != 0)
+        {
+            return null;
+        }
+
+        if (originalLayer?.LaunchOptionId is { } originalOptionId)
+        {
+            var originalOption = FindOption(options, originalOptionId);
+            shouldApplyOption = originalOption is not null;
+            return originalOption;
+        }
+
+        if (string.IsNullOrWhiteSpace(ExecutablePath) && options.Count == 1)
+        {
+            shouldApplyOption = true;
+            return options[0];
+        }
+
+        return null;
+    }
+
+    private static GameLaunchOption? FindOption(IReadOnlyList<GameLaunchOption> options, string? optionId)
+    {
+        if (optionId is null)
+        {
+            return null;
+        }
+
+        return options.FirstOrDefault(option => option.Id == optionId);
+    }
+
+    private void OnEnvironmentVariablesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs eventArgs)
+    {
+        if (eventArgs.OldItems is not null)
+        {
+            foreach (EnvironmentVariableViewModel variable in eventArgs.OldItems)
+            {
+                variable.PropertyChanged -= OnEnvironmentVariablePropertyChanged;
+            }
+        }
+
+        if (eventArgs.NewItems is not null)
+        {
+            foreach (EnvironmentVariableViewModel variable in eventArgs.NewItems)
+            {
+                variable.PropertyChanged += OnEnvironmentVariablePropertyChanged;
+            }
+        }
+
+        MarkDraftChanged();
+    }
+
+    private void OnEnvironmentVariablePropertyChanged(object? sender, PropertyChangedEventArgs eventArgs) => MarkDraftChanged();
+
+    private static string? NormalizeOptionalPath(string? path) =>
+        string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path.Trim());
+
+    private static string? NormalizeOptionalValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static IBrush CreateModeBrush(bool isSelected) =>
+        new SolidColorBrush(Color.Parse(isSelected ? "#263640" : "#151C21"));
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal);
 }

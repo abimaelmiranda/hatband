@@ -225,7 +225,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
             var game = gameCard.Game;
             if (_hostSystemInfo.Platform != HostOperatingSystem.Linux ||
-                game.SourceId != GameSourceId.Manual || game.GetCompatibilityTool() is null)
+                game.SourceId is not (GameSourceId.Manual or GameSourceId.Steam) ||
+                game.CompatibilityLayer is not { ExecutionMode: GameExecutionMode.Custom, Tool: not null })
             {
                 return true;
             }
@@ -407,16 +408,17 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     {
         var game = gameCard.Game;
         var isInstall = game.SourceId == GameSourceId.Steam && game.InstallationInfo is null;
-        var isProtonLaunch = _hostSystemInfo.Platform == HostOperatingSystem.Linux &&
-            game.SourceId == GameSourceId.Manual && game.GetCompatibilityTool() is not null;
+        var isCustomLinuxLaunch = _hostSystemInfo.Platform == HostOperatingSystem.Linux &&
+            game.SourceId is (GameSourceId.Manual or GameSourceId.Steam) &&
+            game.CompatibilityLayer?.ExecutionMode == GameExecutionMode.Custom;
         if (_pendingLaunchGameIds.Contains(game.Id) ||
-            (isProtonLaunch && _activeMonitoredGames.ContainsKey(game.Id)))
+            (isCustomLinuxLaunch && _activeMonitoredGames.ContainsKey(game.Id)))
         {
             return null;
         }
 
         var processMonitoringStarted = false;
-        if (isProtonLaunch)
+        if (isCustomLinuxLaunch)
         {
             _pendingLaunchGameIds.Add(game.Id);
             NotifyGameLaunchStateChanged();
@@ -437,12 +439,12 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 return null;
             }
 
-            var processWatchTarget = _gameManagementService.GetProcessWatchTarget(game);
-            var result = await _gameManagementService.LaunchAsync(game, cancellationToken);
+            var launchResult = await _gameManagementService.LaunchAsync(game, cancellationToken);
+            var result = launchResult.Result;
             var action = GameManagementAction.Launch;
             StatusMessage = GetGameManagementStatus(result, action);
 
-            if (processWatchTarget is not null &&
+            if (launchResult.WatchTarget is { } processWatchTarget &&
                 result is GameManagementResult.ProtocolOpened or
                     GameManagementResult.SilentCommandStarted or
                     GameManagementResult.GameActionStarted)
@@ -572,7 +574,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         switch (monitorEvent)
         {
             case GameProcessMonitorEvent.Started:
-                if (gameCard.Game.SourceId == GameSourceId.Manual && gameCard.Game.GetCompatibilityTool() is not null)
+                if (gameCard.Game.SourceId is (GameSourceId.Manual or GameSourceId.Steam) &&
+                    gameCard.Game.GetCompatibilityTool() is not null)
                 {
                     StatusMessage = Resources.GameLaunchStarted;
                 }

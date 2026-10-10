@@ -27,6 +27,12 @@
                                                               Title="{x:Static lang:Resources.MetadataSourcesTab}"
                                                               FocusEntered="OnSourcesSectionFocusEntered"
                                                               Activated="OnSourcesSectionActivated" />
+                        <components:ConsoleNavigationItemView x:Name="CompatibilitySectionItem"
+                                                              IconGlyph="Toolbox"
+                                                              Title="{x:Static lang:Resources.Compatibility}"
+                                                              IsVisible="{Binding CompatibilityEditor.IsLinux}"
+                                                              FocusEntered="OnCompatibilitySectionFocusEntered"
+                                                              Activated="OnCompatibilitySectionActivated" />
                     </StackPanel>
         </components:FullScreenNavigationLayout.NavigationContent>
 
@@ -216,6 +222,14 @@
 
                             </StackPanel>
                         </ScrollViewer>
+
+                    <ScrollViewer x:Name="CompatibilitySectionContent"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto"
+                                  IsVisible="False">
+                        <components:CompatibilityEditorView DataContext="{Binding CompatibilityEditor}"
+                                                           Margin="0,8,8,0" />
+                    </ScrollViewer>
                         </Grid>
         </components:FullScreenNavigationLayout.MainContent>
 

@@ -382,7 +382,12 @@ public partial class AddGameViewModel : ScreenViewModel
         SteamArtworkAssociationStatus = Resources.SteamArtworkNeedsMetadata;
         Actions.Clear();
         _draftGameId = Guid.CreateVersion7();
-        CompatibilityEditor.Load(null, null, _draftGameId);
+        CompatibilityEditor.Load(new Game
+        {
+            Id = _draftGameId,
+            Name = Name,
+            SourceId = GameSourceId.Manual
+        });
         SelectedSectionIndex = Sections.IndexOf(Sections.Single(section => section.Id == GameSectionId));
         IsContentActive = false;
         SelectedFieldIndex = 0;
@@ -572,16 +577,11 @@ public partial class AddGameViewModel : ScreenViewModel
         {
             if (CompatibilityEditor.IsLinux)
             {
-                var configuredTool = CompatibilityEditor.ConfiguredTool;
-                game.CompatibilityLayer = configuredTool is null
-                    ? null
-                    : new CompatibilityLayer
-                    {
-                        Tool = configuredTool,
-                        Prefix = CompatibilityEditor.CreatePrefix(game.Id)
-                            ?? throw new InvalidOperationException("A configured compatibility tool requires a prefix."),
-                        Tier = GameCompatibilityTier.Unknown
-                };
+                var compatibilityLayer = CompatibilityEditor.CreateCompatibilityLayer();
+                if (CompatibilityEditor.IsCustom || _metadataCompatibilityTier is not null)
+                {
+                    game.CompatibilityLayer = compatibilityLayer;
+                }
             }
 
             if (_metadataCompatibilityTier is GameCompatibilityTier compatibilityTier)

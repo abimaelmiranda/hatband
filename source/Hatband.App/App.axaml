@@ -39,9 +39,6 @@
         <DataTemplate DataType="{x:Type vm:GameMetadataEditorViewModel}">
             <screens:GameMetadataEditorScreenView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:CompatibilitySettingsScreenViewModel}">
-            <screens:CompatibilitySettingsScreenView />
-        </DataTemplate>
         <DataTemplate DataType="{x:Type settings:SettingsScreenViewModel}">
             <screens:SettingsScreenView />
         </DataTemplate>

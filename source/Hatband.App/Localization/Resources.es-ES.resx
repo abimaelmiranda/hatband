@@ -925,7 +925,7 @@
   <data name="GameSessionOverlayTitle" xml:space="preserve">
     <value>Juego en ejecución</value>
   </data>
-  <data name="CompatibilityLinuxOnly" xml:space="preserve"><value>Las opciones de compatibilidad están disponibles para juegos añadidos manualmente en Linux.</value></data>
+  <data name="CompatibilityLinuxOnly" xml:space="preserve"><value>Las opciones de compatibilidad están disponibles para juegos en Linux.</value></data>
   <data name="CompatibilityMode" xml:space="preserve"><value>Modo de ejecución</value></data>
   <data name="NativeExecution" xml:space="preserve"><value>Nativo</value></data>
   <data name="UseProton" xml:space="preserve"><value>Usar Proton</value></data>
@@ -944,6 +944,21 @@
   <data name="CompatibilityPrefixInvalid" xml:space="preserve"><value>La ruta del prefijo del juego no es válida.</value></data>
   <data name="CompatibilityToolsRefreshing" xml:space="preserve"><value>Espera a que se carguen las versiones instaladas de Proton.</value></data>
   <data name="CompatibilitySaveError" xml:space="preserve"><value>No se pudo guardar la configuración de compatibilidad: {0}</value></data>
+  <data name="CompatibilityOriginal" xml:space="preserve"><value>Original</value></data>
+  <data name="CompatibilityCustom" xml:space="preserve"><value>Personalizado</value></data>
+  <data name="CompatibilityLaunchOption" xml:space="preserve"><value>Opción de inicio de Steam</value></data>
+  <data name="CompatibilitySelectLaunchOption" xml:space="preserve"><value>Selecciona una opción de inicio</value></data>
+  <data name="CompatibilityExecutableFallback" xml:space="preserve"><value>Indica un ejecutable manualmente si las opciones de Steam no están disponibles.</value></data>
+  <data name="CompatibilityExecutablePath" xml:space="preserve"><value>Ruta del ejecutable</value></data>
+  <data name="CompatibilityWorkingDirectory" xml:space="preserve"><value>Directorio de trabajo</value></data>
+  <data name="CompatibilityLaunchArguments" xml:space="preserve"><value>Argumentos de inicio de Steam</value></data>
+  <data name="CompatibilityAdditionalArguments" xml:space="preserve"><value>Argumentos adicionales</value></data>
+  <data name="CompatibilityArgumentsPlaceholder" xml:space="preserve"><value>Argumentos añadidos a los de Steam</value></data>
+  <data name="CompatibilityEnvironment" xml:space="preserve"><value>Variables de entorno</value></data>
+  <data name="CompatibilityAddEnvironmentVariable" xml:space="preserve"><value>Añadir variable</value></data>
+  <data name="CompatibilityEnvironmentVariableInvalid" xml:space="preserve"><value>Los nombres deben usar letras, números y guiones bajos, y no empezar por un número.</value></data>
+  <data name="CompatibilityEnvironmentVariableReserved" xml:space="preserve"><value>Los nombres deben ser únicos y no pueden sustituir la configuración de Proton o UMU.</value></data>
+  <data name="CompatibilityLaunchOptionRequired" xml:space="preserve"><value>Selecciona una opción de Steam o indica una ruta de ejecutable.</value></data>
   <data name="GameLaunchPreparing" xml:space="preserve"><value>Preparando juego…</value></data>
   <data name="GameLaunchFailed" xml:space="preserve"><value>No se pudo iniciar el juego. Consulta los registros de ejecución.</value></data>
   <data name="GameLaunchTimedOut" xml:space="preserve"><value>El juego no se inició dentro del tiempo esperado.</value></data>

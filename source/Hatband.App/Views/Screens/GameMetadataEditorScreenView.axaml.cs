@@ -15,13 +15,15 @@ namespace Hatband.App.Views.Screens;
 public partial class GameMetadataEditorScreenView : FullScreenView
 {
     private readonly ConsoleNavigationItemView[] sectionItems;
+    private GameMetadataEditorViewModel? observedViewModel;
     private int selectedSectionIndex;
     private bool isSectionContentActive;
 
     public GameMetadataEditorScreenView()
     {
         InitializeComponent();
-        sectionItems = [MetadataSectionItem, ArtworkSectionItem, SourcesSectionItem];
+        sectionItems = [MetadataSectionItem, ArtworkSectionItem, SourcesSectionItem, CompatibilitySectionItem];
+        DataContextChanged += OnDataContextChanged;
         UpdateSectionSelection();
     }
 
@@ -191,6 +193,29 @@ public partial class GameMetadataEditorScreenView : FullScreenView
 
     private void OnSourcesSectionFocusEntered(object? sender, EventArgs e) => SelectSection(2);
 
+    private void OnCompatibilitySectionActivated(object? sender, EventArgs e) => ActivateSection(3);
+
+    private void OnCompatibilitySectionFocusEntered(object? sender, EventArgs e) => SelectSection(3);
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (observedViewModel is not null)
+        {
+            observedViewModel.CompatibilityValidationFailed -= OnCompatibilityValidationFailed;
+        }
+
+        observedViewModel = DataContext as GameMetadataEditorViewModel;
+        if (observedViewModel is not null)
+        {
+            observedViewModel.CompatibilityValidationFailed += OnCompatibilityValidationFailed;
+        }
+    }
+
+    private void OnCompatibilityValidationFailed()
+    {
+        ActivateSection(3);
+    }
+
     private async void OnMetadataSourceSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (!ReferenceEquals(sender, MetadataSourceTabs) || !ReferenceEquals(e.Source, MetadataSourceTabs) ||
@@ -254,6 +279,7 @@ public partial class GameMetadataEditorScreenView : FullScreenView
             0 => MetadataSectionContent,
             1 => ArtworkSectionContent,
             2 => SourcesSectionContent,
+            3 => CompatibilitySectionContent,
             _ => throw new ArgumentOutOfRangeException(nameof(selectedSectionIndex))
         };
     }
@@ -268,6 +294,7 @@ public partial class GameMetadataEditorScreenView : FullScreenView
         MetadataSectionContent.IsVisible = isSectionContentActive && selectedSectionIndex == 0;
         ArtworkSectionContent.IsVisible = isSectionContentActive && selectedSectionIndex == 1;
         SourcesSectionContent.IsVisible = isSectionContentActive && selectedSectionIndex == 2;
+        CompatibilitySectionContent.IsVisible = isSectionContentActive && selectedSectionIndex == 3;
     }
 
     private async void OnSearchArtworkClick(object? sender, RoutedEventArgs e)
