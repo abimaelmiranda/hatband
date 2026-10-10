@@ -100,12 +100,9 @@ public sealed class Game : ModelBase
 
     public CompatibilityTool? GetCompatibilityTool()
     {
-        return CompatibilityLayer?.Tool;
-    }
-
-    public GameCompatibilityPrefix? GetCompatibilityPrefix()
-    {
-        return CompatibilityLayer?.Prefix;
+        return CompatibilityLayer?.ExecutionMode == GameExecutionMode.Custom
+            ? CompatibilityLayer.Tool
+            : null;
     }
 
 }

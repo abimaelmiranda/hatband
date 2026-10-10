@@ -1,7 +1,9 @@
 using Hatband.Core.Models.Games;
+using Hatband.Infrastructure.Persistence.Comparers;
 using Hatband.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System.Text.Json;
 
 namespace Hatband.Infrastructure.Persistence.Configurations;
 
@@ -52,35 +54,37 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                 artwork.Property(value => value.IconPath).HasColumnName("DefaultArtwork_IconPath");
             });
 
-        builder.OwnsOne(
+        builder.ComplexProperty(
             game => game.CompatibilityLayer,
             layer =>
             {
+                layer.HasDiscriminator();
+                layer.Property(value => value.ExecutionMode)
+                    .HasColumnName("CompatibilityLayer_ExecutionMode");
                 layer.Property(value => value.Tier).HasColumnName("CompatibilityLayer_Tier");
-                layer.OwnsOne(
+                layer.Property(value => value.LaunchOptionId).HasColumnName("CompatibilityLayer_LaunchOptionId");
+                layer.Property(value => value.ExecutablePath).HasColumnName("CompatibilityLayer_ExecutablePath");
+                layer.Property(value => value.WorkingDirectory).HasColumnName("CompatibilityLayer_WorkingDirectory");
+                layer.Property(value => value.LaunchArguments).HasColumnName("CompatibilityLayer_LaunchArguments");
+                layer.Property(value => value.AdditionalArguments).HasColumnName("CompatibilityLayer_AdditionalArguments");
+                var environmentVariables = layer.Property(value => value.EnvironmentVariables)
+                    .HasColumnName("CompatibilityLayer_EnvironmentVariables")
+                    .HasConversion(
+                        value => JsonSerializer.Serialize(value),
+                        value => DeserializeEnvironmentVariables(value));
+                environmentVariables.Metadata.SetValueComparer(new EnvironmentVariablesComparer());
+                layer.ComplexProperty(
                     value => value.Tool,
                     tool =>
                     {
+                        tool.HasDiscriminator();
                         tool.Property(value => value.Name).HasColumnName("CompatibilityTool_Name");
                         tool.Property(value => value.Version).HasColumnName("CompatibilityTool_Version");
                         tool.Property(value => value.InstallationPath)
                             .HasColumnName("CompatibilityTool_InstallationPath");
                         tool.Property(value => value.Source).HasColumnName("CompatibilityTool_Source");
-                    })
-                    .Navigation(layer => layer.Tool)
-                    .IsRequired(false);
-                layer.OwnsOne(
-                    value => value.Prefix,
-                    prefix =>
-                    {
-                        prefix.Property(value => value.IsManaged).HasColumnName("CompatibilityPrefix_IsManaged");
-                        prefix.Property(value => value.Path).HasColumnName("CompatibilityPrefix_Path");
-                    })
-                    .Navigation(layer => layer.Prefix)
-                    .IsRequired(false);
-            })
-            .Navigation(game => game.CompatibilityLayer)
-            .IsRequired(false);
+                    });
+            });
 
         builder.OwnsOne(
             game => game.InstallationInfo,
@@ -109,5 +113,11 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
         builder.HasMany(game => game.GameActions)
             .WithOne()
             .OnDelete(DeleteBehavior.Cascade);
+    }
+
+    private static Dictionary<string, string> DeserializeEnvironmentVariables(string value)
+    {
+        return JsonSerializer.Deserialize<Dictionary<string, string>>(value)
+            ?? throw new InvalidOperationException("The saved game environment is invalid.");
     }
 }

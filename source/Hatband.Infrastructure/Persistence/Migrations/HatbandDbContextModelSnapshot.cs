@@ -101,6 +101,76 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                                 .HasColumnName("Artwork_IconPath");
                         });
 
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "CompatibilityLayer", "Hatband.Core.Models.Games.Game.CompatibilityLayer#CompatibilityLayer", b1 =>
+                        {
+                            b1.Property<string>("AdditionalArguments")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("CompatibilityLayer_AdditionalArguments");
+
+                            b1.Property<string>("Discriminator")
+                                .IsRequired()
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("EnvironmentVariables")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("CompatibilityLayer_EnvironmentVariables");
+
+                            b1.Property<string>("ExecutablePath")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("CompatibilityLayer_ExecutablePath");
+
+                            b1.Property<int>("ExecutionMode")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("CompatibilityLayer_ExecutionMode");
+
+                            b1.Property<string>("LaunchArguments")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("CompatibilityLayer_LaunchArguments");
+
+                            b1.Property<string>("LaunchOptionId")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("CompatibilityLayer_LaunchOptionId");
+
+                            b1.Property<int>("Tier")
+                                .HasColumnType("INTEGER")
+                                .HasColumnName("CompatibilityLayer_Tier");
+
+                            b1.Property<string>("WorkingDirectory")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("CompatibilityLayer_WorkingDirectory");
+
+                            b1.ComplexProperty(typeof(Dictionary<string, object>), "Tool", "Hatband.Core.Models.Games.Game.CompatibilityLayer#CompatibilityLayer.Tool#CompatibilityTool", b2 =>
+                                {
+                                    b2.Property<string>("Discriminator")
+                                        .IsRequired()
+                                        .HasColumnType("TEXT");
+
+                                    b2.Property<string>("InstallationPath")
+                                        .IsRequired()
+                                        .HasColumnType("TEXT")
+                                        .HasColumnName("CompatibilityTool_InstallationPath");
+
+                                    b2.Property<string>("Name")
+                                        .IsRequired()
+                                        .HasColumnType("TEXT")
+                                        .HasColumnName("CompatibilityTool_Name");
+
+                                    b2.Property<int>("Source")
+                                        .HasColumnType("INTEGER")
+                                        .HasColumnName("CompatibilityTool_Source");
+
+                                    b2.Property<string>("Version")
+                                        .IsRequired()
+                                        .HasColumnType("TEXT")
+                                        .HasColumnName("CompatibilityTool_Version");
+
+                                    b2.HasDiscriminator<string>("Discriminator").HasValue("CompatibilityTool");
+                                });
+
+                            b1.HasDiscriminator<string>("Discriminator").HasValue("CompatibilityLayer");
+                        });
+
                     b.ComplexProperty(typeof(Dictionary<string, object>), "DefaultArtwork", "Hatband.Core.Models.Games.Game.DefaultArtwork#GameArtwork", b1 =>
                         {
                             b1.Property<string>("BackgroundImagePath")
@@ -187,81 +257,6 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                         .WithMany("Games")
                         .HasForeignKey("GameLibraryId")
                         .OnDelete(DeleteBehavior.Cascade);
-
-                    b.OwnsOne("Hatband.Core.Models.Compatibility.CompatibilityLayer", "CompatibilityLayer", b1 =>
-                        {
-                            b1.Property<Guid>("GameId")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<int>("Tier")
-                                .HasColumnType("INTEGER")
-                                .HasColumnName("CompatibilityLayer_Tier");
-
-                            b1.HasKey("GameId");
-
-                            b1.ToTable("Games");
-
-                            b1.WithOwner()
-                                .HasForeignKey("GameId");
-
-                            b1.OwnsOne("Hatband.Core.Models.Games.CompatibilityTool", "Tool", b2 =>
-                                {
-                                    b2.Property<Guid>("CompatibilityLayerGameId")
-                                        .HasColumnType("TEXT");
-
-                                    b2.Property<string>("InstallationPath")
-                                        .IsRequired()
-                                        .HasColumnType("TEXT")
-                                        .HasColumnName("CompatibilityTool_InstallationPath");
-
-                                    b2.Property<string>("Name")
-                                        .IsRequired()
-                                        .HasColumnType("TEXT")
-                                        .HasColumnName("CompatibilityTool_Name");
-
-                                    b2.Property<int>("Source")
-                                        .HasColumnType("INTEGER")
-                                        .HasColumnName("CompatibilityTool_Source");
-
-                                    b2.Property<string>("Version")
-                                        .IsRequired()
-                                        .HasColumnType("TEXT")
-                                        .HasColumnName("CompatibilityTool_Version");
-
-                                    b2.HasKey("CompatibilityLayerGameId");
-
-                                    b2.ToTable("Games");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("CompatibilityLayerGameId");
-                                });
-
-                            b1.OwnsOne("Hatband.Core.Models.Games.GameCompatibilityPrefix", "Prefix", b2 =>
-                                {
-                                    b2.Property<Guid>("CompatibilityLayerGameId")
-                                        .HasColumnType("TEXT");
-
-                                    b2.Property<bool>("IsManaged")
-                                        .HasColumnType("INTEGER")
-                                        .HasColumnName("CompatibilityPrefix_IsManaged");
-
-                                    b2.Property<string>("Path")
-                                        .IsRequired()
-                                        .HasColumnType("TEXT")
-                                        .HasColumnName("CompatibilityPrefix_Path");
-
-                                    b2.HasKey("CompatibilityLayerGameId");
-
-                                    b2.ToTable("Games");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("CompatibilityLayerGameId");
-                                });
-
-                            b1.Navigation("Prefix");
-
-                            b1.Navigation("Tool");
-                        });
 
                     b.OwnsOne("Hatband.Core.Models.Games.GameInstallationInfo", "InstallationInfo", b1 =>
                         {
@@ -366,8 +361,6 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("GameId");
                         });
-
-                    b.Navigation("CompatibilityLayer");
 
                     b.Navigation("InstallationInfo");
 
