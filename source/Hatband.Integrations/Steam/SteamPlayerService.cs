@@ -15,6 +15,7 @@ public sealed class SteamPlayerService : ISteamPlayerService
     private readonly IHttpClientFactory httpClientFactory;
     private readonly IConnectorSessionStore sessionStore;
     private readonly ISteamTokenRefresher tokenRefresher;
+    private readonly SteamKitConnectionFactory connectionFactory;
     private readonly ILogger<SteamPlayerService> logger;
     private readonly Lock authenticationLock = new();
     private readonly SemaphoreSlim sessionOperationGate = new(1, 1);
@@ -24,15 +25,18 @@ public sealed class SteamPlayerService : ISteamPlayerService
         IHttpClientFactory httpClientFactory,
         IConnectorSessionStore sessionStore,
         ISteamTokenRefresher tokenRefresher,
+        SteamKitConnectionFactory connectionFactory,
         ILogger<SteamPlayerService> logger)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(sessionStore);
         ArgumentNullException.ThrowIfNull(tokenRefresher);
+        ArgumentNullException.ThrowIfNull(connectionFactory);
         ArgumentNullException.ThrowIfNull(logger);
         this.httpClientFactory = httpClientFactory;
         this.sessionStore = sessionStore;
         this.tokenRefresher = tokenRefresher;
+        this.connectionFactory = connectionFactory;
         this.logger = logger;
     }
 
@@ -106,7 +110,10 @@ public sealed class SteamPlayerService : ISteamPlayerService
             sessionOperationGate.Release();
         }
 
-        return await SteamKitQrLoginSession.CreateAsync(SetAuthenticatedSessionAsync, cancellationToken);
+        return await SteamKitQrLoginSession.CreateAsync(
+            connectionFactory,
+            SetAuthenticatedSessionAsync,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<SteamLibraryGame>> GetOwnedGamesAsync(CancellationToken cancellationToken = default)

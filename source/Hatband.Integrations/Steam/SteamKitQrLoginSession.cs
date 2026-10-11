@@ -9,31 +9,25 @@ namespace Hatband.Integrations.Steam;
 
 internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
 {
-    private readonly SteamClient steamClient;
+    private readonly SteamKitConnection connection;
     private readonly SteamUser steamUser;
     private readonly QrAuthSession authSession;
-    private readonly Task callbackPump;
-    private readonly CancellationTokenSource callbackPumpCancellation;
     private readonly Func<ConnectorSession, CancellationToken, Task<bool>> onAuthenticated;
     private readonly Task<SteamUser.LoggedOnCallback> loginCompletion;
     private Task<ConnectorSession>? authenticationTask;
     private bool disposed;
 
     private SteamKitQrLoginSession(
-        SteamClient steamClient,
+        SteamKitConnection connection,
         SteamUser steamUser,
         QrAuthSession authSession,
         Task<SteamUser.LoggedOnCallback> loginCompletion,
-        Task callbackPump,
-        CancellationTokenSource callbackPumpCancellation,
         Func<ConnectorSession, CancellationToken, Task<bool>> onAuthenticated)
     {
-        this.steamClient = steamClient;
+        this.connection = connection;
         this.steamUser = steamUser;
         this.authSession = authSession;
         this.loginCompletion = loginCompletion;
-        this.callbackPump = callbackPump;
-        this.callbackPumpCancellation = callbackPumpCancellation;
         this.onAuthenticated = onAuthenticated;
         ChallengeUri = new Uri(authSession.ChallengeURL, UriKind.Absolute);
         authSession.ChallengeURLChanged = OnChallengeUrlChanged;
@@ -44,62 +38,50 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
     public event EventHandler<QrChallengeUriChangedEventArgs>? ChallengeUriChanged;
 
     public static async Task<SteamKitQrLoginSession> CreateAsync(
+        SteamKitConnectionFactory connectionFactory,
         Func<ConnectorSession, CancellationToken, Task<bool>> onAuthenticated,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(connectionFactory);
         ArgumentNullException.ThrowIfNull(onAuthenticated);
 
-        var steamClient = new SteamClient();
+        using var preparationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        preparationTimeout.CancelAfter(TimeSpan.FromSeconds(30));
+        var connection = await connectionFactory.ConnectAsync(preparationTimeout.Token);
+        var steamClient = connection.Client;
         var steamUser = steamClient.GetHandler<SteamUser>()
             ?? throw new InvalidOperationException("SteamKit did not provide the Steam user handler.");
-        var callbackManager = new CallbackManager(steamClient);
-        var connectionCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var callbackPumpCancellation = new CancellationTokenSource();
-
-        callbackManager.Subscribe<SteamClient.ConnectedCallback>(_ => connectionCompletion.TrySetResult());
-        callbackManager.Subscribe<SteamClient.DisconnectedCallback>(callback =>
-        {
-            if (!callback.UserInitiated)
-            {
-                connectionCompletion.TrySetException(
-                    new InvalidOperationException("Steam disconnected while starting authentication."));
-            }
-        });
+        var callbackManager = connection.CallbackManager;
 
         var loginCompletion = new TaskCompletionSource<SteamUser.LoggedOnCallback>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         callbackManager.Subscribe<SteamUser.LoggedOnCallback>(callback => loginCompletion.TrySetResult(callback));
 
-        var callbackPump = Task.Run(() => RunCallbackPump(callbackManager, callbackPumpCancellation.Token));
-
         try
         {
-            steamClient.Connect();
-            await connectionCompletion.Task.WaitAsync(cancellationToken);
-
-            var authSession = await steamClient.Authentication.BeginAuthSessionViaQRAsync(new AuthSessionDetails
+            var authSessionTask = steamClient.Authentication.BeginAuthSessionViaQRAsync(new AuthSessionDetails
             {
                 DeviceFriendlyName = "Hatband",
                 IsPersistentSession = true,
                 WebsiteID = "Client",
             });
+            var authSession = await WaitForConnectionAsync(
+                connection,
+                authSessionTask,
+                preparationTimeout.Token,
+                "Steam disconnected while preparing QR authentication.");
 
             var result = new SteamKitQrLoginSession(
-                steamClient,
+                connection,
                 steamUser,
                 authSession,
                 loginCompletion.Task,
-                callbackPump,
-                callbackPumpCancellation,
                 onAuthenticated);
             return result;
         }
         catch
         {
-            callbackPumpCancellation.Cancel();
-            steamClient.Disconnect();
-            await callbackPump;
-            callbackPumpCancellation.Dispose();
+            await connection.DisposeAsync();
             throw;
         }
     }
@@ -113,7 +95,11 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
 
     private async Task<ConnectorSession> AuthenticateAsync(CancellationToken cancellationToken)
     {
-        var authResult = await authSession.PollingWaitForResultAsync(cancellationToken);
+        var authResult = await WaitForConnectionAsync(
+            connection,
+            authSession.PollingWaitForResultAsync(cancellationToken),
+            cancellationToken,
+            "Steam disconnected while waiting for QR authentication.");
         steamUser.LogOn(new SteamUser.LogOnDetails
         {
             Username = authResult.AccountName,
@@ -121,7 +107,11 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
             ShouldRememberPassword = true
         });
 
-        var loginResult = await loginCompletion.WaitAsync(cancellationToken);
+        var loginResult = await WaitForConnectionAsync(
+            connection,
+            loginCompletion,
+            cancellationToken,
+            "Steam disconnected while completing login.");
         if (loginResult.Result != EResult.OK)
         {
             throw new InvalidOperationException(
@@ -162,12 +152,22 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
         ChallengeUriChanged?.Invoke(this, new QrChallengeUriChangedEventArgs(ChallengeUri));
     }
 
-    internal static void RunCallbackPump(CallbackManager callbackManager, CancellationToken cancellationToken)
+    private static async Task<T> WaitForConnectionAsync<T>(
+        SteamKitConnection connection,
+        Task<T> operation,
+        CancellationToken cancellationToken,
+        string disconnectMessage)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        var cancellableOperation = operation.WaitAsync(cancellationToken);
+        var completedTask = await Task.WhenAny(cancellableOperation, connection.Disconnected.Task);
+        if (completedTask == connection.Disconnected.Task)
         {
-            callbackManager.RunWaitCallbacks(TimeSpan.FromMilliseconds(250));
+            var disconnection = await connection.Disconnected.Task;
+            throw new InvalidOperationException(
+                $"{disconnectMessage} (user initiated: {disconnection.UserInitiated}).");
         }
+
+        return await cancellableOperation;
     }
 
     public async ValueTask DisposeAsync()
@@ -179,9 +179,6 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
 
         disposed = true;
         authSession.ChallengeURLChanged = null;
-        callbackPumpCancellation.Cancel();
-        steamClient.Disconnect();
-        await callbackPump;
-        callbackPumpCancellation.Dispose();
+        await connection.DisposeAsync();
     }
 }

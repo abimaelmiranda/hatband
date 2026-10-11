@@ -1,56 +1,48 @@
-using SteamKit2;
 using SteamKit2.Authentication;
+using SteamKit2;
 using Hatband.Integrations.Steam.Abstractions;
 
 namespace Hatband.Integrations.Steam;
 
 public sealed class SteamKitTokenRefresher : ISteamTokenRefresher
 {
+    private readonly SteamKitConnectionFactory connectionFactory;
+
+    public SteamKitTokenRefresher(SteamKitConnectionFactory connectionFactory)
+    {
+        ArgumentNullException.ThrowIfNull(connectionFactory);
+        this.connectionFactory = connectionFactory;
+    }
+
     public async Task<(string AccessToken, string? RefreshToken)> RefreshAsync(
         ulong steamId,
         string refreshToken,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(refreshToken);
-        var client = new SteamClient();
-        var callbackManager = new CallbackManager(client);
-        using var pumpCancellation = new CancellationTokenSource();
         using var refreshTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         refreshTimeout.CancelAfter(TimeSpan.FromSeconds(30));
-        var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        callbackManager.Subscribe<SteamClient.ConnectedCallback>(_ => connected.TrySetResult());
-        callbackManager.Subscribe<SteamClient.DisconnectedCallback>(callback =>
+        await using var connection = await connectionFactory.ConnectAsync(refreshTimeout.Token);
+        var refreshTask = connection.Client.Authentication.GenerateAccessTokenForAppAsync(
+            new SteamID(steamId),
+            refreshToken,
+            allowRenewal: true);
+        var completedTask = await Task.WhenAny(refreshTask, connection.Disconnected.Task);
+        if (completedTask == connection.Disconnected.Task)
         {
-            if (!callback.UserInitiated)
-            {
-                var exception = new InvalidOperationException("Steam disconnected while refreshing authentication.");
-                connected.TrySetException(exception);
-            }
-        });
-
-        var callbackPump = Task.Run(() => SteamKitQrLoginSession.RunCallbackPump(callbackManager, pumpCancellation.Token));
-        try
-        {
-            client.Connect();
-            await connected.Task.WaitAsync(refreshTimeout.Token);
-            var tokenResult = await client.Authentication.GenerateAccessTokenForAppAsync(
-                new SteamID(steamId),
-                refreshToken,
-                allowRenewal: true).WaitAsync(refreshTimeout.Token);
-            if (string.IsNullOrWhiteSpace(tokenResult.AccessToken))
-            {
-                throw new InvalidOperationException("Steam did not return an access token while refreshing authentication.");
-            }
-
-            return (tokenResult.AccessToken, string.IsNullOrWhiteSpace(tokenResult.RefreshToken)
-                ? null
-                : tokenResult.RefreshToken);
+            var disconnection = await connection.Disconnected.Task;
+            throw new InvalidOperationException(
+                $"Steam disconnected while refreshing authentication (user initiated: {disconnection.UserInitiated}).");
         }
-        finally
+
+        var tokenResult = await refreshTask.WaitAsync(refreshTimeout.Token);
+        if (string.IsNullOrWhiteSpace(tokenResult.AccessToken))
         {
-            pumpCancellation.Cancel();
-            client.Disconnect();
-            await callbackPump;
+            throw new InvalidOperationException("Steam did not return an access token while refreshing authentication.");
         }
+
+        return (tokenResult.AccessToken, string.IsNullOrWhiteSpace(tokenResult.RefreshToken)
+            ? null
+            : tokenResult.RefreshToken);
     }
 }

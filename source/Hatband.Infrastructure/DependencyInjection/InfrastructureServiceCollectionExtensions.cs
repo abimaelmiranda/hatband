@@ -75,6 +75,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
         services.AddSingleton<ProtondbMetadataProvider>();
         services.AddSingleton<ISteamPlayerService, SteamPlayerService>();
+        services.AddSingleton<SteamKitConnectionFactory>();
         services.AddSingleton<ISteamTokenRefresher, SteamKitTokenRefresher>();
         services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
