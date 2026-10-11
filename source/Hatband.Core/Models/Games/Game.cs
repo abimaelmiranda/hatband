@@ -3,6 +3,7 @@ using Hatband.Core.Enums.Host;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models;
 using Hatband.Core.Models.Compatibility;
+using Hatband.Core.Models.Games.PostInstall;
 
 namespace Hatband.Core.Models.Games;
 
@@ -63,6 +64,8 @@ public sealed class Game : ModelBase
     public GameTimeToBeat? TimeToBeat { get; set; }
 
     public GameInstallationInfo? InstallationInfo { get; set; }
+
+    public GamePostInstallPlan? PostInstallPlan { get; set; }
 
     public bool IsFavorite { get; set; }
 

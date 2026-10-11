@@ -1,5 +1,6 @@
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Games;
+using Hatband.Core.Models.Games.PostInstall;
 
 namespace Hatband.Core.Abstractions.Repositories;
 
@@ -28,9 +29,15 @@ public interface IGameRepository
 
     Task UpdateAsync(Game game, CancellationToken cancellationToken = default);
 
-    Task UpdateInstallationInfoAsync(
+    Task UpdateInstallationAsync(
         Guid gameId,
         GameInstallationInfo? installationInfo,
+        GamePostInstallPlan? postInstallPlan,
+        CancellationToken cancellationToken = default);
+
+    Task UpdatePostInstallPlanAsync(
+        Guid gameId,
+        GamePostInstallPlan? postInstallPlan,
         CancellationToken cancellationToken = default);
 
     Task DeleteAsync(Guid gameId, CancellationToken cancellationToken = default);

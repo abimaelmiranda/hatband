@@ -1,4 +1,5 @@
 using Hatband.Core.Models.Games;
+using Hatband.Core.Models.Games.PostInstall;
 using Hatband.Infrastructure.Persistence.Comparers;
 using Hatband.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +53,28 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                 artwork.Property(value => value.CoverImagePath).HasColumnName("DefaultArtwork_CoverImagePath");
                 artwork.Property(value => value.BackgroundImagePath).HasColumnName("DefaultArtwork_BackgroundImagePath");
                 artwork.Property(value => value.IconPath).HasColumnName("DefaultArtwork_IconPath");
+            });
+
+        builder.ComplexProperty(
+            game => game.PostInstallPlan,
+            plan =>
+            {
+                plan.HasDiscriminator();
+                plan.Property(value => value.Revision).HasColumnName("PostInstallPlan_Revision");
+
+                var steps = plan.Property(value => value.Steps)
+                    .HasColumnName("PostInstallPlan_Steps")
+                    .HasConversion(
+                        value => JsonSerializer.Serialize(value),
+                        value => GamePostInstallListComparer.DeserializeSteps(value));
+                steps.Metadata.SetValueComparer(GamePostInstallListComparer.Steps);
+
+                var diagnostics = plan.Property(value => value.Diagnostics)
+                    .HasColumnName("PostInstallPlan_Diagnostics")
+                    .HasConversion(
+                        value => JsonSerializer.Serialize(value),
+                        value => GamePostInstallListComparer.DeserializeDiagnostics(value));
+                diagnostics.Metadata.SetValueComparer(GamePostInstallListComparer.Diagnostics);
             });
 
         builder.ComplexProperty(

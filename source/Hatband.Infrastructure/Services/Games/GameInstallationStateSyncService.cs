@@ -51,14 +51,16 @@ public sealed class GameInstallationStateSyncService : IGameInstallationStateSyn
                     installedGamesBySourceId.TryGetValue(sourceGameId, out var foundGame)
                     ? foundGame
                     : null;
-                if (game.InstallationInfo == installedGame?.InstallationInfo)
+                if (game.InstallationInfo == installedGame?.InstallationInfo &&
+                    game.PostInstallPlan?.Revision == installedGame?.PostInstallPlan?.Revision)
                 {
                     continue;
                 }
 
-                await _gameRepository.UpdateInstallationInfoAsync(
+                await _gameRepository.UpdateInstallationAsync(
                     game.Id,
                     installedGame?.InstallationInfo,
+                    installedGame?.PostInstallPlan,
                     cancellationToken);
             }
 

@@ -192,6 +192,30 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                             b1.HasDiscriminator<string>("Discriminator").HasValue("GameArtwork");
                         });
 
+                    b.ComplexProperty(typeof(Dictionary<string, object>), "PostInstallPlan", "Hatband.Core.Models.Games.Game.PostInstallPlan#GamePostInstallPlan", b1 =>
+                        {
+                            b1.Property<string>("Diagnostics")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PostInstallPlan_Diagnostics");
+
+                            b1.Property<string>("Discriminator")
+                                .IsRequired()
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("Revision")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PostInstallPlan_Revision");
+
+                            b1.Property<string>("Steps")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PostInstallPlan_Steps");
+
+                            b1.HasDiscriminator<string>("Discriminator").HasValue("GamePostInstallPlan");
+                        });
+
                     b.HasKey("Id");
 
                     b.HasIndex("GameLibraryId");

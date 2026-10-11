@@ -2,6 +2,7 @@ using Hatband.Core.Abstractions.Repositories;
 using Hatband.Core.Abstractions.FileSystem;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Games;
+using Hatband.Core.Models.Games.PostInstall;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hatband.Infrastructure.Persistence.Repositories;
@@ -79,14 +80,27 @@ public sealed class GameRepository : IGameRepository
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateInstallationInfoAsync(
+    public async Task UpdateInstallationAsync(
         Guid gameId,
         GameInstallationInfo? installationInfo,
+        GamePostInstallPlan? postInstallPlan,
         CancellationToken cancellationToken = default)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var game = await context.Games.SingleAsync(item => item.Id == gameId, cancellationToken);
         game.InstallationInfo = installationInfo;
+        game.PostInstallPlan = postInstallPlan;
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdatePostInstallPlanAsync(
+        Guid gameId,
+        GamePostInstallPlan? postInstallPlan,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var game = await context.Games.SingleAsync(item => item.Id == gameId, cancellationToken);
+        game.PostInstallPlan = postInstallPlan;
         await context.SaveChangesAsync(cancellationToken);
     }
 
