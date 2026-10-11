@@ -35,6 +35,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _installationStateRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _steamSyncGate = new(1, 1);
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
+    private readonly Dictionary<Guid, GamePreparationActivityViewModel> _preparations = [];
+    private readonly CancellationTokenSource _applicationLifetime = new();
     private CancellationTokenSource? _installationPollingCancellation;
     private CancellationTokenSource? _statusMessageTimeoutCancellation;
     private Task? _installationPollingTask;
@@ -93,6 +95,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _applicationLifetime.Cancel();
+        _applicationLifetime.Dispose();
         StopPendingInstallationPolling();
         StopGameProcessMonitoring();
         _statusMessageTimeoutCancellation?.Cancel();
@@ -133,6 +137,31 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial string? StatusMessage { get; set; }
+
+    public GamePreparationActivityViewModel? SelectedGamePreparationActivity
+    {
+        get
+        {
+            if (SelectedGameCard is not { } gameCard)
+            {
+                return null;
+            }
+
+            return _preparations.GetValueOrDefault(gameCard.Game.Id);
+        }
+    }
+
+    public bool IsSelectedGamePreparing => SelectedGamePreparationActivity is not null;
+
+    public bool IsSelectedGameManagementPendingWithoutPreparation =>
+        IsSelectedGameManagementPending && !IsSelectedGamePreparing;
+
+    private void NotifyGamePreparationChanged()
+    {
+        OnPropertyChanged(nameof(SelectedGamePreparationActivity));
+        OnPropertyChanged(nameof(IsSelectedGamePreparing));
+        OnPropertyChanged(nameof(IsSelectedGameManagementPendingWithoutPreparation));
+    }
 
     [ObservableProperty]
     public partial bool IsLibraryLoading { get; set; } = true;
@@ -418,11 +447,16 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
 
         var processMonitoringStarted = false;
-        if (isCustomLinuxLaunch)
+        GamePreparationActivityViewModel? preparation = null;
+        if (isCustomLinuxLaunch && !isInstall)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            preparation = new GamePreparationActivityViewModel(game.Name, _applicationLifetime.Token);
+            _preparations.Add(game.Id, preparation);
+            NotifyGamePreparationChanged();
             _pendingLaunchGameIds.Add(game.Id);
             NotifyGameLaunchStateChanged();
-            StatusMessage = Resources.GameLaunchPreparing;
+            StatusMessage = null;
         }
 
         try
@@ -439,7 +473,20 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 return null;
             }
 
-            var launchResult = await _gameManagementService.LaunchAsync(game, cancellationToken);
+            IProgress<GamePreparationProgress>? progress = null;
+            if (preparation is { } activity)
+            {
+                progress = new Progress<GamePreparationProgress>(update =>
+                {
+                    if (_preparations.TryGetValue(game.Id, out var current) && ReferenceEquals(current, activity))
+                    {
+                        activity.Report(update);
+                    }
+                });
+            }
+
+            var operationToken = preparation is null ? cancellationToken : preparation.CancellationToken;
+            var launchResult = await _gameManagementService.LaunchAsync(game, progress, operationToken);
             var result = launchResult.Result;
             var action = GameManagementAction.Launch;
             StatusMessage = GetGameManagementStatus(result, action);
@@ -453,6 +500,10 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 processMonitoringStarted = true;
             }
         }
+        catch (OperationCanceledException) when (preparation?.CancellationToken.IsCancellationRequested == true)
+        {
+            StatusMessage = Resources.GamePreparationCanceled;
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
@@ -464,6 +515,14 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
         finally
         {
+            if (preparation is not null)
+            {
+                _preparations.Remove(game.Id);
+                NotifyGamePreparationChanged();
+
+                preparation.Dispose();
+            }
+
             if (!processMonitoringStarted)
             {
                 _pendingLaunchGameIds.Remove(game.Id);
@@ -527,6 +586,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private void NotifyGameLaunchStateChanged()
     {
         OnPropertyChanged(nameof(IsSelectedGameManagementPending));
+        NotifyGamePreparationChanged();
         OnPropertyChanged(nameof(IsPrimaryGameActionEnabled));
     }
 
@@ -720,6 +780,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                     _pendingInstallationStates.Remove(gameId);
                     OnPropertyChanged(nameof(IsSelectedGameUninstallPending));
                     OnPropertyChanged(nameof(IsSelectedGameManagementPending));
+                    NotifyGamePreparationChanged();
                     if (isInstalled)
                     {
                         GameInstallationCompleted?.Invoke(this, EventArgs.Empty);
@@ -758,6 +819,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         _pendingInstallationStates[gameId] = isInstalled;
         OnPropertyChanged(nameof(IsSelectedGameUninstallPending));
         OnPropertyChanged(nameof(IsSelectedGameManagementPending));
+        NotifyGamePreparationChanged();
         if (_installationPollingTask is { IsCompleted: false })
         {
             return;
@@ -1126,6 +1188,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(CanUninstallSelectedGame));
         OnPropertyChanged(nameof(IsSelectedGameUninstallPending));
         OnPropertyChanged(nameof(IsSelectedGameManagementPending));
+        NotifyGamePreparationChanged();
         OnPropertyChanged(nameof(SelectedGameHiddenActionLabel));
 
         foreach (var game in _allGames)

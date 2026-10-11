@@ -1004,4 +1004,31 @@
   <data name="LibraryTitleFontLight" xml:space="preserve">
     <value>Ligera — Lato Light</value>
   </data>
+  <data name="GamePreparationStarting" xml:space="preserve">
+    <value>Preparando {0}…</value>
+  </data>
+  <data name="GamePreparationStep" xml:space="preserve">
+    <value>{0}: {1} — {2}</value>
+  </data>
+  <data name="GamePreparationInitializing" xml:space="preserve">
+    <value>Inicializando el entorno del juego</value>
+  </data>
+  <data name="GamePreparationRegistry" xml:space="preserve">
+    <value>Configurando el juego</value>
+  </data>
+  <data name="GamePreparationInstalling" xml:space="preserve">
+    <value>Instalando componentes</value>
+  </data>
+  <data name="GamePreparationCopying" xml:space="preserve">
+    <value>Preparando archivos</value>
+  </data>
+  <data name="GamePreparationCompleted" xml:space="preserve">
+    <value>Preparación completada</value>
+  </data>
+  <data name="GamePreparationCanceling" xml:space="preserve">
+    <value>Cancelando la preparación…</value>
+  </data>
+  <data name="GamePreparationCanceled" xml:space="preserve">
+    <value>Preparación del juego cancelada.</value>
+  </data>
 </root>

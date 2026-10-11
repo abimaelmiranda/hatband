@@ -70,9 +70,19 @@
                                                  Height="6"
                                                  VerticalAlignment="Center"
                                                  IsIndeterminate="True"
-                                                 IsVisible="{Binding Session.IsSelectedGameManagementPending}"
+                                                 IsVisible="{Binding Session.IsSelectedGameManagementPendingWithoutPreparation}"
                                                  Background="#394650"
                                                  Foreground="#91C7F2" />
+                                    <ContentControl Grid.ColumnSpan="2"
+                                                    Content="{Binding Session.SelectedGamePreparationActivity}"
+                                                    IsVisible="{Binding Session.IsSelectedGamePreparing}"
+                                                    HorizontalAlignment="Left">
+                                        <ContentControl.ContentTemplate>
+                                            <DataTemplate x:DataType="vm:GamePreparationActivityViewModel">
+                                                <components:GamePreparationActivityView />
+                                            </DataTemplate>
+                                        </ContentControl.ContentTemplate>
+                                    </ContentControl>
                                     <Button x:Name="OptionsButton"
                                             Grid.Column="1"
                                             Content="…"

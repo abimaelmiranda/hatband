@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Hatband.App.ViewModels"
+             xmlns:loc="using:Hatband.App.Localization"
+             x:Class="Hatband.App.Views.Components.GamePreparationActivityView"
+             x:DataType="vm:GamePreparationActivityViewModel">
+    <StackPanel Spacing="6">
+        <ProgressBar Width="200"
+                     HorizontalAlignment="Left"
+                     Height="6"
+                     Minimum="0" Maximum="100"
+                     IsIndeterminate="{Binding IsIndeterminate}"
+                     Value="{Binding ProgressPercent}"
+                     Background="#394650" Foreground="#91C7F2" />
+        <TextBlock Text="{Binding Status}"
+                   Foreground="#D6DEE4"
+                   FontSize="{DynamicResource Typography.Caption}"
+                   TextWrapping="NoWrap" />
+        <Button Content="{x:Static loc:Resources.Cancel}"
+                Command="{Binding CancelCommand}"
+                Classes="subtle-action"
+                HorizontalAlignment="Left"
+                Padding="10,4" />
+    </StackPanel>
+</UserControl>
