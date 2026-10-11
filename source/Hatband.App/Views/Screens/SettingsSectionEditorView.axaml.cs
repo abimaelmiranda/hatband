@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Hatband.App.Services;
+using Hatband.App.ViewModels;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.ViewModels.Settings.Fields;
 using Hatband.App.Views.Components;
@@ -121,7 +122,7 @@ public partial class SettingsSectionEditorView : UserControl
     }
 
     public Button? GetConnectorPrimaryActionControl() => SettingsFieldsPanel.GetVisualDescendants()
-        .OfType<SteamConnectorSettingsView>()
+        .OfType<ConnectorSettingsView>()
         .Select(view => view.GetPrimaryActionControl())
         .FirstOrDefault(button => button is not null);
 
@@ -342,9 +343,14 @@ public partial class SettingsSectionEditorView : UserControl
             var panelState = new PanelEditorState();
             panelStates.Add(panelState);
             var panel = BuildPanelEditor(settings, tab.Content, panelState);
-            if (Section?.IsConnectorsSection == true && tab.Property?.Name == "Steam")
+            if (Section?.IsConnectorsSection == true && tab.Property is not null)
             {
-                panel.Children.Add(CreateSteamConnectorPanel());
+                var connector = observedViewModel?.Connectors.SingleOrDefault(item =>
+                    string.Equals(item.SourceId, tab.Property.Name, StringComparison.OrdinalIgnoreCase));
+                if (connector is not null)
+                {
+                    panel.Children.Add(CreateConnectorPanel(connector));
+                }
             }
 
             var item = new TabItem
@@ -491,23 +497,22 @@ public partial class SettingsSectionEditorView : UserControl
         return current;
     }
 
-    private static Control CreateSteamConnectorPanel()
+    private static Control CreateConnectorPanel(ConnectorLoginViewModel connector)
     {
-        return new StackPanel
+        var panel = new StackPanel { Spacing = 12 };
+        if (connector.SourceId == "steam")
         {
-            Spacing = 12,
-            Children =
+            panel.Children.Add(new TextBlock
             {
-                new TextBlock
-                {
-                    Text = AppResources.SteamSilentModeDescription,
-                    Foreground = new SolidColorBrush(Color.Parse("#AEBBC5")),
-                    Classes = { "typography-caption" },
-                    TextWrapping = TextWrapping.Wrap
-                },
-                new SteamConnectorSettingsView()
-            }
-        };
+                Text = AppResources.SteamSilentModeDescription,
+                Foreground = new SolidColorBrush(Color.Parse("#AEBBC5")),
+                Classes = { "typography-caption" },
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        panel.Children.Add(new ConnectorSettingsView { DataContext = connector });
+        return panel;
     }
 
     private Control CreateEditor(object settings, SettingsPanelDefinition.Field field)

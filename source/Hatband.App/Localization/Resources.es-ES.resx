@@ -715,6 +715,12 @@
   <data name="HideGame" xml:space="preserve">
     <value>Ocultar juego</value>
   </data>
+  <data name="RefreshGameData" xml:space="preserve">
+    <value>Actualizar datos del juego</value>
+  </data>
+  <data name="GameDataUpdated" xml:space="preserve">
+    <value>Datos de {0} actualizados.</value>
+  </data>
   <data name="UninstallGame" xml:space="preserve">
     <value>Desinstalar juego</value>
   </data>
@@ -1030,5 +1036,47 @@
   </data>
   <data name="GamePreparationCanceled" xml:space="preserve">
     <value>Preparación del juego cancelada.</value>
+  </data>
+  <data name="ConnectorConnecting" xml:space="preserve">
+    <value>Conectando a {0}…</value>
+  </data>
+  <data name="ConnectorScanQr" xml:space="preserve">
+    <value>Escanea este código QR con la aplicación de {0} y confirma el acceso.</value>
+  </data>
+  <data name="ConnectorSessionTemporary" xml:space="preserve">
+    <value>Sesión temporal; tendrás que iniciar sesión de nuevo la próxima vez.</value>
+  </data>
+  <data name="ConnectorLoginFailure" xml:space="preserve">
+    <value>No se pudo iniciar sesión en {0}.</value>
+  </data>
+  <data name="ConnectorSyncAfterLoginFailure" xml:space="preserve">
+    <value>Conectado a {0}, pero no se pudo sincronizar la biblioteca.</value>
+  </data>
+  <data name="ConnectorLoginError" xml:space="preserve">
+    <value>No se pudo conectar con {0}: {1}</value>
+  </data>
+  <data name="ConnectorDisconnected" xml:space="preserve">
+    <value>Cuenta de {0} desconectada.</value>
+  </data>
+  <data name="ConnectorSyncError" xml:space="preserve">
+    <value>No se pudo sincronizar la biblioteca de {0}: {1}</value>
+  </data>
+  <data name="ConnectorSyncActivity" xml:space="preserve">
+    <value>{0} · sincronizando biblioteca…</value>
+  </data>
+  <data name="ConnectorSyncLoadingLibrary" xml:space="preserve">
+    <value>{0} · cargando catálogo de juegos…</value>
+  </data>
+  <data name="ConnectorSyncUpdatingGame" xml:space="preserve">
+    <value>{0} · {1}/{2} · {3}</value>
+  </data>
+  <data name="ConnectorSyncRefreshingLibrary" xml:space="preserve">
+    <value>{0} · actualizando biblioteca…</value>
+  </data>
+  <data name="ConnectorSyncEmpty" xml:space="preserve">
+    <value>Sincronización completada: {0} no devolvió juegos. Revisa la privacidad de los juegos de la cuenta.</value>
+  </data>
+  <data name="ConnectorSyncCompleteCount" xml:space="preserve">
+    <value>Sincronización completada: {0} juegos guardados.</value>
   </data>
 </root>

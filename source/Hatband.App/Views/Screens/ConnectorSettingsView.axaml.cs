@@ -3,9 +3,9 @@ using Avalonia.VisualTree;
 
 namespace Hatband.App.Views.Screens;
 
-public partial class SteamConnectorSettingsView : UserControl
+public partial class ConnectorSettingsView : UserControl
 {
-    public SteamConnectorSettingsView()
+    public ConnectorSettingsView()
     {
         InitializeComponent();
     }
@@ -21,6 +21,6 @@ public partial class SteamConnectorSettingsView : UserControl
 
     public Button? GetPrimaryActionControl() => this.GetVisualDescendants()
         .OfType<Button>()
-        .FirstOrDefault(button => (button.Name is "SteamConnectButton" or "SteamSyncButton") &&
+        .FirstOrDefault(button => (button.Name is "ConnectorConnectButton" or "ConnectorSyncButton") &&
                                   button.IsVisible && button.IsEnabled);
 }

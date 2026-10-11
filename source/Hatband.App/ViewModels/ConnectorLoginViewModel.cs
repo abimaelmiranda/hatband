@@ -10,12 +10,15 @@ using QRCoder;
 
 namespace Hatband.App.ViewModels;
 
-public partial class SteamConnectorLoginViewModel : ViewModelBase
+public partial class ConnectorLoginViewModel : ViewModelBase
 {
+    private readonly string sourceId;
+    private readonly string displayName;
     private readonly IQrCodeLoginProvider loginProvider;
     private readonly IConnectorSessionProvider sessionProvider;
-    private readonly Func<CancellationToken, Task<int>> synchronizeLibrary;
+    private Func<string, CancellationToken, Task<int>>? synchronizeLibrary;
     private CancellationTokenSource? loginCancellation;
+    private bool isLibrarySyncRunning;
 
     [ObservableProperty]
     public partial Bitmap? QrCode { get; set; }
@@ -29,15 +32,26 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsLoginPending { get; set; }
 
-    public SteamConnectorLoginViewModel(
+    public ConnectorLoginViewModel(
+        string sourceId,
+        string displayName,
         IQrCodeLoginProvider loginProvider,
-        IConnectorSessionProvider sessionProvider,
-        Func<CancellationToken, Task<int>> synchronizeLibrary)
+        IConnectorSessionProvider sessionProvider)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        ArgumentNullException.ThrowIfNull(loginProvider);
+        ArgumentNullException.ThrowIfNull(sessionProvider);
+        this.sourceId = sourceId;
+        this.displayName = displayName;
         this.loginProvider = loginProvider;
         this.sessionProvider = sessionProvider;
-        this.synchronizeLibrary = synchronizeLibrary;
+        RefreshConnectionStatus();
     }
+
+    public string SourceId => sourceId;
+
+    public string DisplayName => displayName;
 
     public event Action<string>? ErrorOccurred;
 
@@ -45,28 +59,38 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
 
     public bool CanStartLogin => !IsLoginPending;
 
+    public bool IsConnected => ActiveAccountName is not null;
+
+    public bool CanSynchronizeLibrary => CurrentAccount is not null && synchronizeLibrary is not null &&
+        !isLibrarySyncRunning;
+
     public ConnectorAccount? CurrentAccount => sessionProvider.CurrentAccount;
 
     partial void OnIsLoginPendingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanStartLogin));
-        ConnectSteamCommand.NotifyCanExecuteChanged();
+        ConnectCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnActiveAccountNameChanged(string? value)
+    {
+        OnPropertyChanged(nameof(IsConnected));
     }
 
     [RelayCommand(CanExecute = nameof(CanStartLogin))]
-    private async Task ConnectSteamAsync(CancellationToken cancellationToken)
+    private async Task ConnectAsync(CancellationToken cancellationToken)
     {
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         loginCancellation = linkedCancellation;
         IsLoginPending = true;
-        ConnectionStatus = Resources.ConnectingSteam;
+        ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectorConnecting, displayName);
 
         try
         {
             await using var session = await loginProvider.BeginQrLoginAsync(linkedCancellation.Token);
             session.ChallengeUriChanged += OnChallengeUriChanged;
             UpdateQrCode(session.ChallengeUri);
-            ConnectionStatus = Resources.ScanQr;
+            ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectorScanQr, displayName);
 
             try
             {
@@ -77,16 +101,16 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
                 ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectedSyncing, profile.DisplayName);
                 if (!authenticatedSession.IsPersisted)
                 {
-                    ConnectionStatus += " " + Resources.SteamSessionTemporary;
+                    ConnectionStatus += " " + Resources.ConnectorSessionTemporary;
                 }
 
                 // Authentication follows this screen's lifetime; library sync belongs to the app session.
-                var gameCount = await synchronizeLibrary(CancellationToken.None);
+                var gameCount = await SynchronizeLibraryAsync(CancellationToken.None);
                 ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectedAs, profile.DisplayName)
-                    + " " + FormatSyncStatus(gameCount);
+                    + " " + FormatSyncStatus(displayName, gameCount);
                 if (sessionProvider.CurrentSession is { IsPersisted: false })
                 {
-                    ConnectionStatus += " " + Resources.SteamSessionTemporary;
+                    ConnectionStatus += " " + Resources.ConnectorSessionTemporary;
                 }
             }
             finally
@@ -102,15 +126,19 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
         }
         catch (Exception exception)
         {
-            ConnectionStatus = sessionProvider.CurrentAccount is null
-                ? Resources.SteamLoginFailure
-                : Resources.SteamSyncAfterLoginFailure;
+            var loginFailed = sessionProvider.CurrentAccount is null;
+            ConnectionStatus = loginFailed
+                ? string.Format(CultureInfo.CurrentCulture, Resources.ConnectorLoginFailure, displayName)
+                : string.Format(CultureInfo.CurrentCulture, Resources.ConnectorSyncAfterLoginFailure, displayName);
             if (sessionProvider.CurrentSession is { IsPersisted: false })
             {
-                ConnectionStatus += " " + Resources.SteamSessionTemporary;
+                ConnectionStatus += " " + Resources.ConnectorSessionTemporary;
             }
 
-            ErrorOccurred?.Invoke(string.Format(CultureInfo.CurrentCulture, Resources.ConnectSteamSyncError, exception.Message));
+            var errorMessage = loginFailed
+                ? Resources.ConnectorLoginError
+                : Resources.ConnectorSyncError;
+            ErrorOccurred?.Invoke(string.Format(CultureInfo.CurrentCulture, errorMessage, displayName, exception.Message));
         }
         finally
         {
@@ -120,18 +148,18 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CancelSteamLogin()
+    private void CancelPendingLogin()
     {
         loginCancellation?.Cancel();
     }
 
     [RelayCommand]
-    private async Task DisconnectSteamAsync(CancellationToken cancellationToken)
+    private async Task DisconnectAccountAsync(CancellationToken cancellationToken)
     {
         try
         {
             await DisconnectAsync(cancellationToken);
-            Disconnected?.Invoke(Resources.SteamDisconnected);
+            Disconnected?.Invoke(string.Format(CultureInfo.CurrentCulture, Resources.ConnectorDisconnected, displayName));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -139,9 +167,11 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
         }
         catch (Exception exception)
         {
+            ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.ConnectorSyncAfterLoginFailure, displayName);
             ErrorOccurred?.Invoke(string.Format(
                 CultureInfo.CurrentCulture,
-                Resources.SteamSyncError,
+                Resources.ConnectorSyncError,
+                displayName,
                 exception.Message));
         }
     }
@@ -175,16 +205,67 @@ public partial class SteamConnectorLoginViewModel : ViewModelBase
         SetQrCode(null);
     }
 
-    public void SetConnectionStatus(string status)
+    public void SetLibrarySyncCallback(Func<string, CancellationToken, Task<int>> callback)
     {
-        ConnectionStatus = status;
+        ArgumentNullException.ThrowIfNull(callback);
+        synchronizeLibrary = callback;
+        OnPropertyChanged(nameof(CanSynchronizeLibrary));
+        SyncLibraryCommand.NotifyCanExecuteChanged();
     }
 
-    public static string FormatSyncStatus(int gameCount)
+    public void SetLibrarySyncRunning(bool value)
+    {
+        if (isLibrarySyncRunning == value)
+        {
+            return;
+        }
+
+        isLibrarySyncRunning = value;
+        OnPropertyChanged(nameof(CanSynchronizeLibrary));
+        SyncLibraryCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSynchronizeLibrary))]
+    private async Task SyncLibraryAsync(CancellationToken cancellationToken)
+    {
+        var account = CurrentAccount;
+        if (account is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ConnectionStatus = string.Format(CultureInfo.CurrentCulture, Resources.SyncingAccount, account.DisplayName);
+            var gameCount = await SynchronizeLibraryAsync(cancellationToken);
+            ConnectionStatus = FormatSyncStatus(displayName, gameCount);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            ErrorOccurred?.Invoke(string.Format(
+                CultureInfo.CurrentCulture,
+                Resources.ConnectorSyncError,
+                displayName,
+                exception.Message));
+        }
+    }
+
+    public static string FormatSyncStatus(string displayName, int gameCount)
     {
         return gameCount == 0
-            ? Resources.SyncCompleteEmpty
-            : string.Format(CultureInfo.CurrentCulture, Resources.SyncCompleteCount, gameCount);
+            ? string.Format(CultureInfo.CurrentCulture, Resources.ConnectorSyncEmpty, displayName)
+            : string.Format(CultureInfo.CurrentCulture, Resources.ConnectorSyncCompleteCount, gameCount);
+    }
+
+    private Task<int> SynchronizeLibraryAsync(CancellationToken cancellationToken)
+    {
+        var callback = synchronizeLibrary
+            ?? throw new InvalidOperationException($"The {displayName} library synchronization callback has not been configured.");
+        return callback(sourceId, cancellationToken);
     }
 
     private void OnChallengeUriChanged(object? sender, QrChallengeUriChangedEventArgs e)

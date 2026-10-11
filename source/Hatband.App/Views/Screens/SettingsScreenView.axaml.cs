@@ -42,7 +42,7 @@ public partial class SettingsScreenView : FullScreenView
         SettingsSectionEditor.FocusField(viewModel.SelectedSettingsFieldIndex);
     }
 
-    /// <summary>Moves focus to the available Steam connect or sync action.</summary>
+    /// <summary>Moves focus to the first available connector action.</summary>
     public void FocusConnectorsPrimaryAction() => SettingsSectionEditor.FocusConnectorPrimaryAction();
 
     /// <summary>Selects and focuses the compatibility catalog refresh action.</summary>
@@ -83,15 +83,15 @@ public partial class SettingsScreenView : FullScreenView
         FindSelectedSectionItem()?.FocusItem();
     }
 
-    /// <summary>Uses a pending Steam action request or the selected section as the initial focus target.</summary>
+    /// <summary>Uses a pending connector action request or the selected section as the initial focus target.</summary>
     protected override Control? GetInitialFocusTarget()
     {
-        var steamAction = SettingsSectionEditor.GetConnectorPrimaryActionControl();
-        if (steamAction is not null &&
+        var connectorAction = SettingsSectionEditor.GetConnectorPrimaryActionControl();
+        if (connectorAction is not null &&
             DataContext is SettingsScreenViewModel viewModel &&
             viewModel.ConsumeConnectorsPrimaryActionFocusRequest())
         {
-            return steamAction;
+            return connectorAction;
         }
 
         return FindSelectedSectionItem()?

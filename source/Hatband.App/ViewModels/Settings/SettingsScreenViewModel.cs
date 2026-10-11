@@ -3,7 +3,6 @@ using System.Globalization;
 using System.Reflection;
 using System.Windows.Input;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
@@ -11,6 +10,7 @@ using Hatband.App.Services;
 using Hatband.App.Navigation;
 using Hatband.App.ViewModels.Navigation;
 using Hatband.Core.Abstractions.Authentication;
+using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Abstractions.Settings;
 using Hatband.Core.Models.Settings;
@@ -23,7 +23,7 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Hatband.App.ViewModels.Settings;
 
 /// <summary>
-/// Owns loaded settings, section navigation, field editing, and Steam connector state for the settings screen.
+/// Owns loaded settings, section navigation, field editing, and connector account state.
 /// </summary>
 public partial class SettingsScreenViewModel : ScreenViewModel
 {
@@ -31,14 +31,12 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     private readonly IDbContextFactory<HatbandDbContext> _dbContextFactory;
     private readonly IMemoryCache _memoryCache;
     private readonly DateTimeDisplayFormatter _dateTimeDisplayFormatter;
-    private readonly SteamConnectorLoginViewModel _steamConnectorLogin;
+    private readonly ObservableCollection<ConnectorLoginViewModel> _connectors;
     private readonly Dictionary<Type, object> _settingsByType = [];
     private readonly SemaphoreSlim _settingsSaveGate = new(1, 1);
-    private Func<CancellationToken, Task<int>>? _steamLibrarySyncCallback;
     private ICommand? _refreshMetadataCommand;
     private bool _settingsLoaded;
     private bool _isUpdatingSelectedOptions;
-    private bool _isLibrarySyncRunning;
     private bool _canRefreshMetadata = true;
     private bool _shouldFocusConnectorsPrimaryAction;
 
@@ -68,8 +66,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         IsGeneralSettingsSection && !string.IsNullOrWhiteSpace(CacheCleanupMessage);
 
     /// <summary>
-    /// Creates the settings screen and its Steam login flow. The application session supplies the
-    /// Steam library synchronization callback after the view models have been composed.
+    /// Creates the settings screen and its connector authentication flows.
     /// </summary>
     public SettingsScreenViewModel(
         ISettingsApi settingsApi,
@@ -78,7 +75,8 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         ProtonManagementViewModel protonManagement,
         DateTimeDisplayFormatter dateTimeDisplayFormatter,
         IEnumerable<IQrCodeLoginProvider> qrLoginProviders,
-        IEnumerable<IConnectorSessionProvider> connectorSessionProviders)
+        IEnumerable<IConnectorSessionProvider> connectorSessionProviders,
+        IEnumerable<IGameStoreIntegration> storeIntegrations)
     {
         ArgumentNullException.ThrowIfNull(settingsApi);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
@@ -87,6 +85,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         ArgumentNullException.ThrowIfNull(dateTimeDisplayFormatter);
         ArgumentNullException.ThrowIfNull(qrLoginProviders);
         ArgumentNullException.ThrowIfNull(connectorSessionProviders);
+        ArgumentNullException.ThrowIfNull(storeIntegrations);
 
         _settingsApi = settingsApi;
         _dbContextFactory = dbContextFactory;
@@ -97,15 +96,22 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         Navigation.PropertyChanged += OnSettingsNavigationPropertyChanged;
         ProtonManagement.PropertyChanged += OnProtonManagementPropertyChanged;
 
-        var steamQrLoginProvider = qrLoginProviders.Single(provider => provider.SourceId == GameSourceId.Steam);
-        var steamSessionProvider = connectorSessionProviders.Single(provider => provider.SourceId == GameSourceId.Steam);
-        _steamConnectorLogin = new SteamConnectorLoginViewModel(
-            steamQrLoginProvider,
-            steamSessionProvider,
-            SynchronizeSteamLibraryAsync);
-        _steamConnectorLogin.ErrorOccurred += OnSteamConnectorError;
-        _steamConnectorLogin.Disconnected += OnSteamConnectorDisconnected;
-        _steamConnectorLogin.PropertyChanged += OnSteamConnectorLoginPropertyChanged;
+        var qrProvidersBySource = qrLoginProviders.ToDictionary(provider => provider.SourceId, StringComparer.Ordinal);
+        var storeIntegrationsBySource = storeIntegrations.ToDictionary(provider => provider.SourceId, StringComparer.Ordinal);
+        _connectors = new ObservableCollection<ConnectorLoginViewModel>(connectorSessionProviders
+            .OrderBy(provider => provider.SourceId, StringComparer.Ordinal)
+            .Where(sessionProvider => qrProvidersBySource.ContainsKey(sessionProvider.SourceId) &&
+                                      storeIntegrationsBySource.ContainsKey(sessionProvider.SourceId))
+            .Select(sessionProvider => new ConnectorLoginViewModel(
+                sessionProvider.SourceId,
+                storeIntegrationsBySource[sessionProvider.SourceId].DisplayName,
+                qrProvidersBySource[sessionProvider.SourceId],
+                sessionProvider)));
+        foreach (var connector in _connectors)
+        {
+            connector.ErrorOccurred += OnConnectorError;
+            connector.Disconnected += OnConnectorDisconnected;
+        }
 
         LanguageOptions = CreateLanguageOptions();
         TimeZoneOptions = CreateTimeZoneOptions();
@@ -193,73 +199,69 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     /// <summary>Gets the focus border for a settings field by its navigation index.</summary>
     public IBrush GetSettingsFieldBorderBrush(int index) => Navigation.GetFieldBorderBrush(index);
 
-    /// <summary>QR image presented while Steam authentication is pending.</summary>
-    public Bitmap? SteamQrCode => _steamConnectorLogin.QrCode;
-
-    /// <summary>Current user-facing Steam connection or sync status.</summary>
-    public string SteamConnectionStatus => _steamConnectorLogin.ConnectionStatus;
-
-    /// <summary>Display name of the connected Steam account, if one is available.</summary>
-    public string? ActiveConnectorAccountName => _steamConnectorLogin.ActiveAccountName;
-
-    /// <summary>Whether a Steam account is currently connected.</summary>
-    public bool IsConnectorConnected => ActiveConnectorAccountName is not null;
-
-    /// <summary>Whether QR login is currently in progress.</summary>
-    public bool IsSteamLoginPending => _steamConnectorLogin.IsLoginPending;
-
-    /// <summary>Whether the login command can start another QR login.</summary>
-    public bool CanStartSteamLogin => _steamConnectorLogin.CanStartLogin;
-
-    /// <summary>Whether a connected Steam library can be synchronized through the shared session.</summary>
-    public bool CanSynchronizeSteamLibrary => _steamConnectorLogin.CurrentAccount is not null &&
-        _steamLibrarySyncCallback is not null && !_isLibrarySyncRunning;
-
-    /// <summary>Starts Steam QR authentication.</summary>
-    public ICommand ConnectSteamCommand => _steamConnectorLogin.ConnectSteamCommand;
-
-    /// <summary>Cancels Steam QR authentication.</summary>
-    public ICommand CancelSteamLoginCommand => _steamConnectorLogin.CancelSteamLoginCommand;
-
-    /// <summary>Disconnects the active Steam account.</summary>
-    public ICommand DisconnectSteamCommand => _steamConnectorLogin.DisconnectSteamCommand;
+    /// <summary>Connector account panels supplied by registered authentication plugins.</summary>
+    public ObservableCollection<ConnectorLoginViewModel> Connectors => _connectors;
 
     /// <summary>
-    /// Connects Steam login and manual sync to the shared library session. Composition must set
-    /// this callback before the connector sync command can run.
+    /// Connects each registered connector to the shared library synchronization workflow.
     /// </summary>
-    public void SetSteamLibrarySyncCallback(Func<CancellationToken, Task<int>> callback)
+    public void SetLibrarySyncCallback(Func<string, CancellationToken, Task<int>> callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
-        _steamLibrarySyncCallback = callback;
-        OnPropertyChanged(nameof(CanSynchronizeSteamLibrary));
-        SyncConnectedSteamLibraryCommand.NotifyCanExecuteChanged();
+        foreach (var connector in _connectors)
+        {
+            connector.SetLibrarySyncCallback(callback);
+        }
     }
 
-    /// <summary>Updates Steam synchronization availability from the shared library session.</summary>
+    /// <summary>Updates connector synchronization availability from the shared library session.</summary>
     public void SetLibrarySyncRunning(bool value)
     {
-        if (_isLibrarySyncRunning == value)
+        foreach (var connector in _connectors)
         {
-            return;
+            connector.SetLibrarySyncRunning(value);
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> RestoreConnectorSessionsAsync(CancellationToken cancellationToken = default)
+    {
+        var restoredSourceIds = new List<string>();
+        foreach (var connector in _connectors)
+        {
+            try
+            {
+                if (await connector.RestoreSessionAsync(cancellationToken))
+                {
+                    restoredSourceIds.Add(connector.SourceId);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                ReportConnectorRestoreError(connector.SourceId, exception);
+            }
         }
 
-        _isLibrarySyncRunning = value;
-        OnPropertyChanged(nameof(CanSynchronizeSteamLibrary));
-        SyncConnectedSteamLibraryCommand.NotifyCanExecuteChanged();
+        return restoredSourceIds;
     }
 
-    public Task<bool> RestoreSteamSessionAsync(CancellationToken cancellationToken = default)
+    public string GetConnectorDisplayName(string sourceId)
     {
-        return _steamConnectorLogin.RestoreSessionAsync(cancellationToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
+        return _connectors.Single(connector => connector.SourceId == sourceId).DisplayName;
     }
 
-    public void ReportSteamRestoreError(Exception exception)
+    public void ReportConnectorRestoreError(string sourceId, Exception exception)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
         ArgumentNullException.ThrowIfNull(exception);
         SettingsError?.Invoke(string.Format(
             CultureInfo.CurrentCulture,
-            Resources.SteamSyncError,
+            Resources.ConnectorLoginError,
+            _connectors.Single(connector => connector.SourceId == sourceId).DisplayName,
             exception.Message));
     }
 
@@ -376,7 +378,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
                 connectorSettings is not null &&
                 connectorSettings.Steam.SilentModeEnabled;
             _settingsLoaded = true;
-            _steamConnectorLogin.RefreshConnectionStatus();
+            RefreshConnectorStatuses();
         }
         catch (Exception exception)
         {
@@ -443,13 +445,13 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         Navigation.SelectSection(section);
     }
 
-    /// <summary>Requests that the next initial focus for this screen land on Steam's primary action.</summary>
+    /// <summary>Requests that the next initial focus for this screen land on a connector's primary action.</summary>
     public void RequestConnectorsPrimaryActionFocus()
     {
         _shouldFocusConnectorsPrimaryAction = true;
     }
 
-    /// <summary>Consumes the pending Steam action focus request once the view has a focusable target.</summary>
+    /// <summary>Consumes the pending connector action focus request once the view has a focusable target.</summary>
     public bool ConsumeConnectorsPrimaryActionFocusRequest()
     {
         if (!_shouldFocusConnectorsPrimaryAction)
@@ -461,13 +463,13 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         return true;
     }
 
-    /// <summary>Activates the selected section and refreshes Steam account status when applicable.</summary>
+    /// <summary>Activates the selected section and refreshes connector account status when applicable.</summary>
     public void ActivateSettingsSection()
     {
         ActivateSection();
         if (!IsSettingsLoading && IsConnectorsSettingsSection)
         {
-            _steamConnectorLogin.RefreshConnectionStatus();
+            RefreshConnectorStatuses();
         }
     }
 
@@ -484,7 +486,13 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     public void SelectSettingsSection(SettingsSectionOptionViewModel section) => SelectSection(section);
 
     /// <summary>Cancels an in-progress QR login, typically when this screen deactivates.</summary>
-    public void CancelLogin() => _steamConnectorLogin.CancelLogin();
+    public void CancelLogin()
+    {
+        foreach (var connector in _connectors)
+        {
+            connector.CancelLogin();
+        }
+    }
 
     /// <summary>
     /// Applies an editor value to the cached settings object. Language and time-zone edits flow
@@ -722,11 +730,12 @@ public partial class SettingsScreenViewModel : ScreenViewModel
                 .OrderBy(option => option.Label, StringComparer.CurrentCultureIgnoreCase));
     }
 
-    private async Task<int> SynchronizeSteamLibraryAsync(CancellationToken cancellationToken)
+    private void RefreshConnectorStatuses()
     {
-        var callback = _steamLibrarySyncCallback
-            ?? throw new InvalidOperationException("The Steam library synchronization callback has not been configured.");
-        return await callback(cancellationToken);
+        foreach (var connector in _connectors)
+        {
+            connector.RefreshConnectionStatus();
+        }
     }
 
     private static void ValidateAppearanceSettings(AppearanceSettings settings)
@@ -798,32 +807,6 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         ? flag
         : throw new InvalidOperationException($"Settings field '{propertyName}' requires a boolean value.");
 
-    [RelayCommand(CanExecute = nameof(CanSynchronizeSteamLibrary))]
-    private async Task SyncConnectedSteamLibraryAsync(CancellationToken cancellationToken)
-    {
-        var account = _steamConnectorLogin.CurrentAccount;
-        if (account is null)
-        {
-            SettingsError?.Invoke(Resources.ConnectBeforeSync);
-            return;
-        }
-
-        try
-        {
-            _steamConnectorLogin.SetConnectionStatus(string.Format(CultureInfo.CurrentCulture, Resources.SyncingAccount, account.DisplayName));
-            var gameCount = await SynchronizeSteamLibraryAsync(cancellationToken);
-            _steamConnectorLogin.SetConnectionStatus(SteamConnectorLoginViewModel.FormatSyncStatus(gameCount));
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            SettingsError?.Invoke(string.Format(CultureInfo.CurrentCulture, Resources.SteamSyncError, exception.Message));
-        }
-    }
-
     private void OnSettingsNavigationPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
         switch (args.PropertyName)
@@ -871,33 +854,9 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         }
     }
 
-    private void OnSteamConnectorError(string message) => SettingsError?.Invoke(message);
+    private void OnConnectorError(string message) => SettingsError?.Invoke(message);
 
-    private void OnSteamConnectorDisconnected(string message) => SettingsError?.Invoke(message);
-
-    private void OnSteamConnectorLoginPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
-    {
-        if (args.PropertyName == nameof(SteamConnectorLoginViewModel.ActiveAccountName))
-        {
-            OnPropertyChanged(nameof(ActiveConnectorAccountName));
-            OnPropertyChanged(nameof(IsConnectorConnected));
-            OnPropertyChanged(nameof(CanSynchronizeSteamLibrary));
-            SyncConnectedSteamLibraryCommand.NotifyCanExecuteChanged();
-        }
-        else if (args.PropertyName == nameof(SteamConnectorLoginViewModel.ConnectionStatus))
-        {
-            OnPropertyChanged(nameof(SteamConnectionStatus));
-        }
-        else if (args.PropertyName == nameof(SteamConnectorLoginViewModel.QrCode))
-        {
-            OnPropertyChanged(nameof(SteamQrCode));
-        }
-        else if (args.PropertyName == nameof(SteamConnectorLoginViewModel.IsLoginPending))
-        {
-            OnPropertyChanged(nameof(IsSteamLoginPending));
-            OnPropertyChanged(nameof(CanStartSteamLogin));
-        }
-    }
+    private void OnConnectorDisconnected(string message) => SettingsError?.Invoke(message);
 
     partial void OnSelectedLanguageOptionChanged(SettingsOptionViewModel? value)
     {
