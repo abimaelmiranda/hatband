@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.Logging;
 
 namespace Hatband.Infrastructure.Host;
@@ -131,6 +132,106 @@ public sealed class HostApplicationLauncher : IHostApplicationLauncher
         {
             return Task.FromResult(false);
         }
+    }
+
+    public async Task<HostApplicationResult> RunApplicationAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string> environmentVariables,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(environmentVariables);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var startInfo = new ProcessStartInfo(executable)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        if (workingDirectory is not null)
+        {
+            startInfo.WorkingDirectory = workingDirectory;
+        }
+
+        foreach (var (name, value) in environmentVariables)
+        {
+            startInfo.Environment[name] = value;
+        }
+
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Could not start host command '{executable}'.");
+        using var cancellationRegistration = cancellationToken.Register(() => StopCommand(process, executable));
+        var outputTask = ReadCapturedOutputAsync(process.StandardOutput, executable, cancellationToken);
+        var errorTask = ReadCapturedOutputAsync(process.StandardError, executable, cancellationToken);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.WhenAll(outputTask, errorTask).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Both output readers observe cancellation before their streams are disposed.
+            }
+
+            throw;
+        }
+        var output = await outputTask.ConfigureAwait(false);
+        var error = await errorTask.ConfigureAwait(false);
+        return new HostApplicationResult(process.ExitCode, output, error);
+    }
+
+    private void StopCommand(Process process, string executable)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or Win32Exception)
+        {
+            _logger.LogDebug(exception, "Could not stop canceled host command {Executable}.", executable);
+        }
+    }
+
+    private async Task<string> ReadCapturedOutputAsync(
+        StreamReader reader,
+        string executable,
+        CancellationToken cancellationToken)
+    {
+        const int maximumCapturedCharacters = 65_536;
+        var output = new StringBuilder();
+        var buffer = new char[4096];
+        var count = await reader.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+        while (count > 0)
+        {
+            var chunk = new string(buffer, 0, count);
+            _logger.LogDebug("{Executable}: {Output}", executable, chunk);
+            output.Append(chunk);
+            if (output.Length > maximumCapturedCharacters)
+            {
+                output.Remove(0, output.Length - maximumCapturedCharacters);
+            }
+
+            count = await reader.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+        }
+
+        return output.ToString();
     }
 
     public bool IsProcessRunning(string processName)

@@ -22,6 +22,13 @@ public interface IHostApplicationLauncher
         IReadOnlyDictionary<string, string> environmentVariables,
         CancellationToken cancellationToken = default);
 
+    Task<HostApplicationResult> RunApplicationAsync(
+        string executable,
+        IReadOnlyList<string> arguments,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string> environmentVariables,
+        CancellationToken cancellationToken = default);
+
     bool IsProcessRunning(string processName);
 
     Task<bool> TryCloseProcessGracefullyAsync(string processName, CancellationToken cancellationToken = default);

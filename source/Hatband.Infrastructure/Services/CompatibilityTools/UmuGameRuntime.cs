@@ -1,10 +1,12 @@
 using System.Text;
 using System.Runtime.Versioning;
+using System.Collections.Concurrent;
 using Hatband.Core.Abstractions.FileSystem;
 using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Abstractions.Host;
 using Hatband.Core.Models.Games;
 using Microsoft.Extensions.Logging;
+using Hatband.Infrastructure.Services.Games.PostInstall;
 
 namespace Hatband.Infrastructure.Services.CompatibilityTools;
 
@@ -15,23 +17,28 @@ public sealed class UmuGameRuntime : IGameCompatibilityRuntime
     private readonly IAppDataFileSystem _appDataFileSystem;
     private readonly UmuDependencyService _umuDependencyService;
     private readonly ILogger<UmuGameRuntime> _logger;
+    private readonly GamePostInstallService _postInstallService;
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _prefixLocks = new();
 
     public UmuGameRuntime(
         IHostApplicationLauncher launcher,
         IHostSystemInfo hostSystemInfo,
         IAppDataFileSystem appDataFileSystem,
         UmuDependencyService umuDependencyService,
+        GamePostInstallService postInstallService,
         ILogger<UmuGameRuntime> logger)
     {
         ArgumentNullException.ThrowIfNull(launcher);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
         ArgumentNullException.ThrowIfNull(umuDependencyService);
+        ArgumentNullException.ThrowIfNull(postInstallService);
         ArgumentNullException.ThrowIfNull(logger);
         _launcher = launcher;
         _hostSystemInfo = hostSystemInfo;
         _appDataFileSystem = appDataFileSystem;
         _umuDependencyService = umuDependencyService;
+        _postInstallService = postInstallService;
         _logger = logger;
     }
 
@@ -46,6 +53,11 @@ public sealed class UmuGameRuntime : IGameCompatibilityRuntime
         }
 
         ValidateRequest(request);
+        if (request.PostInstallPlan is not null)
+        {
+            _postInstallService.ValidateDefinition(request.PostInstallPlan);
+        }
+
         var processArguments = new List<string> { request.Command.ExecutablePath };
         processArguments.AddRange(ParseArguments(request.Command.Arguments));
         processArguments.AddRange(ParseArguments(request.AdditionalArguments));
@@ -58,12 +70,67 @@ public sealed class UmuGameRuntime : IGameCompatibilityRuntime
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var prefixPath = _appDataFileSystem.GetGamePrefixPath(request.GameId);
-        Directory.CreateDirectory(prefixPath);
+        var prefixLock = _prefixLocks.GetOrAdd(request.GameId, static _ => new SemaphoreSlim(1, 1));
+        await prefixLock.WaitAsync(cancellationToken);
+        try
+        {
+            var prefixPath = _appDataFileSystem.ResolveGamePrefixPath(request.GameId, request.InstallDirectory);
+            var umuExecutable = await _umuDependencyService.ResolveExecutableAsync(cancellationToken);
+            var environmentVariables = CreateEnvironmentVariables(request, prefixPath);
+            if (request.PostInstallPlan is null)
+            {
+                return await LaunchGameAsync(request, umuExecutable, processArguments, workingDirectory, environmentVariables, cancellationToken);
+            }
 
-        var umuExecutable = await _umuDependencyService.ResolveExecutableAsync(cancellationToken);
-        var environmentVariables = CreateEnvironmentVariables(request, prefixPath);
+            request.Progress?.Report(new GamePreparationProgress(
+                GamePreparationStage.InitializingPrefix,
+                null,
+                0,
+                request.PostInstallPlan.Steps.Count));
+            var prefixInitialization = await _launcher.RunApplicationAsync(
+                umuExecutable,
+                ["wineboot.exe", "-u"],
+                workingDirectory,
+                environmentVariables,
+                cancellationToken);
+            if (prefixInitialization.ExitCode != 0)
+            {
+                var detail = string.IsNullOrWhiteSpace(prefixInitialization.StandardError)
+                    ? prefixInitialization.StandardOutput.Trim()
+                    : prefixInitialization.StandardError.Trim();
+                var suffix = string.IsNullOrWhiteSpace(detail) ? string.Empty : $" {detail.Trim()}";
+                throw new InvalidOperationException($"Could not initialize the UMU compatibility prefix.{suffix}");
+            }
 
+            var postInstallEnvironment = new UmuPostInstallEnvironment(
+                _launcher,
+                umuExecutable,
+                prefixPath,
+                workingDirectory,
+                environmentVariables);
+            await _postInstallService.PrepareAsync(
+                request.PostInstallPlan,
+                postInstallEnvironment,
+                prefixPath,
+                request.Progress,
+                cancellationToken);
+
+            return await LaunchGameAsync(request, umuExecutable, processArguments, workingDirectory, environmentVariables, cancellationToken);
+        }
+        finally
+        {
+            prefixLock.Release();
+        }
+    }
+
+    private async Task<HostApplicationProcess?> LaunchGameAsync(
+        GameRuntimeLaunchRequest request,
+        string umuExecutable,
+        IReadOnlyList<string> processArguments,
+        string workingDirectory,
+        IReadOnlyDictionary<string, string> environmentVariables,
+        CancellationToken cancellationToken)
+    {
         _logger.LogInformation("Launching game {GameId} with runner {RunnerName} via UMU.", request.GameId, request.Tool.Name);
         var process = await _launcher.StartApplicationAsync(
             umuExecutable,
@@ -84,6 +151,12 @@ public sealed class UmuGameRuntime : IGameCompatibilityRuntime
     {
         ArgumentNullException.ThrowIfNull(request.Tool);
         ArgumentNullException.ThrowIfNull(request.Command);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.InstallDirectory);
+        if (!Path.IsPathFullyQualified(request.InstallDirectory))
+        {
+            throw new ArgumentException("The game install directory must be absolute.", nameof(request));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Command.ExecutablePath);
         if (!Path.IsPathFullyQualified(request.Command.ExecutablePath) || !File.Exists(request.Command.ExecutablePath))
         {
@@ -139,6 +212,7 @@ public sealed class UmuGameRuntime : IGameCompatibilityRuntime
         environmentVariables["UMU_LOG"] = "0";
         environmentVariables["UMU_USE_STEAM"] = "1";
         environmentVariables["HATBAND_GAME_ID"] = request.GameId.ToString("N");
+        environmentVariables["STEAM_COMPAT_INSTALL_PATH"] = request.InstallDirectory;
         if (!environmentVariables.ContainsKey("GAMEID"))
         {
             environmentVariables["GAMEID"] = "umu-default";

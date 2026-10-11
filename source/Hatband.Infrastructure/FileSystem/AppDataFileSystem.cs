@@ -6,12 +6,14 @@ public sealed class AppDataFileSystem : IAppDataFileSystem
 {
     private readonly string rootDirectory;
     private readonly StringComparison pathComparison;
+    private readonly HostOperatingSystem hostOperatingSystem;
 
     public AppDataFileSystem(IHostSystemInfo hostSystemInfo)
     {
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
         ArgumentException.ThrowIfNullOrWhiteSpace(hostSystemInfo.UserProfileDirectory);
 
+        hostOperatingSystem = hostSystemInfo.Platform;
         pathComparison = hostSystemInfo.Platform == HostOperatingSystem.Windows
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
@@ -43,6 +45,42 @@ public sealed class AppDataFileSystem : IAppDataFileSystem
         }
 
         return fullPath;
+    }
+
+    public string ResolveGamePrefixPath(Guid gameId, string installDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(installDirectory);
+        if (!Path.IsPathFullyQualified(installDirectory) || !Directory.Exists(installDirectory))
+        {
+            throw new DirectoryNotFoundException($"The game installation directory does not exist: {installDirectory}");
+        }
+
+        var managedPrefixPath = this.GetGamePrefixPath(gameId);
+        if (hostOperatingSystem != HostOperatingSystem.Linux)
+        {
+            return managedPrefixPath;
+        }
+
+        var externalPrefixPath = GetGamePrefixStoragePath(gameId, installDirectory);
+        return GamePrefixStorage.Link(managedPrefixPath, externalPrefixPath);
+    }
+
+    public string GetGamePrefixStoragePath(Guid gameId, string installDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(installDirectory);
+        if (!Path.IsPathFullyQualified(installDirectory))
+        {
+            throw new ArgumentException("The game installation directory must be absolute.", nameof(installDirectory));
+        }
+
+        if (hostOperatingSystem != HostOperatingSystem.Linux)
+        {
+            return this.GetGamePrefixPath(gameId);
+        }
+
+        var volumeRoot = LinuxMountPointResolver.FindMountPoint(installDirectory);
+        var externalGameDirectory = Path.Combine(volumeRoot, ".hatband", "games", gameId.ToString("D"));
+        return Path.Combine(externalGameDirectory, "prefix");
     }
 
     public bool FileExists(string relativePath) => File.Exists(GetPath(relativePath));

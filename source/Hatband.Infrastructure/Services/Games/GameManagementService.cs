@@ -1,5 +1,6 @@
 using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Abstractions.Host;
+using Hatband.Core.Abstractions.Repositories;
 using Hatband.Core.Enums.Games;
 using Hatband.Core.Enums.Host;
 using Hatband.Core.Models;
@@ -12,18 +13,26 @@ public sealed class GameManagementService : IGameManagementService
     private readonly IReadOnlyDictionary<GameSourceId, IGameManagementProvider> _providers;
     private readonly IGameCompatibilityRuntime _runtime;
     private readonly IHostSystemInfo _hostSystemInfo;
+    private readonly IReadOnlyDictionary<GameSourceId, IGamePostInstallProvider> _postInstallProviders;
+    private readonly IGameRepository _gameRepository;
 
     public GameManagementService(
         IEnumerable<IGameManagementProvider> providers,
         IGameCompatibilityRuntime runtime,
-        IHostSystemInfo hostSystemInfo)
+        IHostSystemInfo hostSystemInfo,
+        IEnumerable<IGamePostInstallProvider> postInstallProviders,
+        IGameRepository gameRepository)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(hostSystemInfo);
+        ArgumentNullException.ThrowIfNull(postInstallProviders);
+        ArgumentNullException.ThrowIfNull(gameRepository);
         _providers = providers.ToDictionary(provider => provider.SourceId);
         _runtime = runtime;
         _hostSystemInfo = hostSystemInfo;
+        _postInstallProviders = postInstallProviders.ToDictionary(provider => provider.SourceId);
+        _gameRepository = gameRepository;
     }
 
     public Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default) =>
@@ -38,7 +47,10 @@ public sealed class GameManagementService : IGameManagementService
     public Task<IReadOnlyList<GameLaunchOption>> GetLaunchOptionsAsync(Game game, CancellationToken cancellationToken = default) =>
         GetProvider(game).GetLaunchOptionsAsync(game, cancellationToken);
 
-    public async Task<GameLaunchResult> LaunchAsync(Game game, CancellationToken cancellationToken = default)
+    public async Task<GameLaunchResult> LaunchAsync(
+        Game game,
+        IProgress<GamePreparationProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
         var provider = GetProvider(game);
@@ -50,6 +62,7 @@ public sealed class GameManagementService : IGameManagementService
             var environmentVariables = compatibilityLayer.EnvironmentVariables;
             GameLaunchEnvironmentPolicy.ValidateUserVariables(environmentVariables);
             var command = await provider.PrepareCustomLaunchAsync(game, cancellationToken);
+            await RefreshPostInstallPlanAsync(game, cancellationToken);
             var installDirectory = game.InstallationInfo?.InstallDirectory;
             if (string.IsNullOrWhiteSpace(installDirectory))
             {
@@ -67,7 +80,10 @@ public sealed class GameManagementService : IGameManagementService
                     tool,
                     command,
                     compatibilityLayer.AdditionalArguments,
-                    environmentVariables),
+                    environmentVariables,
+                    installDirectory,
+                    game.PostInstallPlan,
+                    progress),
                 cancellationToken);
             if (process is null)
             {
@@ -81,6 +97,23 @@ public sealed class GameManagementService : IGameManagementService
         }
 
         return await provider.LaunchOriginalAsync(game, cancellationToken);
+    }
+
+    private async Task RefreshPostInstallPlanAsync(Game game, CancellationToken cancellationToken)
+    {
+        if (!_postInstallProviders.TryGetValue(game.SourceId, out var provider))
+        {
+            return;
+        }
+
+        var plan = await provider.GetPlanAsync(game, cancellationToken);
+        if (plan?.Revision == game.PostInstallPlan?.Revision)
+        {
+            return;
+        }
+
+        await _gameRepository.UpdatePostInstallPlanAsync(game.Id, plan, cancellationToken);
+        game.PostInstallPlan = plan;
     }
 
     private IGameManagementProvider GetProvider(Game game)

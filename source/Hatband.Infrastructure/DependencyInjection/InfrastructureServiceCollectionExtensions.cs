@@ -10,6 +10,7 @@ using Hatband.Infrastructure.Persistence.Repositories;
 using Hatband.Infrastructure.Services.CompatibilityTools;
 using Hatband.Infrastructure.Services.Caching;
 using Hatband.Infrastructure.Services.Games;
+using Hatband.Infrastructure.Services.Games.PostInstall;
 using Hatband.Infrastructure.Settings;
 using Hatband.Infrastructure.Storage.Artwork;
 using Hatband.Integrations;
@@ -17,6 +18,7 @@ using Hatband.Integrations.HowLongToBeat;
 using Hatband.Integrations.Steam;
 using Hatband.Integrations.Steam.Abstractions;
 using Hatband.Integrations.Steam.Protondb;
+using Hatband.Integrations.Steam.PostInstall;
 using Hatband.Integrations.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,6 +63,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICompatibilityToolDiscoveryService, CompatibilityToolDiscoveryService>();
         services.AddSingleton<ICompatibilityToolInstallationService, CompatibilityToolInstallationService>();
         services.AddSingleton<UmuDependencyService>();
+        services.AddSingleton<GamePostInstallService>();
         services.AddSingleton<IGameCompatibilityRuntime, UmuGameRuntime>();
         services.AddSingleton<IGameManagementService, GameManagementService>();
         services.AddSingleton<IGameManagementProvider, ManualGameManagementProvider>();
@@ -75,6 +78,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ISteamTokenRefresher, SteamKitTokenRefresher>();
         services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
         services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
+        services.AddSingleton<SteamGamePostInstallProvider>();
+        services.AddSingleton<IGamePostInstallProvider>(provider => provider.GetRequiredService<SteamGamePostInstallProvider>());
         services.AddSingleton<SteamGameLaunchOptionsProvider>();
 
         services.Scan(scan => scan

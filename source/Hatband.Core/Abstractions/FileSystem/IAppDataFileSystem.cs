@@ -6,6 +6,10 @@ public interface IAppDataFileSystem
 
     string GetPath(string relativePath);
 
+    string ResolveGamePrefixPath(Guid gameId, string installDirectory);
+
+    string GetGamePrefixStoragePath(Guid gameId, string installDirectory);
+
     bool FileExists(string relativePath);
 
     Task<byte[]> ReadAllBytesAsync(string relativePath, CancellationToken cancellationToken = default);
