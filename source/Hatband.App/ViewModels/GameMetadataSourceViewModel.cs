@@ -153,7 +153,7 @@ public partial class GameMetadataSourceViewModel : ObservableObject
         {
             GameCompatibilityTier? compatibilityTier = null;
             if (_provider is IGameCompatibilityTierProvider tierProvider &&
-                metadata.StoreSourceId == GameSourceId.Steam &&
+                metadata.StoreSourceId == GameSourceIds.Steam &&
                 !string.IsNullOrWhiteSpace(metadata.StoreGameId))
             {
                 compatibilityTier = await tierProvider.GetCompatibilityTierAsync(metadata.StoreGameId, cancellationToken);

@@ -5,7 +5,7 @@ namespace Hatband.Core.Abstractions.Games;
 
 public interface IGameInstallationProvider
 {
-    GameSourceId SourceId { get; }
+    string SourceId { get; }
 
     /// <summary>
     /// Returns games installed locally and known to this provider.

@@ -22,7 +22,7 @@ public sealed class SteamGameInstallationProvider : IGameInstallationProvider
         _postInstallProvider = postInstallProvider;
     }
 
-    public GameSourceId SourceId => GameSourceId.Steam;
+    public string SourceId => GameSourceIds.Steam;
 
     public async Task<IReadOnlyList<Game>> ScanInstalledGamesAsync(
         CancellationToken cancellationToken = default)

@@ -28,7 +28,7 @@ public sealed class SteamStoreIntegration : IGameStoreIntegration, IQrCodeLoginP
         this.postInstallProvider = postInstallProvider;
     }
 
-    public GameSourceId SourceId => GameSourceId.Steam;
+    public string SourceId => GameSourceIds.Steam;
 
     public string DisplayName => "Steam";
 

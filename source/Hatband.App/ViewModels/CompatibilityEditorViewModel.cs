@@ -84,7 +84,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
 
     public bool IsLinux => hostSystemInfo.Platform == HostOperatingSystem.Linux;
 
-    public bool IsSteamGame => game?.SourceId == GameSourceId.Steam;
+    public bool IsSteamGame => game?.SourceId == GameSourceIds.Steam;
 
     public bool IsGameInstalled => game?.InstallationInfo is not null;
 
@@ -268,7 +268,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
                 isApplyingRefreshResult = false;
             }
 
-            if (currentGame.SourceId == GameSourceId.Steam && currentGame.InstallationInfo is not null)
+            if (currentGame.SourceId == GameSourceIds.Steam && currentGame.InstallationInfo is not null)
             {
                 var options = await gameManagementService.GetLaunchOptionsAsync(CreateLaunchOptionsQuerySnapshot(currentGame), refreshToken);
                 if (!IsCurrentRefresh(currentGame, generation, refreshToken))

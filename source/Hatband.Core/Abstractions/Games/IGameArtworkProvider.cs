@@ -10,7 +10,7 @@ public interface IGameArtworkProvider
 {
     string DisplayName { get; }
 
-    GameSourceId? SourceId { get; }
+    string? SourceId { get; }
 
     /// <summary>
     /// Gets the preferred artwork for the game's library source. An empty list means this provider has no default artwork.

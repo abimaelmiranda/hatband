@@ -17,7 +17,7 @@ public sealed class Game : ModelBase
     /// <summary>
     /// Source that owns this game. Manual games have no source game ID.
     /// </summary>
-    public required GameSourceId SourceId { get; set; }
+    public required string SourceId { get; set; }
 
     /// <summary>
     /// Identifier assigned to this game by its source. Required for non-manual sources.
@@ -106,6 +106,37 @@ public sealed class Game : ModelBase
         return CompatibilityLayer?.ExecutionMode == GameExecutionMode.Custom
             ? CompatibilityLayer.Tool
             : null;
+    }
+
+    /// <summary>
+    /// Applies a refreshed source snapshot while retaining user-owned library properties.
+    /// </summary>
+    public void MergeStoreSnapshot(Game importedGame, bool updatePlayCount)
+    {
+        ArgumentNullException.ThrowIfNull(importedGame);
+        if (!string.Equals(SourceId, importedGame.SourceId, StringComparison.Ordinal) ||
+            !string.Equals(SourceGameId, importedGame.SourceGameId, StringComparison.Ordinal))
+        {
+            throw new ArgumentException("The imported snapshot must identify the same source game.", nameof(importedGame));
+        }
+
+        Metadata = Metadata.MergeDownloaded(importedGame.Metadata, importedGame.Metadata.LanguageTag ?? "en-US");
+        InstallationInfo = importedGame.InstallationInfo;
+        PostInstallPlan = importedGame.PostInstallPlan;
+        Version = importedGame.Version;
+        InstallSizeBytes = importedGame.InstallSizeBytes;
+        PlaytimeSeconds = importedGame.PlaytimeSeconds;
+        if (updatePlayCount)
+        {
+            PlayCount = importedGame.PlayCount;
+        }
+
+        LastActivity = importedGame.LastActivity;
+        Added ??= importedGame.Added;
+        if (GameActions.Count == 0)
+        {
+            GameActions = importedGame.GameActions;
+        }
     }
 
 }

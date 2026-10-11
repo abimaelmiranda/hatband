@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hatband.Core\Hatband.Core.csproj" />
+    <ProjectReference Include="..\Hatband.SDK\Hatband.SDK.csproj" />
   </ItemGroup>
 
   <ItemGroup>

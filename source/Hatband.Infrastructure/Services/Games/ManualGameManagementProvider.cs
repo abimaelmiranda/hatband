@@ -17,7 +17,7 @@ public sealed class ManualGameManagementProvider : IGameManagementProvider
         _hostApplicationLauncher = hostApplicationLauncher;
     }
 
-    public GameSourceId SourceId => GameSourceId.Manual;
+    public string SourceId => GameSourceIds.Manual;
 
     public Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default)
     {

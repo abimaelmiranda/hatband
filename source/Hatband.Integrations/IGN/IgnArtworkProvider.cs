@@ -26,7 +26,7 @@ public sealed class IgnArtworkProvider : IGameArtworkProvider
         client = new IgnGraphQlClient(httpClientFactory, cacheService, timeProvider);
     }
 
-    public GameSourceId? SourceId => null;
+    public string? SourceId => null;
 
     public string DisplayName => "IGN";
 

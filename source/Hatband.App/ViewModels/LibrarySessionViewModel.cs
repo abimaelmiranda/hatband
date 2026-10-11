@@ -33,13 +33,14 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly Dictionary<Guid, bool> _pendingInstallationStates = [];
     private readonly HashSet<Guid> _pendingLaunchGameIds = [];
     private readonly SemaphoreSlim _installationStateRefreshGate = new(1, 1);
-    private readonly SemaphoreSlim _steamSyncGate = new(1, 1);
+    private readonly SemaphoreSlim _librarySyncGate = new(1, 1);
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
     private readonly Dictionary<Guid, GamePreparationActivityViewModel> _preparations = [];
     private readonly CancellationTokenSource _applicationLifetime = new();
     private CancellationTokenSource? _installationPollingCancellation;
     private CancellationTokenSource? _statusMessageTimeoutCancellation;
     private Task? _installationPollingTask;
+    private string? _librarySyncSourceName;
     private Guid? _activeGameSessionId;
 
     public LibrarySessionViewModel(
@@ -172,7 +173,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     public bool CanRefreshMetadata => !IsLibrarySyncRunning && !IsLibraryEnrichmentRunning;
 
     [ObservableProperty]
-    public partial bool HasCompletedSteamSync { get; set; }
+    public partial bool HasCompletedLibrarySync { get; set; }
 
 
     public bool IsLibraryEnrichmentRunning => _librarySyncProgress.IsLibraryEnrichmentRunning;
@@ -203,19 +204,15 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         : Resources.LibraryBreadcrumb;
 
 
-    public bool IsPrimaryGameActionInstall => SelectedGameCard?.Game is
-    {
-        SourceId: GameSourceId.Steam,
-        InstallationInfo: null
-    };
+    public bool IsPrimaryGameActionInstall => SelectedGameCard?.Game is { } game &&
+        game.SourceId != GameSourceIds.Manual &&
+        game.InstallationInfo is null;
 
     public string PrimaryGameActionLabel => IsPrimaryGameActionInstall ? Resources.Install : Resources.Play;
 
-    public bool CanUninstallSelectedGame => SelectedGameCard?.Game is
-    {
-        SourceId: GameSourceId.Steam,
-        InstallationInfo: not null
-    };
+    public bool CanUninstallSelectedGame => SelectedGameCard?.Game is { } game &&
+        game.SourceId != GameSourceIds.Manual &&
+        game.InstallationInfo is not null;
 
     public bool IsSelectedGameUninstallPending =>
         SelectedGameCard is { } gameCard &&
@@ -254,7 +251,6 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
             var game = gameCard.Game;
             if (_hostSystemInfo.Platform != HostOperatingSystem.Linux ||
-                game.SourceId is not (GameSourceId.Manual or GameSourceId.Steam) ||
                 game.CompatibilityLayer is not { ExecutionMode: GameExecutionMode.Custom, Tool: not null })
             {
                 return true;
@@ -283,7 +279,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
             if (IsLibrarySyncRunning)
             {
-                return Resources.SteamSyncActivity;
+                return string.Format(CultureInfo.CurrentCulture, Resources.ConnectorSyncActivity, _librarySyncSourceName);
             }
 
             return TimeToBeatSyncStatus ?? Resources.HltbSyncActivity;
@@ -307,7 +303,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 return Resources.HiddenGamesEmptyMessage;
             }
 
-            if (HasCompletedSteamSync)
+            if (HasCompletedLibrarySync)
             {
                 return Resources.EmptyAfterSync;
             }
@@ -367,7 +363,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(gameCard);
-        if (gameCard.Game.SourceId != GameSourceId.Manual)
+        if (gameCard.Game.SourceId != GameSourceIds.Manual)
         {
             throw new InvalidOperationException("Only manually added games can be deleted from the library.");
         }
@@ -422,6 +418,40 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public async Task RefreshGameDataAsync(
+        GameCardViewModel gameCard,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(gameCard);
+        if (IsLibrarySyncRunning || IsLibraryEnrichmentRunning)
+        {
+            return;
+        }
+
+        IsLibrarySyncRunning = true;
+        _librarySyncProgress.BeginSync(gameCard.Name);
+        try
+        {
+            await _gameLibrarySyncService.RefreshGameDataAsync(gameCard.Game.Id, cancellationToken);
+            await LoadGamesAsync(cancellationToken);
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameDataUpdated, gameCard.Name);
+            _librarySyncProgress.CompleteSync(gameCard.Name);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _librarySyncProgress.CompleteSync(gameCard.Name, exception);
+            StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.LibraryEnrichmentError, exception.Message);
+        }
+        finally
+        {
+            IsLibrarySyncRunning = false;
+        }
+    }
+
     public void ShowAllGames()
     {
         IsShowingHiddenGames = false;
@@ -436,9 +466,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         CancellationToken cancellationToken = default)
     {
         var game = gameCard.Game;
-        var isInstall = game.SourceId == GameSourceId.Steam && game.InstallationInfo is null;
+        var isInstall = game.SourceId != GameSourceIds.Manual && game.InstallationInfo is null;
         var isCustomLinuxLaunch = _hostSystemInfo.Platform == HostOperatingSystem.Linux &&
-            game.SourceId is (GameSourceId.Manual or GameSourceId.Steam) &&
             game.CompatibilityLayer?.ExecutionMode == GameExecutionMode.Custom;
         if (_pendingLaunchGameIds.Contains(game.Id) ||
             (isCustomLinuxLaunch && _activeMonitoredGames.ContainsKey(game.Id)))
@@ -538,7 +567,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     /// </summary>
     public async Task InstallGameAsync(Game game, GameInstallLocation? location, CancellationToken cancellationToken)
     {
-        var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceId.Steam;
+        var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceIds.Steam;
         if (shouldRequestTopmost)
         {
             WindowTopmostRequested?.Invoke(true);
@@ -634,8 +663,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         switch (monitorEvent)
         {
             case GameProcessMonitorEvent.Started:
-                if (gameCard.Game.SourceId is (GameSourceId.Manual or GameSourceId.Steam) &&
-                    gameCard.Game.GetCompatibilityTool() is not null)
+                if (gameCard.Game.GetCompatibilityTool() is not null)
                 {
                     StatusMessage = Resources.GameLaunchStarted;
                 }
@@ -692,7 +720,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     /// </summary>
     public async Task UninstallGameAsync(GameCardViewModel gameCard, CancellationToken cancellationToken = default)
     {
-        if (gameCard.Game.SourceId != GameSourceId.Steam || gameCard.Game.InstallationInfo is null)
+        if (gameCard.Game.SourceId == GameSourceIds.Manual || gameCard.Game.InstallationInfo is null)
         {
             return;
         }
@@ -700,7 +728,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         try
         {
             var game = gameCard.Game;
-            var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceId.Steam;
+            var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceIds.Steam;
             if (shouldRequestTopmost)
             {
                 WindowTopmostRequested?.Invoke(true);
@@ -967,49 +995,53 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
-    /// Synchronizes the connected Steam catalog while exposing progress to every screen.
+    /// Synchronizes a connected store catalog while exposing progress to every screen.
     /// </summary>
-    public async Task<int> SynchronizeSteamLibraryAsync(CancellationToken cancellationToken)
+    public async Task<int> SynchronizeLibraryAsync(string sourceId, CancellationToken cancellationToken)
     {
-        return await SynchronizeSteamLibraryAsync(cancellationToken, GameLibrarySyncMode.Full);
+        return await SynchronizeLibraryAsync(sourceId, cancellationToken, GameLibrarySyncMode.Full);
     }
 
-    public async Task<int> RescanSteamLibraryAsync(CancellationToken cancellationToken)
+    public async Task<int> RescanLibraryAsync(string sourceId, CancellationToken cancellationToken)
     {
-        return await SynchronizeSteamLibraryAsync(cancellationToken, GameLibrarySyncMode.Incremental);
+        return await SynchronizeLibraryAsync(sourceId, cancellationToken, GameLibrarySyncMode.Incremental);
     }
 
-    private async Task<int> SynchronizeSteamLibraryAsync(
+    private async Task<int> SynchronizeLibraryAsync(
+        string sourceId,
         CancellationToken cancellationToken,
         GameLibrarySyncMode mode)
     {
-        await _steamSyncGate.WaitAsync(cancellationToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
+        await _librarySyncGate.WaitAsync(cancellationToken);
         try
         {
+            _librarySyncSourceName = _settingsScreen.GetConnectorDisplayName(sourceId);
             IsLibrarySyncRunning = true;
-            _librarySyncProgress.BeginLibrarySync();
+            _librarySyncProgress.BeginLibrarySync(_librarySyncSourceName);
             StatusMessage = null;
-            var progress = new Progress<GameLibrarySyncProgress>(ReportLibrarySyncProgress);
+            var progress = new CallbackProgress<GameLibrarySyncProgress>(ReportLibrarySyncProgress);
             var games = await _gameLibrarySyncService.SynchronizeAsync(
-                GameSourceId.Steam,
+                sourceId,
                 progress,
                 cancellationToken,
                 mode);
             await FinishLibrarySyncAsync(games);
-            HasCompletedSteamSync = true;
-            _librarySyncProgress.CompleteSync("Steam");
+            HasCompletedLibrarySync = true;
+            _librarySyncProgress.CompleteSync(_settingsScreen.GetConnectorDisplayName(sourceId));
             return games.Count;
         }
         catch (Exception exception)
         {
             await LoadGamesAsync(CancellationToken.None);
-            _librarySyncProgress.CompleteSync("Steam", exception);
+            _librarySyncProgress.CompleteSync(_settingsScreen.GetConnectorDisplayName(sourceId), exception);
             throw;
         }
         finally
         {
             IsLibrarySyncRunning = false;
-            _steamSyncGate.Release();
+            _librarySyncSourceName = null;
+            _librarySyncGate.Release();
         }
     }
 
@@ -1038,19 +1070,22 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     private void ReportLibrarySyncProgress(GameLibrarySyncProgress progress)
     {
-        _librarySyncProgress.ReportLibrarySyncProgress(progress);
-        if (progress.UpdatedGame is not { } game)
-        {
-            return;
-        }
-
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => ApplySynchronizedGame(game));
+            Dispatcher.UIThread.InvokeAsync(() => ApplyLibrarySyncProgress(progress)).GetAwaiter().GetResult();
             return;
         }
 
-        ApplySynchronizedGame(game);
+        ApplyLibrarySyncProgress(progress);
+    }
+
+    private void ApplyLibrarySyncProgress(GameLibrarySyncProgress progress)
+    {
+        _librarySyncProgress.ReportLibrarySyncProgress(progress);
+        if (progress.UpdatedGame is { } game)
+        {
+            ApplySynchronizedGame(game);
+        }
     }
 
     private void ApplySynchronizedGame(Game game)
@@ -1174,10 +1209,15 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         OnLibraryActivityChanged();
     }
 
-    partial void OnHasCompletedSteamSyncChanged(bool value)
+    partial void OnHasCompletedLibrarySyncChanged(bool value)
     {
         OnPropertyChanged(nameof(EmptyLibraryTitle));
         OnPropertyChanged(nameof(EmptyLibraryMessage));
+    }
+
+    private sealed class CallbackProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     partial void OnSelectedGameCardChanged(GameCardViewModel? value)

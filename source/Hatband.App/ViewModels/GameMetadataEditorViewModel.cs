@@ -27,7 +27,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     private bool restoreBackground;
     private GamePlatform? selectedNativePlatforms;
     private GameCompatibilityTier? selectedCompatibilityTier;
-    private GameSourceId? _selectedStoreSourceId;
+    private string? _selectedStoreSourceId;
     private string? _selectedStoreGameId;
 
     [ObservableProperty]
@@ -150,9 +150,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         ErrorMessage = null;
         var region = GetRegion(languageTag);
         MetadataSources = new ObservableCollection<GameMetadataSourceViewModel>(metadataProviders
-            .Where(provider => selectedGame.SourceId == GameSourceId.Manual
-                ? provider.SupportsManualSearch
-                : provider.CanSearch(selectedGame))
+            .Where(provider => provider.CanSearch(selectedGame))
             .OrderBy(provider => provider.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .Select(provider =>
             {
@@ -356,7 +354,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
             }
             else if (selectedCompatibilityTier is GameCompatibilityTier metadataCompatibilityTier)
             {
-                var compatibilityLayer = CloneCompatibilityLayer(originalCompatibilityLayer) ?? new CompatibilityLayer();
+                var compatibilityLayer = originalCompatibilityLayer?.Copy() ?? new CompatibilityLayer();
                 compatibilityLayer.Tier = metadataCompatibilityTier;
                 game.CompatibilityLayer = compatibilityLayer;
             }
@@ -391,27 +389,6 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         selectedGame.Metadata = originalMetadata;
         selectedGame.Artwork = originalArtwork;
         selectedGame.CompatibilityLayer = originalCompatibilityLayer;
-    }
-
-    private static CompatibilityLayer? CloneCompatibilityLayer(CompatibilityLayer? source)
-    {
-        if (source is null)
-        {
-            return null;
-        }
-
-        return new CompatibilityLayer
-        {
-            ExecutionMode = source.ExecutionMode,
-            Tool = source.Tool,
-            LaunchOptionId = source.LaunchOptionId,
-            ExecutablePath = source.ExecutablePath,
-            WorkingDirectory = source.WorkingDirectory,
-            LaunchArguments = source.LaunchArguments,
-            AdditionalArguments = source.AdditionalArguments,
-            EnvironmentVariables = source.EnvironmentVariables.ToDictionary(pair => pair.Key, pair => pair.Value),
-            Tier = source.Tier
-        };
     }
 
     private async Task<GameArtwork> ImportSelectedArtworkAsync(Game selectedGame, CancellationToken cancellationToken)

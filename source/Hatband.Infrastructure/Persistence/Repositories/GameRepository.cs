@@ -39,7 +39,7 @@ public sealed class GameRepository : IGameRepository
     }
 
     public async Task<IReadOnlyList<Game>> GetBySourceAsync(
-        GameSourceId sourceId,
+        string sourceId,
         CancellationToken cancellationToken = default)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
@@ -50,7 +50,7 @@ public sealed class GameRepository : IGameRepository
     }
 
     public async Task<Game?> GetBySourceIdentityAsync(
-        GameSourceId sourceId,
+        string sourceId,
         string sourceGameId,
         CancellationToken cancellationToken = default)
     {

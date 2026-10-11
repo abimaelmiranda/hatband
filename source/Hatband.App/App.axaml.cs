@@ -12,6 +12,7 @@ using Hatband.Core.Models.Settings;
 using Hatband.Infrastructure.DependencyInjection;
 using Hatband.Infrastructure.FileSystem;
 using Hatband.Infrastructure.Persistence;
+using Hatband.Infrastructure.Plugins;
 using Hatband.Infrastructure.Host;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -58,6 +59,20 @@ public partial class App : Application
             services.AddSingleton<MainWindowViewModel>();
 
             var serviceProvider = services.BuildServiceProvider();
+            var pluginCatalog = serviceProvider.GetRequiredService<PluginCatalog>();
+            var pluginLogger = serviceProvider.GetRequiredService<ILogger<App>>();
+            foreach (var issue in pluginCatalog.Issues)
+            {
+                pluginLogger.LogError(issue.Exception, "Could not load plugin from {PluginDirectory}: {Message}",
+                    issue.PluginDirectory, issue.Message);
+            }
+
+            foreach (var plugin in pluginCatalog.Plugins)
+            {
+                pluginLogger.LogInformation("Loaded {PluginKind} plugin {PluginName} ({PluginId}) version {PluginVersion}.",
+                    plugin.IsExternal ? "external" : "built-in", plugin.Name, plugin.Id, plugin.Version);
+            }
+
             serviceProvider.GetRequiredService<DatabaseInitializer>().InitializeAsync().GetAwaiter().GetResult();
             ApplySavedLanguage(
                 serviceProvider.GetRequiredService<ISettingsApi>(),

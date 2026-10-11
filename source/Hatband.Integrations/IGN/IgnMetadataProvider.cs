@@ -39,7 +39,7 @@ public sealed partial class IgnMetadataProvider : IGameMetadataProvider
 
     public string DisplayName => "IGN";
 
-    public GameSourceId? SourceId => null;
+    public string? SourceId => null;
 
     public bool SupportsManualSearch => true;
 

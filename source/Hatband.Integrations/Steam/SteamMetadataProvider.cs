@@ -58,7 +58,7 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         _timeProvider = timeProvider;
     }
 
-    public GameSourceId? SourceId => GameSourceId.Steam;
+    public string? SourceId => GameSourceIds.Steam;
 
     public bool SupportsManualSearch => true;
 
@@ -71,8 +71,8 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         ArgumentNullException.ThrowIfNull(game);
         return game.SourceId switch
         {
-            GameSourceId.Steam => uint.TryParse(game.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out _),
-            GameSourceId.Manual => !string.IsNullOrWhiteSpace(game.Name),
+            GameSourceIds.Steam => uint.TryParse(game.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out _),
+            GameSourceIds.Manual => !string.IsNullOrWhiteSpace(game.Name),
             _ => false
         };
     }
@@ -86,7 +86,7 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         ArgumentNullException.ThrowIfNull(game);
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         ArgumentException.ThrowIfNullOrWhiteSpace(region);
-        if (game.SourceId == GameSourceId.Manual)
+        if (game.SourceId == GameSourceIds.Manual)
         {
             return await SearchByNameAsync(game.Name, languageTag, cancellationToken);
         }
@@ -107,9 +107,9 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
-        if (game.SourceId == GameSourceId.Manual)
+        if (game.SourceId == GameSourceIds.Manual)
         {
-            if (game.Metadata.StoreSourceId == GameSourceId.Steam &&
+            if (game.Metadata.StoreSourceId == GameSourceIds.Steam &&
                 game.Metadata.StoreGameId is { } storedAppId &&
                 uint.TryParse(storedAppId, NumberStyles.None, CultureInfo.InvariantCulture, out _))
             {
@@ -131,14 +131,6 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         }
 
         var metadata = await GetMetadataForAppAsync(sourceGameId, languageTag, cancellationToken);
-        if (metadata is not null)
-        {
-            var tier = await GetCompatibilityTierAsync(sourceGameId, cancellationToken);
-            var layer = game.CompatibilityLayer ?? new CompatibilityLayer();
-            layer.Tier = tier;
-            game.CompatibilityLayer = layer;
-        }
-
         return metadata;
     }
 
@@ -257,7 +249,7 @@ public sealed partial class SteamMetadataProvider : IGameMetadataProvider, IGame
         return new GameMetadata
         {
             LanguageTag = contentLanguageTag,
-            StoreSourceId = GameSourceId.Steam,
+            StoreSourceId = GameSourceIds.Steam,
             StoreGameId = appId.ToString(CultureInfo.InvariantCulture),
             StoreName = NullIfWhiteSpace(data.Name),
             Description = GetDescription(data),

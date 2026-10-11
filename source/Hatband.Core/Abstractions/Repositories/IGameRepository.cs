@@ -14,11 +14,11 @@ public interface IGameRepository
     Task<Game?> GetByIdAsync(Guid gameId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Game>> GetBySourceAsync(
-        GameSourceId sourceId,
+        string sourceId,
         CancellationToken cancellationToken = default);
 
     Task<Game?> GetBySourceIdentityAsync(
-        GameSourceId sourceId,
+        string sourceId,
         string sourceGameId,
         CancellationToken cancellationToken = default);
 

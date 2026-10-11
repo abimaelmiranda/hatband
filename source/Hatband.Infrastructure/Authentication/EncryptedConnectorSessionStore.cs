@@ -28,7 +28,7 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
         this.secretVault = secretVault;
     }
 
-    public async Task<ConnectorSession?> LoadAsync(GameSourceId sourceId, CancellationToken cancellationToken = default)
+    public async Task<ConnectorSession?> LoadAsync(string sourceId, CancellationToken cancellationToken = default)
     {
         ValidateSource(sourceId);
         await gate.WaitAsync(cancellationToken);
@@ -138,7 +138,7 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
         }
     }
 
-    public async Task DeleteAsync(GameSourceId sourceId, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(string sourceId, CancellationToken cancellationToken = default)
     {
         ValidateSource(sourceId);
         await gate.WaitAsync(cancellationToken);
@@ -158,9 +158,9 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
         }
     }
 
-    private string GetPath(GameSourceId sourceId) => $"sessions/{sourceId.ToString().ToLowerInvariant()}.enc";
+    private string GetPath(string sourceId) => $"sessions/{sourceId.ToString().ToLowerInvariant()}.enc";
 
-    private static ConnectorSession DecryptSession(GameSourceId sourceId, byte[] contents, byte[] key)
+    private static ConnectorSession DecryptSession(string sourceId, byte[] contents, byte[] key)
     {
         var ciphertext = contents.AsSpan(1 + NonceSize + TagSize);
         var plaintext = new byte[ciphertext.Length];
@@ -194,13 +194,10 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
         }
     }
 
-    private static string GetVaultKey(GameSourceId sourceId) => $"org.hatband.session-key.{sourceId.ToString().ToLowerInvariant()}";
+    private static string GetVaultKey(string sourceId) => $"org.hatband.session-key.{sourceId.ToString().ToLowerInvariant()}";
 
-    private static void ValidateSource(GameSourceId sourceId)
+    private static void ValidateSource(string sourceId)
     {
-        if (!Enum.IsDefined(sourceId))
-        {
-            throw new ArgumentOutOfRangeException(nameof(sourceId), sourceId, "The connector source is not supported.");
-        }
+        GameSourceIds.Validate(sourceId);
     }
 }

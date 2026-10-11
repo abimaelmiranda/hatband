@@ -3,4 +3,5 @@
   <Project Path="Hatband.Core/Hatband.Core.csproj" />
   <Project Path="Hatband.Infrastructure/Hatband.Infrastructure.csproj" />
   <Project Path="Hatband.Integrations/Hatband.Integrations.csproj" />
+  <Project Path="Hatband.SDK/Hatband.SDK.csproj" />
 </Solution>

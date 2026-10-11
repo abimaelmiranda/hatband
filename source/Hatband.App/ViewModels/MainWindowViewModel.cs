@@ -21,7 +21,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly AddGameViewModel _addGame;
     private readonly GameMetadataEditorViewModel _editor;
     private readonly CancellationTokenSource _startupCancellation = new();
-    private Task? _steamStartupImport;
+    private Task? _connectorStartupImport;
 
     public MainWindowViewModel(
         NavigationCoordinator navigation,
@@ -39,7 +39,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _settings = settings;
         _addGame = addGame;
         _editor = editor;
-        _settings.SetSteamLibrarySyncCallback(Session.SynchronizeSteamLibraryAsync);
+        _settings.SetLibrarySyncCallback(Session.SynchronizeLibraryAsync);
         _settings.SetRefreshMetadataCommand(Session.RefreshMetadataCommand);
         _settings.SetCanRefreshMetadata(Session.CanRefreshMetadata);
         _settings.SettingsSaved += OnSettingsSaved;
@@ -75,24 +75,32 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         await _settings.InitializeAsync(cancellationToken);
         await Session.LoadGamesAsync(cancellationToken);
-        _steamStartupImport ??= RestoreAndImportSteamLibraryAsync(_startupCancellation.Token);
+        _connectorStartupImport ??= RestoreAndImportConnectorLibrariesAsync(_startupCancellation.Token);
     }
 
-    private async Task RestoreAndImportSteamLibraryAsync(CancellationToken cancellationToken)
+    private async Task RestoreAndImportConnectorLibrariesAsync(CancellationToken cancellationToken)
     {
         try
         {
-            if (await _settings.RestoreSteamSessionAsync(cancellationToken))
+            var restoredConnectors = await _settings.RestoreConnectorSessionsAsync(cancellationToken);
+            foreach (var sourceId in restoredConnectors)
             {
-                await Session.RescanSteamLibraryAsync(cancellationToken);
+                try
+                {
+                    await Session.RescanLibraryAsync(sourceId, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    _settings.ReportConnectorRestoreError(sourceId, exception);
+                }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-        }
-        catch (Exception exception)
-        {
-            _settings.ReportSteamRestoreError(exception);
         }
     }
 

@@ -91,6 +91,9 @@ public partial class GameDetailsScreenViewModel : ScreenViewModel
             case GameOptionAction.ToggleHidden:
                 await Session.ToggleGameHiddenAsync(game);
                 break;
+            case GameOptionAction.RefreshData:
+                await Session.RefreshGameDataAsync(game);
+                break;
             case GameOptionAction.Uninstall:
                 var confirmation = new ConfirmationModalViewModel(
                     Resources.UninstallConfirmationTitle,

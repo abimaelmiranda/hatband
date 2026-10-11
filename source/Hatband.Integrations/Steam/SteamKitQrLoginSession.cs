@@ -130,13 +130,13 @@ internal sealed class SteamKitQrLoginSession : IQrCodeLoginSession
 
         var profile = new ConnectorAccount
         {
-            SourceId = GameSourceId.Steam,
+            SourceId = GameSourceIds.Steam,
             AccountId = authenticatedSteamId.ConvertToUInt64().ToString(),
             DisplayName = authResult.AccountName
         };
         var session = new ConnectorSession
         {
-            SourceId = GameSourceId.Steam,
+            SourceId = GameSourceIds.Steam,
             Profile = profile,
             AccessToken = authResult.AccessToken,
             RefreshToken = authResult.RefreshToken,

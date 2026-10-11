@@ -8,9 +8,9 @@ namespace Hatband.Core.Abstractions.Authentication;
 /// </summary>
 public interface IConnectorSessionStore
 {
-    Task<ConnectorSession?> LoadAsync(GameSourceId sourceId, CancellationToken cancellationToken = default);
+    Task<ConnectorSession?> LoadAsync(string sourceId, CancellationToken cancellationToken = default);
 
     Task SaveAsync(ConnectorSession session, CancellationToken cancellationToken = default);
 
-    Task DeleteAsync(GameSourceId sourceId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(string sourceId, CancellationToken cancellationToken = default);
 }

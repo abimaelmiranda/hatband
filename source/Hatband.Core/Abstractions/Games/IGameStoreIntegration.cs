@@ -12,7 +12,7 @@ public interface IGameStoreIntegration
     /// <summary>
     /// Stable identifier shared with <see cref="Game.SourceId"/>.
     /// </summary>
-    GameSourceId SourceId { get; }
+    string SourceId { get; }
 
     /// <summary>
     /// User-facing name of the store or platform.

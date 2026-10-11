@@ -14,13 +14,14 @@ public sealed class GameOptionsViewModel : ModalViewModel<GameOptionAction>
         var options = new List<GameOptionViewModel>
         {
             new(Resources.EditGame, FluentIconGlyph.Edit, GameOptionAction.Edit),
-            new(game.Game.IsHidden ? Resources.UnhideGame : Resources.HideGame, FluentIconGlyph.AppFolder, GameOptionAction.ToggleHidden)
+            new(game.Game.IsHidden ? Resources.UnhideGame : Resources.HideGame, FluentIconGlyph.AppFolder, GameOptionAction.ToggleHidden),
+            new(Resources.RefreshGameData, FluentIconGlyph.ArrowSwap, GameOptionAction.RefreshData)
         };
         if (canUninstall)
         {
             options.Add(new(Resources.UninstallGame, FluentIconGlyph.Delete, GameOptionAction.Uninstall));
         }
-        if (game.Game.SourceId == GameSourceId.Manual)
+        if (game.Game.SourceId == GameSourceIds.Manual)
         {
             options.Add(new(Resources.DeleteGame, FluentIconGlyph.Delete, GameOptionAction.Delete));
         }

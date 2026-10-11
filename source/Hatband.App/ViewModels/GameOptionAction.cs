@@ -4,6 +4,7 @@ public enum GameOptionAction
 {
     Edit,
     ToggleHidden,
+    RefreshData,
     Uninstall,
     Delete
 }

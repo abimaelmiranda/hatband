@@ -35,7 +35,7 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
         this.timeProvider = timeProvider;
     }
 
-    public GameSourceId? SourceId => GameSourceId.Steam;
+    public string? SourceId => GameSourceIds.Steam;
 
     public string DisplayName => "Steam";
 
@@ -71,8 +71,7 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
     {
         ArgumentNullException.ThrowIfNull(game);
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
-        if (game.SourceId != GameSourceId.Steam ||
-            !uint.TryParse(game.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out var appId))
+        if (!TryGetAppId(game, out var appId))
         {
             return [];
         }
@@ -86,6 +85,16 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
             () => TryGetStoreAssetsAsync(httpClient, appId, steamLanguage, cancellationToken),
             cancellationToken);
         return CreateArtworkSources(appId, storeAssets);
+    }
+
+    private static bool TryGetAppId(Game game, out uint appId)
+    {
+        var storeGameId = game.SourceId == GameSourceIds.Steam
+            ? game.SourceGameId
+            : game.Metadata.StoreSourceId == GameSourceIds.Steam
+                ? game.Metadata.StoreGameId
+                : null;
+        return uint.TryParse(storeGameId, NumberStyles.None, CultureInfo.InvariantCulture, out appId);
     }
 
     private async Task<IReadOnlyList<GameArtworkImage>> DownloadArtworksAsync(

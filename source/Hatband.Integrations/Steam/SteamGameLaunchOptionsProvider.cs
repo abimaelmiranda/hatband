@@ -29,7 +29,7 @@ public sealed class SteamGameLaunchOptionsProvider
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
-        if (game.SourceId != GameSourceId.Steam ||
+        if (game.SourceId != GameSourceIds.Steam ||
             !uint.TryParse(game.SourceGameId, NumberStyles.None, CultureInfo.InvariantCulture, out var appId) ||
             game.InstallationInfo is not { } installationInfo)
         {

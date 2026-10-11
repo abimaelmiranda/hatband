@@ -8,7 +8,7 @@ namespace Hatband.Core.Models.Authentication;
 /// </summary>
 public sealed class ConnectorSession
 {
-    public required GameSourceId SourceId { get; init; }
+    public required string SourceId { get; init; }
 
     public required ConnectorAccount Profile { get; init; }
 

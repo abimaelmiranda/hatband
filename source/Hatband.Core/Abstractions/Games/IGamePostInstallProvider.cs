@@ -6,7 +6,7 @@ namespace Hatband.Core.Abstractions.Games;
 
 public interface IGamePostInstallProvider
 {
-    GameSourceId SourceId { get; }
+    string SourceId { get; }
 
     Task<GamePostInstallPlan?> GetPlanAsync(Game game, CancellationToken cancellationToken = default);
 }

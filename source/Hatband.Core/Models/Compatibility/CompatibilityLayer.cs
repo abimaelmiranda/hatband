@@ -22,4 +22,17 @@ public class CompatibilityLayer
     public Dictionary<string, string> EnvironmentVariables { get; set; } = [];
 
     public GameCompatibilityTier Tier { get; set; } = GameCompatibilityTier.Unknown;
+
+    public CompatibilityLayer Copy() => new()
+    {
+        ExecutionMode = ExecutionMode,
+        Tool = Tool,
+        LaunchOptionId = LaunchOptionId,
+        ExecutablePath = ExecutablePath,
+        WorkingDirectory = WorkingDirectory,
+        LaunchArguments = LaunchArguments,
+        AdditionalArguments = AdditionalArguments,
+        EnvironmentVariables = EnvironmentVariables.ToDictionary(pair => pair.Key, pair => pair.Value),
+        Tier = Tier
+    };
 }

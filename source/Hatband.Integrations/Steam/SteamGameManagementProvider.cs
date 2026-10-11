@@ -44,7 +44,7 @@ public sealed class SteamGameManagementProvider : IGameManagementProvider
         _launchOptionsProvider = launchOptionsProvider;
     }
 
-    public GameSourceId SourceId => GameSourceId.Steam;
+    public string SourceId => GameSourceIds.Steam;
 
     public async Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(
         Game game,
@@ -52,7 +52,7 @@ public sealed class SteamGameManagementProvider : IGameManagementProvider
     {
         ArgumentNullException.ThrowIfNull(game);
         cancellationToken.ThrowIfCancellationRequested();
-        if (game.SourceId != GameSourceId.Steam || !await IsSilentModeEnabledAsync(cancellationToken))
+        if (game.SourceId != GameSourceIds.Steam || !await IsSilentModeEnabledAsync(cancellationToken))
         {
             return [];
         }
@@ -120,7 +120,7 @@ public sealed class SteamGameManagementProvider : IGameManagementProvider
     {
         ArgumentNullException.ThrowIfNull(game);
         cancellationToken.ThrowIfCancellationRequested();
-        if (game.SourceId != GameSourceId.Steam)
+        if (game.SourceId != GameSourceIds.Steam)
         {
             throw new InvalidOperationException("The Steam launch provider can only prepare Steam games.");
         }
@@ -488,7 +488,7 @@ public sealed class SteamGameManagementProvider : IGameManagementProvider
     private static bool TryGetSteamAppId(Game game, out uint appId)
     {
         ArgumentNullException.ThrowIfNull(game);
-        if (game.SourceId != GameSourceId.Steam)
+        if (game.SourceId != GameSourceIds.Steam)
         {
             appId = default;
             return false;

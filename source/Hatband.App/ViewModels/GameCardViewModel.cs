@@ -124,7 +124,7 @@ public partial class GameCardViewModel : ObservableObject
         }
     }
 
-    public bool IsSteamSource => Game.SourceId == GameSourceId.Steam;
+    public bool IsSteamSource => Game.SourceId == GameSourceIds.Steam;
 
     public bool IsNonSteamSource => !IsSteamSource;
 
@@ -134,9 +134,8 @@ public partial class GameCardViewModel : ObservableObject
         {
             return Game.SourceId switch
             {
-                GameSourceId.Manual => Resources.ManualGame,
-                GameSourceId.Steam => "Steam",
-                _ => string.Format(System.Globalization.CultureInfo.CurrentCulture, Resources.Unavailable, Resources.Source)
+                GameSourceIds.Manual => Resources.ManualGame,
+                _ => Game.Metadata.StoreName ?? Game.SourceId
             };
         }
     }

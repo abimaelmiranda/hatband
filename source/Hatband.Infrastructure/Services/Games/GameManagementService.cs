@@ -10,10 +10,10 @@ namespace Hatband.Infrastructure.Services.Games;
 
 public sealed class GameManagementService : IGameManagementService
 {
-    private readonly IReadOnlyDictionary<GameSourceId, IGameManagementProvider> _providers;
+    private readonly IReadOnlyDictionary<string, IGameManagementProvider> _providers;
     private readonly IGameCompatibilityRuntime _runtime;
     private readonly IHostSystemInfo _hostSystemInfo;
-    private readonly IReadOnlyDictionary<GameSourceId, IGamePostInstallProvider> _postInstallProviders;
+    private readonly IReadOnlyDictionary<string, IGamePostInstallProvider> _postInstallProviders;
     private readonly IGameRepository _gameRepository;
 
     public GameManagementService(

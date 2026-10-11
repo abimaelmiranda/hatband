@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hatband.App.Localization;
 using Hatband.Core.Enums.Games;
@@ -8,6 +9,7 @@ namespace Hatband.App.ViewModels;
 
 public partial class LibrarySyncProgressViewModel : ViewModelBase
 {
+    private string? _librarySyncSourceName;
     [ObservableProperty]
     public partial bool IsLibraryEnrichmentRunning { get; set; }
 
@@ -38,14 +40,18 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
         });
     }
 
-    public void BeginLibrarySync()
+    public void BeginLibrarySync(string sourceName)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceName);
+        _librarySyncSourceName = sourceName;
         ReportLibrarySyncProgress(new GameLibrarySyncProgress(GameLibrarySyncStage.RetrievingCatalog));
     }
 
     public void ReportLibrarySyncProgress(GameLibrarySyncProgress progress)
     {
         ArgumentNullException.ThrowIfNull(progress);
+        var sourceName = _librarySyncSourceName
+            ?? throw new InvalidOperationException("A source name must be set before reporting library sync progress.");
         Dispatcher.UIThread.Post(() =>
         {
             switch (progress.Stage)
@@ -53,7 +59,10 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
                 case GameLibrarySyncStage.RetrievingCatalog:
                     IsLibraryEnrichmentRunning = false;
                     LibraryEnrichmentProgressPercent = 0;
-                    LibraryEnrichmentStatus = Resources.SteamSyncLoadingLibrary;
+                    LibraryEnrichmentStatus = string.Format(
+                        CultureInfo.CurrentCulture,
+                        Resources.ConnectorSyncLoadingLibrary,
+                        sourceName);
                     break;
                 case GameLibrarySyncStage.UpdatingGames:
                     IsLibraryEnrichmentRunning = true;
@@ -61,7 +70,9 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
                         ? 100
                         : progress.CompletedGames * 100d / progress.TotalGames;
                     LibraryEnrichmentStatus = string.Format(
-                        Resources.SteamSyncUpdatingGame,
+                        CultureInfo.CurrentCulture,
+                        Resources.ConnectorSyncUpdatingGame,
+                        sourceName,
                         progress.CompletedGames,
                         progress.TotalGames,
                         progress.CurrentGameName);
@@ -69,7 +80,10 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
                 case GameLibrarySyncStage.RefreshingLibrary:
                     IsLibraryEnrichmentRunning = true;
                     LibraryEnrichmentProgressPercent = 100;
-                    LibraryEnrichmentStatus = Resources.SteamSyncRefreshingLibrary;
+                    LibraryEnrichmentStatus = string.Format(
+                        CultureInfo.CurrentCulture,
+                        Resources.ConnectorSyncRefreshingLibrary,
+                        sourceName);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(progress), progress.Stage, "Unknown library sync stage.");

@@ -28,7 +28,7 @@ public partial class AddGameViewModel : ScreenViewModel
     private string _preferredLanguageTag = "en-US";
     private string? _metadataStoreName;
     private string? _metadataStoreGameId;
-    private GameSourceId? _metadataStoreSourceId;
+    private string? _metadataStoreSourceId;
     private GameCompatibilityTier? _metadataCompatibilityTier;
     private GamePlatform? _nativePlatforms;
     private Guid _draftGameId = Guid.CreateVersion7();
@@ -386,7 +386,7 @@ public partial class AddGameViewModel : ScreenViewModel
         {
             Id = _draftGameId,
             Name = Name,
-            SourceId = GameSourceId.Manual
+            SourceId = GameSourceIds.Manual
         });
         SelectedSectionIndex = Sections.IndexOf(Sections.Single(section => section.Id == GameSectionId));
         IsContentActive = false;
@@ -404,7 +404,7 @@ public partial class AddGameViewModel : ScreenViewModel
     private Game CreateSearchGame() => new()
     {
         Name = Name.Trim(),
-        SourceId = GameSourceId.Manual
+        SourceId = GameSourceIds.Manual
     };
 
     private Game CreateArtworkSearchGame()
@@ -412,7 +412,7 @@ public partial class AddGameViewModel : ScreenViewModel
         return new Game
         {
             Name = Name.Trim(),
-            SourceId = GameSourceId.Manual,
+            SourceId = GameSourceIds.Manual,
             Metadata = new GameMetadata
             {
                 StoreSourceId = _metadataStoreSourceId,
@@ -434,7 +434,7 @@ public partial class AddGameViewModel : ScreenViewModel
             _metadataStoreName = metadata.StoreName;
             _metadataStoreSourceId = storeSourceId;
             _metadataStoreGameId = storeGameId;
-            if (storeSourceId == GameSourceId.Steam)
+            if (storeSourceId == GameSourceIds.Steam)
             {
                 SteamArtworkAssociationStatus = string.Format(
                     CultureInfo.CurrentCulture,
@@ -525,7 +525,7 @@ public partial class AddGameViewModel : ScreenViewModel
         {
             Id = _draftGameId,
             Name = trimmedName,
-            SourceId = GameSourceId.Manual,
+            SourceId = GameSourceIds.Manual,
             Metadata = new GameMetadata
             {
                 LanguageTag = _preferredLanguageTag,

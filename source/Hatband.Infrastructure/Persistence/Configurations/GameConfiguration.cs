@@ -1,7 +1,6 @@
 using Hatband.Core.Models.Games;
 using Hatband.Core.Models.Games.PostInstall;
 using Hatband.Infrastructure.Persistence.Comparers;
-using Hatband.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Text.Json;
@@ -14,7 +13,6 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
     {
         builder.ToTable("Games");
         builder.Property(game => game.Name).IsRequired();
-        builder.Property(game => game.SourceId).HasConversion<GameSourceIdConverter>();
         builder
             .HasIndex(game => new { game.SourceId, game.SourceGameId })
             .IsUnique();
@@ -25,9 +23,7 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
             {
                 metadata.Property(value => value.LanguageTag).HasColumnName("Metadata_LanguageTag");
                 metadata.Property(value => value.StoreName).HasColumnName("Metadata_StoreName");
-                metadata.Property(value => value.StoreSourceId)
-                    .HasConversion<GameSourceIdConverter>()
-                    .HasColumnName("Metadata_StoreSourceId");
+                metadata.Property(value => value.StoreSourceId).HasColumnName("Metadata_StoreSourceId");
                 metadata.Property(value => value.StoreGameId).HasColumnName("Metadata_StoreGameId");
                 metadata.Property(value => value.Description).HasColumnName("Metadata_Description");
                 metadata.Property(value => value.Developer).HasColumnName("Metadata_Developer");
@@ -55,11 +51,13 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                 artwork.Property(value => value.IconPath).HasColumnName("DefaultArtwork_IconPath");
             });
 
-        builder.ComplexProperty(
+        builder.OwnsOne(
             game => game.PostInstallPlan,
             plan =>
             {
-                plan.HasDiscriminator();
+                plan.ToTable("GamePostInstallPlans");
+                plan.WithOwner().HasForeignKey("GameId");
+                plan.HasKey("GameId");
                 plan.Property(value => value.Revision).HasColumnName("PostInstallPlan_Revision");
 
                 var steps = plan.Property(value => value.Steps)
@@ -75,7 +73,9 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                         value => JsonSerializer.Serialize(value),
                         value => GamePostInstallListComparer.DeserializeDiagnostics(value));
                 diagnostics.Metadata.SetValueComparer(GamePostInstallListComparer.Diagnostics);
-            });
+            })
+            .Navigation(game => game.PostInstallPlan)
+            .IsRequired(false);
 
         builder.ComplexProperty(
             game => game.CompatibilityLayer,

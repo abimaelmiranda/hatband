@@ -18,6 +18,8 @@ public sealed class HatbandDbContext : DbContext
 
     public DbSet<CacheEntry> CacheEntries => Set<CacheEntry>();
 
+    public DbSet<GamePluginData> GamePluginData => Set<GamePluginData>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

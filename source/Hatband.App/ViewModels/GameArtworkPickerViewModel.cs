@@ -15,7 +15,7 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     private Game? game;
     private string? artworkOptionsSearchName;
     private string preferredLanguageTag = "en-US";
-    private GameSourceId? _storeSourceId;
+    private string? _storeSourceId;
     private string? _storeGameId;
     private int searchRevision;
 
@@ -104,7 +104,7 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoActiveArtworkOptions));
     }
 
-    public void UpdateStoreReference(GameSourceId? storeSourceId, string? storeGameId)
+    public void UpdateStoreReference(string? storeSourceId, string? storeGameId)
     {
         if ((storeSourceId is null) != string.IsNullOrWhiteSpace(storeGameId))
         {
@@ -166,7 +166,7 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         var currentSearchRevision = searchRevision;
         var searchSourceId = selectedGame.SourceId;
         var sourceGameId = selectedGame.SourceGameId;
-        if (selectedGame.SourceId == GameSourceId.Manual &&
+        if (selectedGame.SourceId == GameSourceIds.Manual &&
             _storeSourceId is { } storeSourceId &&
             !string.IsNullOrWhiteSpace(_storeGameId))
         {

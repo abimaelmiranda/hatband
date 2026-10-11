@@ -48,7 +48,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
     }
 
     public async Task<IReadOnlyList<Game>> SynchronizeAsync(
-        GameSourceId sourceId,
+        string sourceId,
         IProgress<GameLibrarySyncProgress>? progress = null,
         CancellationToken cancellationToken = default,
         GameLibrarySyncMode mode = GameLibrarySyncMode.Full)
@@ -105,7 +105,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
 
     private async Task<Game> SynchronizeGameAsync(
         Game importedGame,
-        GameSourceId sourceId,
+        string sourceId,
         Guid libraryId,
         string languageTag,
         CancellationToken cancellationToken,
@@ -121,12 +121,20 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         var game = importedGame;
         if (existingGame is not null)
         {
-            game = MergeImportedGame(existingGame, importedGame, mode == GameLibrarySyncMode.Full);
+            existingGame.MergeStoreSnapshot(importedGame, mode == GameLibrarySyncMode.Full);
+            game = existingGame;
         }
 
-        if (existingGame is null || mode == GameLibrarySyncMode.Full)
+        if (!game.IsHidden &&
+            (existingGame is null || mode == GameLibrarySyncMode.Full || NeedsEnrichment(game, sourceId)))
         {
-            await EnrichImportedGameAsync(game, sourceId, languageTag, cancellationToken);
+            await EnrichImportedGameAsync(
+                game,
+                sourceId,
+                languageTag,
+                refreshAll: mode == GameLibrarySyncMode.Full,
+                replaceMetadata: false,
+                cancellationToken: cancellationToken);
         }
         if (existingGame is null)
         {
@@ -140,6 +148,23 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         return game;
     }
 
+    private bool NeedsEnrichment(Game game, string sourceId)
+    {
+        if (GetMetadataProvidersForGame(game, sourceId).Any(provider =>
+                provider.CanSearch(game) && IsMetadataMissing(game, provider)))
+        {
+            return true;
+        }
+
+        var artworkProvider = GetArtworkProvider(game, sourceId);
+        if (artworkProvider is not null && (game.DefaultArtwork is null || game.DefaultArtwork.IsEmpty))
+        {
+            return true;
+        }
+
+        return HasMissingCompatibilityTier(game, sourceId) || game.TimeToBeat is null;
+    }
+
     public async Task RefreshMetadataAsync(CancellationToken cancellationToken = default)
     {
         var settings = await settingsApi.GetSectionAsync<GeneralSettings>(cancellationToken);
@@ -147,8 +172,13 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         foreach (var game in games)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (game.IsHidden)
+            {
+                continue;
+            }
+
             var updated = false;
-            foreach (var provider in GetMetadataProviders(game.SourceId))
+            foreach (var provider in GetMetadataProvidersForGame(game, game.SourceId))
             {
                 if (!provider.CanSearch(game))
                 {
@@ -174,6 +204,8 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
                 }
             }
 
+            updated |= await RefreshCompatibilityTierAsync(game, game.SourceId, cancellationToken);
+
             if (updated)
             {
                 await gameRepository.UpdateAsync(game, cancellationToken);
@@ -181,11 +213,41 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         }
     }
 
-    private async Task EnrichImportedGameAsync(Game game, GameSourceId sourceId, string languageTag, CancellationToken cancellationToken)
+    public async Task<Game> RefreshGameDataAsync(Guid gameId, CancellationToken cancellationToken = default)
     {
-        foreach (var metadataProvider in GetMetadataProviders(sourceId))
+        await syncGate.WaitAsync(cancellationToken);
+        try
         {
-            if (!metadataProvider.CanSearch(game))
+            var game = await gameRepository.GetByIdAsync(gameId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Game '{gameId}' was not found.");
+            var settings = await settingsApi.GetSectionAsync<GeneralSettings>(cancellationToken);
+            await EnrichImportedGameAsync(
+                game,
+                game.SourceId,
+                settings.LanguageTag,
+                refreshAll: true,
+                replaceMetadata: true,
+                cancellationToken: cancellationToken);
+            await gameRepository.UpdateAsync(game, cancellationToken);
+            return game;
+        }
+        finally
+        {
+            syncGate.Release();
+        }
+    }
+
+    private async Task EnrichImportedGameAsync(
+        Game game,
+        string sourceId,
+        string languageTag,
+        bool refreshAll,
+        bool replaceMetadata,
+        CancellationToken cancellationToken)
+    {
+        foreach (var metadataProvider in GetMetadataProvidersForGame(game, sourceId))
+        {
+            if (!metadataProvider.CanSearch(game) || (!refreshAll && !IsMetadataMissing(game, metadataProvider)))
             {
                 continue;
             }
@@ -195,7 +257,9 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
                 var downloaded = await metadataProvider.GetMetadataAsync(game, languageTag, cancellationToken);
                 if (downloaded is not null)
                 {
-                    game.Metadata = game.Metadata.MergeDownloaded(downloaded, languageTag);
+                    game.Metadata = replaceMetadata
+                        ? game.Metadata.RefreshFromDownloaded(downloaded, languageTag)
+                        : game.Metadata.MergeDownloaded(downloaded, languageTag);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -208,15 +272,16 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
             }
         }
 
-        var artworkProvider = artworkProviders.SingleOrDefault(item => item.SourceId == sourceId);
-        if (artworkProvider is not null)
+        var artworkProvider = GetArtworkProvider(game, sourceId);
+        if (artworkProvider is not null &&
+            (refreshAll || game.DefaultArtwork is null || game.DefaultArtwork.IsEmpty))
         {
             try
             {
                 var images = await artworkProvider.GetDefaultArtworksAsync(game, languageTag, cancellationToken);
                 var defaults = await artworkStorage.StoreAsync(game.Id, images, game.DefaultArtwork ?? new GameArtwork(), cancellationToken);
                 game.DefaultArtwork = defaults;
-                if (game.Artwork is null || IsArtworkEmpty(game.Artwork))
+                if (game.Artwork.IsEmpty)
                 {
                     game.Artwork = defaults;
                 }
@@ -231,7 +296,9 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
             }
         }
 
-        if (game.TimeToBeat is null)
+        await RefreshCompatibilityTierAsync(game, sourceId, cancellationToken, refreshAll);
+
+        if (game.TimeToBeat is null || refreshAll)
         {
             try
             {
@@ -250,6 +317,81 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         }
     }
 
+    private async Task<bool> RefreshCompatibilityTierAsync(
+        Game game,
+        string sourceId,
+        CancellationToken cancellationToken,
+        bool refreshAll = false)
+    {
+        var updated = false;
+        foreach (var metadataProvider in GetMetadataProvidersForGame(game, sourceId))
+        {
+            if (metadataProvider is not IGameCompatibilityTierProvider compatibilityProvider ||
+                (!refreshAll && game.CompatibilityLayer?.Tier is not null and not GameCompatibilityTier.Unknown) ||
+                !TryGetCompatibilityGameId(game, metadataProvider, sourceId, out var storeGameId))
+            {
+                continue;
+            }
+
+            try
+            {
+                var tier = await compatibilityProvider.GetCompatibilityTierAsync(storeGameId, cancellationToken);
+                var layer = game.CompatibilityLayer ?? new CompatibilityLayer();
+                layer.Tier = tier;
+                game.CompatibilityLayer = layer;
+                updated = true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Compatibility lookup failed during sync for {GameName}.", game.Name);
+            }
+        }
+
+        return updated;
+    }
+
+    private bool HasMissingCompatibilityTier(Game game, string sourceId) => GetMetadataProvidersForGame(game, sourceId)
+        .Any(provider => provider is IGameCompatibilityTierProvider &&
+                         TryGetCompatibilityGameId(game, provider, sourceId, out _) &&
+                         game.CompatibilityLayer?.Tier is null or GameCompatibilityTier.Unknown);
+
+    private static bool IsMetadataMissing(Game game, IGameMetadataProvider provider)
+    {
+        var hasStoreReference = !string.IsNullOrWhiteSpace(game.Metadata.StoreGameId) &&
+                                (provider.SourceId is null || game.Metadata.StoreSourceId == provider.SourceId);
+        return !hasStoreReference;
+    }
+
+    private static bool TryGetCompatibilityGameId(
+        Game game,
+        IGameMetadataProvider metadataProvider,
+        string sourceId,
+        out string storeGameId)
+    {
+        if (metadataProvider.SourceId is { } providerSourceId &&
+            game.Metadata.StoreSourceId == providerSourceId &&
+            !string.IsNullOrWhiteSpace(game.Metadata.StoreGameId))
+        {
+            storeGameId = game.Metadata.StoreGameId;
+            return true;
+        }
+
+        if (metadataProvider.SourceId == sourceId &&
+            game.SourceId == sourceId &&
+            !string.IsNullOrWhiteSpace(game.SourceGameId))
+        {
+            storeGameId = game.SourceGameId;
+            return true;
+        }
+
+        storeGameId = string.Empty;
+        return false;
+    }
+
     private async Task<GameLibrary> CreateDefaultLibraryAsync(CancellationToken cancellationToken)
     {
         var library = new GameLibrary();
@@ -257,32 +399,15 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         return library;
     }
 
-    private static Game MergeImportedGame(Game existingGame, Game importedGame, bool updatePlayCount)
+    private IEnumerable<IGameMetadataProvider> GetMetadataProvidersForGame(Game game, string sourceId) => metadataProviders
+        .Where(provider => provider.SourceId == sourceId ||
+                           provider.SourceId == game.Metadata.StoreSourceId ||
+                           provider.SourceId is null)
+        .OrderByDescending(provider => provider.SourceId == game.Metadata.StoreSourceId || provider.SourceId == sourceId);
+
+    private IGameArtworkProvider? GetArtworkProvider(Game game, string sourceId)
     {
-        existingGame.Metadata = existingGame.Metadata.MergeDownloaded(importedGame.Metadata, importedGame.Metadata.LanguageTag ?? "en-US");
-        existingGame.InstallationInfo = importedGame.InstallationInfo;
-        existingGame.PostInstallPlan = importedGame.PostInstallPlan;
-        existingGame.Version = importedGame.Version;
-        existingGame.InstallSizeBytes = importedGame.InstallSizeBytes;
-        existingGame.PlaytimeSeconds = importedGame.PlaytimeSeconds;
-        if (updatePlayCount)
-        {
-            existingGame.PlayCount = importedGame.PlayCount;
-        }
-        existingGame.LastActivity = importedGame.LastActivity;
-        existingGame.Added ??= importedGame.Added;
-        if (existingGame.GameActions.Count == 0)
-        {
-            existingGame.GameActions = importedGame.GameActions;
-        }
-
-        return existingGame;
+        var artworkSourceId = game.Metadata.StoreSourceId ?? sourceId;
+        return artworkProviders.SingleOrDefault(provider => provider.SourceId == artworkSourceId);
     }
-
-    private static bool IsArtworkEmpty(GameArtwork artwork) =>
-        artwork.CoverImagePath is null && artwork.BackgroundImagePath is null && artwork.IconPath is null;
-
-    private IEnumerable<IGameMetadataProvider> GetMetadataProviders(GameSourceId sourceId) => metadataProviders
-        .Where(provider => provider.SourceId == sourceId || provider.SourceId is null)
-        .OrderByDescending(provider => provider.SourceId == sourceId);
 }

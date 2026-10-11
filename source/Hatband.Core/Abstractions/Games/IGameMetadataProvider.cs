@@ -13,7 +13,7 @@ public interface IGameMetadataProvider
 
     string DisplayName { get; }
 
-    GameSourceId? SourceId { get; }
+    string? SourceId { get; }
 
     /// <summary>
     /// Allows title searches without an identity supplied by a library connector.

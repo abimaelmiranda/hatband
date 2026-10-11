@@ -58,7 +58,7 @@ public sealed class SteamPlayerService : ISteamPlayerService
         await sessionOperationGate.WaitAsync(cancellationToken);
         try
         {
-            await sessionStore.DeleteAsync(GameSourceId.Steam, cancellationToken);
+            await sessionStore.DeleteAsync(GameSourceIds.Steam, cancellationToken);
             lock (authenticationLock)
             {
                 currentSession = null;
@@ -75,7 +75,7 @@ public sealed class SteamPlayerService : ISteamPlayerService
         await sessionOperationGate.WaitAsync(cancellationToken);
         try
         {
-            var session = await sessionStore.LoadAsync(GameSourceId.Steam, cancellationToken);
+            var session = await sessionStore.LoadAsync(GameSourceIds.Steam, cancellationToken);
             if (session is null)
             {
                 return false;

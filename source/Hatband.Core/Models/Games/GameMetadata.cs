@@ -61,7 +61,7 @@ public sealed record GameMetadata
     /// <summary>
     /// Source that owns <see cref="StoreGameId"/>.
     /// </summary>
-    public GameSourceId? StoreSourceId { get; init; }
+    public string? StoreSourceId { get; init; }
 
     /// <summary>
     /// Identifier for this game in the metadata provider's store catalog, independent of its library source.
@@ -83,7 +83,7 @@ public sealed record GameMetadata
     /// </summary>
     public GamePlatform? NativePlatforms { get; init; }
 
-    private (GameSourceId? StoreSourceId, string? StoreGameId) MergeStoreReference(
+    private (string? StoreSourceId, string? StoreGameId) MergeStoreReference(
         GameMetadata downloaded,
         bool preferDownloaded)
     {

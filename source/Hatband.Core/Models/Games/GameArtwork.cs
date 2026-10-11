@@ -10,4 +10,6 @@ public sealed record GameArtwork
     public string? BackgroundImagePath { get; init; }
 
     public string? IconPath { get; init; }
+
+    public bool IsEmpty => CoverImagePath is null && BackgroundImagePath is null && IconPath is null;
 }

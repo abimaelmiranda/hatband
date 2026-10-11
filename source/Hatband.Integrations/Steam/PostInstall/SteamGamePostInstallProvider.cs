@@ -24,7 +24,7 @@ public sealed class SteamGamePostInstallProvider : IGamePostInstallProvider
         this.steamInstallationService = steamInstallationService;
     }
 
-    public GameSourceId SourceId => GameSourceId.Steam;
+    public string SourceId => GameSourceIds.Steam;
 
     public async Task<GamePostInstallPlan?> GetPlanAsync(
         Game game,

@@ -7,6 +7,7 @@ using Hatband.Infrastructure.FileSystem;
 using Hatband.Infrastructure.Host;
 using Hatband.Infrastructure.Persistence;
 using Hatband.Infrastructure.Persistence.Repositories;
+using Hatband.Infrastructure.Plugins;
 using Hatband.Infrastructure.Services.CompatibilityTools;
 using Hatband.Infrastructure.Services.Caching;
 using Hatband.Infrastructure.Services.Games;
@@ -14,12 +15,8 @@ using Hatband.Infrastructure.Services.Games.PostInstall;
 using Hatband.Infrastructure.Settings;
 using Hatband.Infrastructure.Storage.Artwork;
 using Hatband.Integrations;
-using Hatband.Integrations.HowLongToBeat;
 using Hatband.Integrations.Steam;
-using Hatband.Integrations.Steam.Abstractions;
-using Hatband.Integrations.Steam.Protondb;
-using Hatband.Integrations.Steam.PostInstall;
-using Hatband.Integrations.Settings;
+using Hatband.SDK.Plugins;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -54,7 +51,6 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IGameArtworkStorage>(provider => new FileSystemGameArtworkStorage(appDataFileSystem));
         services.AddSingleton<ISettingsSection, GeneralSettingsSection>();
         services.AddSingleton<ISettingsSection, AppearanceSettingsSection>();
-        services.AddSingleton<ISettingsSection, ConnectorsSettingsSection>();
         services.AddSingleton<ISettingsApi, JsonSettingsApi>();
         services.AddSingleton<ISecureSecretVault, OperatingSystemSecretVault>();
         services.AddSingleton<IConnectorSessionStore, EncryptedConnectorSessionStore>();
@@ -64,50 +60,19 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICompatibilityToolInstallationService, CompatibilityToolInstallationService>();
         services.AddSingleton<UmuDependencyService>();
         services.AddSingleton<GamePostInstallService>();
-        services.AddSingleton<IGameCompatibilityRuntime, UmuGameRuntime>();
         services.AddSingleton<IGameManagementService, GameManagementService>();
-        services.AddSingleton<IGameManagementProvider, ManualGameManagementProvider>();
-        services.AddSingleton<IGameManagementProvider, SteamGameManagementProvider>();
         services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
-        services.AddSingleton<IHowLongToBeatProvider, HowLongToBeatProvider>();
-        services.AddSingleton<ProtondbMetadataProvider>();
-        services.AddSingleton<ISteamPlayerService, SteamPlayerService>();
-        services.AddSingleton<SteamKitConnectionFactory>();
-        services.AddSingleton<ISteamTokenRefresher, SteamKitTokenRefresher>();
-        services.AddSingleton<ISteamInstallationService, SteamInstallationService>();
-        services.AddSingleton<ISteamInstalledGameScanner, SteamInstalledGameScanner>();
-        services.AddSingleton<SteamGamePostInstallProvider>();
-        services.AddSingleton<IGamePostInstallProvider>(provider => provider.GetRequiredService<SteamGamePostInstallProvider>());
-        services.AddSingleton<SteamGameLaunchOptionsProvider>();
+        services.AddSingleton<IPluginDataStore, PluginDataStore>();
 
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<ICompatibilityToolReleaseProvider>())
-            .As<ICompatibilityToolReleaseProvider>()
-            .WithSingletonLifetime());
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IGameStoreIntegration>())
-            .AsImplementedInterfaces()
-            .WithSingletonLifetime());
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IGameMetadataProvider>())
-            .As<IGameMetadataProvider>()
-            .WithSingletonLifetime());
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IGameArtworkProvider>())
-            .As<IGameArtworkProvider>()
-            .WithSingletonLifetime());
-        services.Scan(scan => scan
-            .FromAssemblyOf<IntegrationAssemblyMarker>()
-            .AddClasses(classes => classes.AssignableTo<IGameInstallationProvider>())
-            .As<IGameInstallationProvider>()
-            .WithSingletonLifetime());
+        var pluginLoader = new PluginCatalogLoader();
+        pluginLoader.LoadAndRegister(
+            services,
+            appDataFileSystem.GetPath("plugins"),
+            typeof(IntegrationAssemblyMarker).Assembly,
+            typeof(ManualGamesPlugin).Assembly);
 
         return services;
     }

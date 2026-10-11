@@ -10,7 +10,7 @@ namespace Hatband.Core.Abstractions.Games;
 public interface IGameLibrarySyncService
 {
     Task<IReadOnlyList<Game>> SynchronizeAsync(
-        GameSourceId sourceId,
+        string sourceId,
         IProgress<GameLibrarySyncProgress>? progress = null,
         CancellationToken cancellationToken = default,
         GameLibrarySyncMode mode = GameLibrarySyncMode.Full);
@@ -19,4 +19,9 @@ public interface IGameLibrarySyncService
     /// Explicitly refreshes metadata for all games supported by their source providers.
     /// </summary>
     Task RefreshMetadataAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Explicitly refreshes metadata, artwork, compatibility, and play-time estimates for one game.
+    /// </summary>
+    Task<Game> RefreshGameDataAsync(Guid gameId, CancellationToken cancellationToken = default);
 }

@@ -7,7 +7,7 @@ namespace Hatband.Core.Models.Authentication;
 /// </summary>
 public sealed record ConnectorAccount
 {
-    public required GameSourceId SourceId { get; init; }
+    public required string SourceId { get; init; }
 
     public required string AccountId { get; init; }
 

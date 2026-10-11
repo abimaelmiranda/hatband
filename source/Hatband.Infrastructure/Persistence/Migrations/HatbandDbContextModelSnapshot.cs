@@ -35,6 +35,40 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                     b.ToTable("CacheEntries", (string)null);
                 });
 
+            modelBuilder.Entity("Hatband.Core.Models.Games.GamePluginData", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DataKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("JsonPayload")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PluginId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "PluginId", "DataKey")
+                        .IsUnique();
+
+                    b.ToTable("GamePluginData", (string)null);
+                });
+
             modelBuilder.Entity("Hatband.Core.Models.Games.Game", b =>
                 {
                     b.Property<Guid>("Id")
@@ -192,16 +226,15 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                             b1.HasDiscriminator<string>("Discriminator").HasValue("GameArtwork");
                         });
 
-                    b.ComplexProperty(typeof(Dictionary<string, object>), "PostInstallPlan", "Hatband.Core.Models.Games.Game.PostInstallPlan#GamePostInstallPlan", b1 =>
+                    b.OwnsOne("Hatband.Core.Models.Games.PostInstall.GamePostInstallPlan", "PostInstallPlan", b1 =>
                         {
+                            b1.Property<Guid>("GameId")
+                                .HasColumnType("TEXT");
+
                             b1.Property<string>("Diagnostics")
                                 .IsRequired()
                                 .HasColumnType("TEXT")
                                 .HasColumnName("PostInstallPlan_Diagnostics");
-
-                            b1.Property<string>("Discriminator")
-                                .IsRequired()
-                                .HasColumnType("TEXT");
 
                             b1.Property<string>("Revision")
                                 .IsRequired()
@@ -213,7 +246,12 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("PostInstallPlan_Steps");
 
-                            b1.HasDiscriminator<string>("Discriminator").HasValue("GamePostInstallPlan");
+                            b1.HasKey("GameId");
+
+                            b1.ToTable("GamePostInstallPlans");
+
+                            b1.WithOwner()
+                                .HasForeignKey("GameId");
                         });
 
                     b.HasKey("Id");
@@ -391,6 +429,8 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                     b.Navigation("Metadata")
                         .IsRequired();
 
+                    b.Navigation("PostInstallPlan");
+
                     b.Navigation("TimeToBeat");
                 });
 
@@ -398,6 +438,14 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("Hatband.Core.Models.Games.Game", null)
                         .WithMany("GameActions")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Hatband.Core.Models.Games.GamePluginData", b =>
+                {
+                    b.HasOne("Hatband.Core.Models.Games.Game", null)
+                        .WithMany()
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });

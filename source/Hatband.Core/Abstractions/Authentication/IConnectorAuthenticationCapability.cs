@@ -7,5 +7,5 @@ namespace Hatband.Core.Abstractions.Authentication;
 /// </summary>
 public interface IConnectorAuthenticationCapability
 {
-    GameSourceId SourceId { get; }
+    string SourceId { get; }
 }

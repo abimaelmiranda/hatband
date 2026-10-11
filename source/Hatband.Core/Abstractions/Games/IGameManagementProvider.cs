@@ -7,7 +7,7 @@ namespace Hatband.Core.Abstractions.Games;
 
 public interface IGameManagementProvider
 {
-    GameSourceId SourceId { get; }
+    string SourceId { get; }
 
     Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default);
 
