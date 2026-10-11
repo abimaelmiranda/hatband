@@ -90,7 +90,11 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
 
     public bool IsCustom => ExecutionMode == GameExecutionMode.Custom;
 
-    public string? PrefixPath => game is null ? null : appDataFileSystem.GetGamePrefixPath(game.Id);
+    public string? PrefixPath => game is null
+        ? null
+        : game.InstallationInfo is { } installation
+            ? appDataFileSystem.GetGamePrefixStoragePath(game.Id, installation.InstallDirectory)
+            : appDataFileSystem.GetGamePrefixPath(game.Id);
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
