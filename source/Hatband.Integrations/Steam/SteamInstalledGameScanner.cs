@@ -17,6 +17,15 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
     public async Task<IReadOnlyList<SteamLibraryGame>> ScanAsync(CancellationToken cancellationToken = default)
     {
         var installations = await steamInstallationService.GetInstallationsAsync(cancellationToken);
+        return await Task.Run(
+            () => ScanInstalledGames(installations, cancellationToken),
+            cancellationToken);
+    }
+
+    private static IReadOnlyList<SteamLibraryGame> ScanInstalledGames(
+        IReadOnlyList<SteamInstallation> installations,
+        CancellationToken cancellationToken)
+    {
         var gamesByAppId = new Dictionary<uint, SteamLibraryGame>();
 
         foreach (var library in installations.SelectMany(installation => installation.Libraries))
@@ -88,7 +97,8 @@ public sealed class SteamInstalledGameScanner : ISteamInstalledGameScanner
             AppId = parsedAppId,
             Name = name.Trim(),
             IsInstalled = true,
-            InstallDirectory = installDirectory
+            InstallDirectory = installDirectory,
+            InstallManifestPath = Path.GetFullPath(manifestPath)
         };
     }
 

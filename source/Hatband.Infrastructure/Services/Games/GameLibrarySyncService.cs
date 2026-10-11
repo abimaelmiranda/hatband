@@ -261,6 +261,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
     {
         existingGame.Metadata = existingGame.Metadata.MergeDownloaded(importedGame.Metadata, importedGame.Metadata.LanguageTag ?? "en-US");
         existingGame.InstallationInfo = importedGame.InstallationInfo;
+        existingGame.PostInstallPlan = importedGame.PostInstallPlan;
         existingGame.Version = importedGame.Version;
         existingGame.InstallSizeBytes = importedGame.InstallSizeBytes;
         existingGame.PlaytimeSeconds = importedGame.PlaytimeSeconds;

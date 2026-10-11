@@ -5,6 +5,7 @@ using Hatband.Core.Models.Authentication;
 using Hatband.Core.Models.Games;
 using Hatband.Integrations.Steam.Abstractions;
 using Hatband.Integrations.Steam.Models;
+using Hatband.Integrations.Steam.PostInstall;
 
 namespace Hatband.Integrations.Steam;
 
@@ -15,13 +16,16 @@ public sealed class SteamStoreIntegration : IGameStoreIntegration, IQrCodeLoginP
 {
     private readonly ISteamPlayerService steamPlayerService;
     private readonly ISteamInstalledGameScanner installedGameScanner;
+    private readonly SteamGamePostInstallProvider postInstallProvider;
 
     public SteamStoreIntegration(
         ISteamPlayerService steamPlayerService,
-        ISteamInstalledGameScanner installedGameScanner)
+        ISteamInstalledGameScanner installedGameScanner,
+        SteamGamePostInstallProvider postInstallProvider)
     {
         this.steamPlayerService = steamPlayerService;
         this.installedGameScanner = installedGameScanner;
+        this.postInstallProvider = postInstallProvider;
     }
 
     public GameSourceId SourceId => GameSourceId.Steam;
@@ -65,7 +69,8 @@ public sealed class SteamStoreIntegration : IGameStoreIntegration, IQrCodeLoginP
                 gamesByAppId[installedGame.AppId] = ownedGame with
                 {
                     IsInstalled = true,
-                    InstallDirectory = installedGame.InstallDirectory
+                    InstallDirectory = installedGame.InstallDirectory,
+                    InstallManifestPath = installedGame.InstallManifestPath
                 };
                 continue;
             }
@@ -73,19 +78,28 @@ public sealed class SteamStoreIntegration : IGameStoreIntegration, IQrCodeLoginP
             gamesByAppId.TryAdd(installedGame.AppId, installedGame);
         }
 
-        return gamesByAppId.Values
-            .OrderBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(game => new Game
+        var games = new List<Game>(gamesByAppId.Count);
+        foreach (var libraryGame in gamesByAppId.Values.OrderBy(game => game.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var game = new Game
             {
-                Name = game.Name,
+                Name = libraryGame.Name,
                 SourceId = SourceId,
-                SourceGameId = game.AppId.ToString(),
-                InstallationInfo = game.InstallDirectory is null
+                SourceGameId = libraryGame.AppId.ToString(),
+                InstallationInfo = libraryGame.InstallDirectory is null
                     ? null
-                    : new GameInstallationInfo { InstallDirectory = game.InstallDirectory },
-                PlaytimeSeconds = game.PlaytimeSeconds,
-                LastActivity = game.LastActivity
-            })
-            .ToArray();
+                    : new GameInstallationInfo { InstallDirectory = libraryGame.InstallDirectory },
+                PlaytimeSeconds = libraryGame.PlaytimeSeconds,
+                LastActivity = libraryGame.LastActivity
+            };
+            if (game.InstallationInfo is not null)
+            {
+                game.PostInstallPlan = await postInstallProvider.GetPlanAsync(game, libraryGame, cancellationToken);
+            }
+
+            games.Add(game);
+        }
+
+        return games;
     }
 }

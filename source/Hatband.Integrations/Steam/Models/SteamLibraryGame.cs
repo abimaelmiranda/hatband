@@ -13,6 +13,11 @@ public sealed record SteamLibraryGame
 
     public string? InstallDirectory { get; init; }
 
+    /// <summary>
+    /// Local Steam app manifest that describes this installed copy, when discovered from disk.
+    /// </summary>
+    public string? InstallManifestPath { get; init; }
+
     public long PlaytimeSeconds { get; init; }
 
     public DateTime? LastActivity { get; init; }
