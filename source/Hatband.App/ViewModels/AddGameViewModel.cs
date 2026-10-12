@@ -67,7 +67,7 @@ public partial class AddGameViewModel : ScreenViewModel
             new AddGameSectionViewModel(ActionsSectionId, Resources.GameActionsSection, FluentIconGlyph.Play),
             new AddGameSectionViewModel(ImagesSectionId, Resources.ManualGameImagesSection, FluentIconGlyph.Image)
         ];
-        if (CompatibilityEditor.IsLinux)
+        if (CompatibilityEditor.SupportsCustomCompatibility)
         {
             Sections.Add(new AddGameSectionViewModel(CompatibilitySectionId, Resources.Compatibility, FluentIconGlyph.Toolbox));
         }
@@ -544,7 +544,7 @@ public partial class AddGameViewModel : ScreenViewModel
                 : new GameInstallationInfo { InstallDirectory = trimmedInstallDirectory }
         };
 
-        var compatibilityError = CompatibilityEditor.IsLinux
+        var compatibilityError = CompatibilityEditor.SupportsCustomCompatibility
             ? CompatibilityEditor.ValidateConfiguration()
             : null;
         if (compatibilityError is not null)
@@ -575,7 +575,7 @@ public partial class AddGameViewModel : ScreenViewModel
 
         try
         {
-            if (CompatibilityEditor.IsLinux)
+            if (CompatibilityEditor.SupportsCustomCompatibility)
             {
                 var compatibilityLayer = CompatibilityEditor.CreateCompatibilityLayer();
                 if (CompatibilityEditor.IsCustom || _metadataCompatibilityTier is not null)

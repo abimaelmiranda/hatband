@@ -114,7 +114,7 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
             {
                 try
                 {
-                    if (runtimeProcess is not null && OperatingSystem.IsLinux())
+                    if (runtimeProcess is { Mode: GameRuntimeProcessWatchMode.Compatibility } && OperatingSystem.IsLinux())
                     {
                         if (IsRuntimeGameProcess(process, runtimeProcess))
                         {
@@ -122,6 +122,12 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
                         }
 
                         continue;
+                    }
+
+                    if (runtimeProcess is { Mode: GameRuntimeProcessWatchMode.Direct } &&
+                        IsDirectRuntimeGameProcess(process, runtimeProcess))
+                    {
+                        return true;
                     }
 
                     var executablePath = process.MainModule?.FileName;
@@ -158,6 +164,23 @@ public sealed class GameProcessMonitor : IGameProcessMonitor
                 process.Dispose();
             }
         }
+    }
+
+    private static bool IsDirectRuntimeGameProcess(Process process, GameRuntimeProcessWatchTarget target)
+    {
+        var executablePath = process.MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return false;
+        }
+
+        var pathComparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return string.Equals(
+            Path.GetFullPath(executablePath),
+            Path.GetFullPath(target.ExecutablePath),
+            pathComparison);
     }
 
     [SupportedOSPlatform("linux")]

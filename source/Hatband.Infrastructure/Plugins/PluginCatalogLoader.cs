@@ -10,62 +10,60 @@ internal sealed class PluginCatalogLoader
 {
     private const int CurrentApiVersion = HatbandSdk.ApiVersion;
     private const string ManifestFileName = "hatband-plugin.json";
+    private readonly PluginLoadingOptions _options;
     private readonly List<LoadedPlugin> _plugins = [];
     private readonly List<PluginLoadIssue> _issues = [];
     private readonly HashSet<string> _pluginIds = new(StringComparer.Ordinal);
     private readonly List<PluginAssemblyLoadContext> _loadContexts = [];
 
-    public PluginCatalog LoadAndRegister(
-        IServiceCollection services,
-        string pluginDirectory,
-        params Assembly[] builtInAssemblies)
+    public PluginCatalogLoader(PluginLoadingOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        _options = options;
+    }
+
+    public PluginCatalog LoadAndRegister(IServiceCollection services, string userPluginDirectory)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentException.ThrowIfNullOrWhiteSpace(pluginDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(userPluginDirectory);
 
-        foreach (var assembly in builtInAssemblies)
-        {
-            LoadBuiltInPlugins(services, assembly);
-        }
-
-        LoadExternalPlugins(services, pluginDirectory);
-        services.AddSingleton(new PluginCatalog(_plugins, _issues));
-        return new PluginCatalog(_plugins, _issues);
+        LoadPlugins(services, _options.BuiltInPluginDirectory, isExternal: false);
+        LoadPlugins(services, userPluginDirectory, isExternal: true);
+        var catalog = new PluginCatalog(_plugins, _issues);
+        services.AddSingleton(catalog);
+        return catalog;
     }
 
-    private void LoadBuiltInPlugins(IServiceCollection services, Assembly assembly)
+    private void LoadPlugins(IServiceCollection services, string directory, bool isExternal)
     {
-        foreach (var pluginType in GetPluginTypes(assembly))
+        if (!Directory.Exists(directory) && !isExternal)
         {
-            var plugin = CreatePlugin(pluginType);
-            RegisterPlugin(services, plugin, assembly, isExternal: false, plugin.Name, plugin.Version);
+            _issues.Add(new PluginLoadIssue(directory, "The built-in plugin directory was not found.", null));
+            return;
+        }
+
+        Directory.CreateDirectory(directory);
+        foreach (var pluginDirectory in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))
+        {
+            LoadPlugin(services, pluginDirectory, isExternal);
         }
     }
 
-    private void LoadExternalPlugins(IServiceCollection services, string pluginDirectory)
-    {
-        Directory.CreateDirectory(pluginDirectory);
-        foreach (var directory in Directory.EnumerateDirectories(pluginDirectory).Order(StringComparer.Ordinal))
-        {
-            LoadExternalPlugin(services, directory);
-        }
-    }
-
-    private void LoadExternalPlugin(IServiceCollection services, string pluginDirectory)
+    private void LoadPlugin(IServiceCollection services, string pluginDirectory, bool isExternal)
     {
         PluginAssemblyLoadContext? loadContext = null;
-        PluginManifest? manifest = null;
         try
         {
             var manifestPath = Path.Combine(pluginDirectory, ManifestFileName);
-            manifest = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(manifestPath), ManifestJsonOptions)
+            var manifest = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(manifestPath), ManifestJsonOptions)
                 ?? throw new InvalidDataException("The plugin manifest is empty.");
             ValidateManifest(manifest);
 
             var assemblyPath = ResolvePluginPath(pluginDirectory, manifest.EntryAssembly);
-            loadContext = new PluginAssemblyLoadContext(assemblyPath);
+            loadContext = new PluginAssemblyLoadContext(assemblyPath, _options.SharedAssemblies);
             var assembly = loadContext.LoadFromAssemblyPath(assemblyPath);
-            var pluginType = assembly.GetType(manifest.EntryType, throwOnError: true, ignoreCase: false)!;
+            var pluginType = assembly.GetType(manifest.EntryType, throwOnError: true, ignoreCase: false)
+                ?? throw new InvalidDataException($"Entry type '{manifest.EntryType}' was not found.");
             if (!typeof(HatbandPlugin).IsAssignableFrom(pluginType) || pluginType.IsAbstract)
             {
                 throw new InvalidDataException($"Entry type '{manifest.EntryType}' must derive from HatbandPlugin.");
@@ -77,7 +75,7 @@ internal sealed class PluginCatalogLoader
                 throw new InvalidDataException("The plugin ID does not match the manifest ID.");
             }
 
-            RegisterPlugin(services, plugin, assembly, isExternal: true, manifest.Name, manifest.Version);
+            RegisterPlugin(services, plugin, assembly, isExternal, manifest.Name, manifest.Version);
             _loadContexts.Add(loadContext);
         }
         catch (Exception exception)
@@ -102,7 +100,7 @@ internal sealed class PluginCatalogLoader
 
         var pluginServices = new ServiceCollection();
         plugin.ConfigureServices(pluginServices);
-        RegisterPluginCapabilities(pluginServices, plugin, assembly, isExternal);
+        RegisterPluginCapabilities(pluginServices, plugin, assembly);
         foreach (var descriptor in pluginServices)
         {
             services.Add(descriptor);
@@ -112,37 +110,33 @@ internal sealed class PluginCatalogLoader
         _plugins.Add(new LoadedPlugin(plugin.Id, name, version, isExternal, assembly));
     }
 
-    private static void RegisterPluginCapabilities(
-        IServiceCollection services,
-        HatbandPlugin plugin,
-        Assembly assembly,
-        bool isExternal)
+    private void RegisterPluginCapabilities(ServiceCollection services, HatbandPlugin plugin, Assembly assembly)
     {
-        var capabilityImplementations = plugin.CapabilityImplementations.Count > 0
+        var capabilityTypes = PluginCapabilityTypes.Get(_options);
+        var implementations = plugin.CapabilityImplementations.Count > 0
             ? plugin.CapabilityImplementations
-            : isExternal
-                ? FindCapabilityImplementations(assembly)
-                : [];
-        if (capabilityImplementations.Count == 0)
+            : FindCapabilityImplementations(assembly, capabilityTypes);
+        var implementationSet = implementations.ToHashSet();
+        ValidateCapabilityImplementations(assembly, implementationSet, capabilityTypes, plugin.Id);
+        if (implementationSet.Count == 0)
         {
             return;
         }
 
-        var capabilityTypes = PluginCapabilityTypes.All;
-        var implementations = capabilityImplementations.ToHashSet();
-        ValidateCapabilityImplementations(assembly, implementations, capabilityTypes, plugin.Id);
         services.Scan(scan => scan
             .FromAssemblies(assembly)
-            .AddClasses(classes => classes.Where(implementations.Contains))
+            .AddClasses(classes => classes.Where(implementationSet.Contains))
             .AsSelfWithInterfaces(contract => capabilityTypes.Contains(contract))
             .WithSingletonLifetime());
     }
 
-    private static IReadOnlyCollection<Type> FindCapabilityImplementations(Assembly assembly)
+    private static IReadOnlyCollection<Type> FindCapabilityImplementations(
+        Assembly assembly,
+        IReadOnlyCollection<Type> capabilityTypes)
     {
         return assembly.GetTypes()
             .Where(type => type is { IsAbstract: false, IsInterface: false } &&
-                           PluginCapabilityTypes.All.Any(capability => capability.IsAssignableFrom(type)))
+                           capabilityTypes.Any(capability => capability.IsAssignableFrom(type)))
             .ToArray();
     }
 
@@ -161,13 +155,6 @@ internal sealed class PluginCatalogLoader
                     $"Plugin '{pluginId}' declared an invalid capability implementation '{implementation.FullName}'.");
             }
         }
-    }
-
-    private static IReadOnlyList<Type> GetPluginTypes(Assembly assembly)
-    {
-        return assembly.GetTypes()
-            .Where(type => typeof(HatbandPlugin).IsAssignableFrom(type) && !type.IsAbstract && !type.IsInterface)
-            .ToArray();
     }
 
     private static HatbandPlugin CreatePlugin(Type pluginType)
@@ -189,7 +176,8 @@ internal sealed class PluginCatalogLoader
 
         if (manifest.ApiVersion != CurrentApiVersion)
         {
-            throw new InvalidDataException($"Plugin API version {manifest.ApiVersion} is unsupported. Expected {CurrentApiVersion}.");
+            throw new InvalidDataException(
+                $"Plugin API version {manifest.ApiVersion} is unsupported. Expected {CurrentApiVersion}; rebuild this plugin with the current Hatband SDK.");
         }
     }
 

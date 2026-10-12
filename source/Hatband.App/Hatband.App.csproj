@@ -24,6 +24,13 @@
   <ItemGroup>
     <ProjectReference Include="..\Hatband.Core\Hatband.Core.csproj" />
     <ProjectReference Include="..\Hatband.Infrastructure\Hatband.Infrastructure.csproj" />
+    <ProjectReference Include="..\Hatband.SDK.UI\Hatband.SDK.UI.csproj" />
+    <HatbandPluginProject Include="..\Hatband.Plugins.Steam\Hatband.Plugins.Steam.csproj" />
+    <HatbandPluginProject Include="..\Hatband.Plugins.IGN\Hatband.Plugins.IGN.csproj" />
+    <HatbandPluginProject Include="..\Hatband.Plugins.HowLongToBeat\Hatband.Plugins.HowLongToBeat.csproj" />
+    <HatbandPluginProject Include="..\Hatband.Plugins.Proton\Hatband.Plugins.Proton.csproj" />
+    <HatbandPluginProject Include="..\Hatband.Plugins.UMU\Hatband.Plugins.UMU.csproj" />
+    <ProjectReference Include="@(HatbandPluginProject)" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,7 +41,6 @@
     <PackageReference Include="FluentIcons.Avalonia" Version="2.1.343" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.12" />
-    <PackageReference Include="QRCoder" Version="1.8.0" />
     <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
@@ -42,4 +48,26 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.1" />
     <PackageReference Include="ppy.SDL3-CS" Version="2026.1002.1" />
   </ItemGroup>
+
+  <Target Name="CopyHatbandPlugins" AfterTargets="Build">
+    <MSBuild Projects="@(HatbandPluginProject)" Targets="GetHatbandPluginPackageFiles" BuildInParallel="true">
+      <Output TaskParameter="TargetOutputs" ItemName="HatbandPluginOutput" />
+    </MSBuild>
+    <Delete Files="$(OutDir)hatband-plugin.json" />
+    <RemoveDir Directories="$(OutDir)plugins" />
+    <Copy SourceFiles="@(HatbandPluginOutput->'%(PluginSourcePath)')"
+          DestinationFiles="@(HatbandPluginOutput->'$(OutDir)plugins/%(PluginId)/%(PluginRelativePath)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyHatbandPluginsToPublish" AfterTargets="Publish">
+    <MSBuild Projects="@(HatbandPluginProject)" Targets="GetHatbandPluginPackageFiles" BuildInParallel="true">
+      <Output TaskParameter="TargetOutputs" ItemName="HatbandPluginPublishOutput" />
+    </MSBuild>
+    <Delete Files="$(PublishDir)hatband-plugin.json" />
+    <RemoveDir Directories="$(PublishDir)plugins" />
+    <Copy SourceFiles="@(HatbandPluginPublishOutput->'%(PluginSourcePath)')"
+          DestinationFiles="@(HatbandPluginPublishOutput->'$(PublishDir)plugins/%(PluginId)/%(PluginRelativePath)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

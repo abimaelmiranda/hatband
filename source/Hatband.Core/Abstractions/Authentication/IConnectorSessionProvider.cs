@@ -7,9 +7,11 @@ namespace Hatband.Core.Abstractions.Authentication;
 /// </summary>
 public interface IConnectorSessionProvider : IConnectorAuthenticationCapability
 {
-    ConnectorSession? CurrentSession { get; }
-
     ConnectorAccount? CurrentAccount { get; }
+
+    bool IsConnected { get; }
+
+    bool IsPersisted { get; }
 
     Task<bool> RestoreAsync(CancellationToken cancellationToken = default);
 

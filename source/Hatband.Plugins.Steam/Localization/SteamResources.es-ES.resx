@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="SilentMode" xml:space="preserve"><value>Modo silencioso</value></data>
+  <data name="SilentModeDescription" xml:space="preserve"><value>Al jugar con el modo silencioso activado, Hatband inicia Steam en segundo plano si está cerrado o usa un enlace de Steam si está abierto. Las instalaciones y desinstalaciones silenciosas pueden reiniciar Steam. Si no se puede iniciar un comando, Hatband usa un enlace de Steam.</value></data>
+  <data name="ConnectSteamAccount" xml:space="preserve"><value>Conectar cuenta de Steam</value></data>
+  <data name="ConnectDescription" xml:space="preserve"><value>Conecta una cuenta y sincroniza su biblioteca.</value></data>
+  <data name="ScanQrDescription" xml:space="preserve"><value>Escanea este código QR con la aplicación de Steam y confirma el acceso.</value></data>
+  <data name="CancelConnection" xml:space="preserve"><value>Cancelar conexión</value></data>
+  <data name="Connected" xml:space="preserve"><value>Conectado</value></data>
+  <data name="ConnectedAs" xml:space="preserve"><value>Conectado como {0}.</value></data>
+  <data name="NotConnected" xml:space="preserve"><value>Desconectado</value></data>
+  <data name="SyncLibrary" xml:space="preserve"><value>Sincronizar biblioteca</value></data>
+  <data name="DisconnectAccount" xml:space="preserve"><value>Desconectar cuenta</value></data>
+  <data name="Connecting" xml:space="preserve"><value>Conectando con Steam…</value></data>
+  <data name="ScanQr" xml:space="preserve"><value>Escanea el código QR para iniciar sesión.</value></data>
+  <data name="SessionTemporary" xml:space="preserve"><value>Sesión temporal; tendrás que iniciar sesión de nuevo la próxima vez.</value></data>
+  <data name="LoginCancelled" xml:space="preserve"><value>Inicio de sesión de Steam cancelado.</value></data>
+  <data name="LoginSyncFailed" xml:space="preserve"><value>No se pudo iniciar sesión en Steam o sincronizar la biblioteca: {0}</value></data>
+  <data name="SyncingLibrary" xml:space="preserve"><value>Sincronizando la biblioteca de Steam…</value></data>
+  <data name="SyncComplete" xml:space="preserve"><value>Sincronización de la biblioteca de Steam completada.</value></data>
+  <data name="SyncFailed" xml:space="preserve"><value>No se pudo sincronizar la biblioteca de Steam: {0}</value></data>
+  <data name="AccountDisconnected" xml:space="preserve"><value>Cuenta de Steam desconectada.</value></data>
+  <data name="DisconnectFailed" xml:space="preserve"><value>No se pudo desconectar la cuenta de Steam: {0}</value></data>
+</root>

@@ -1,4 +1,3 @@
-using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Authentication;
 
 namespace Hatband.Core.Abstractions.Authentication;
@@ -8,9 +7,17 @@ namespace Hatband.Core.Abstractions.Authentication;
 /// </summary>
 public interface IConnectorSessionStore
 {
-    Task<ConnectorSession?> LoadAsync(string sourceId, CancellationToken cancellationToken = default);
+    Task<StoredConnectorCredentials<TCredentials>?> LoadAsync<TCredentials>(
+        string sourceId,
+        CancellationToken cancellationToken = default)
+        where TCredentials : class;
 
-    Task SaveAsync(ConnectorSession session, CancellationToken cancellationToken = default);
+    Task SaveAsync<TCredentials>(
+        string sourceId,
+        int version,
+        TCredentials credentials,
+        CancellationToken cancellationToken = default)
+        where TCredentials : class;
 
     Task DeleteAsync(string sourceId, CancellationToken cancellationToken = default);
 }

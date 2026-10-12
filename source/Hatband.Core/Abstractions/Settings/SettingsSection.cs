@@ -31,6 +31,8 @@ public abstract class SettingsSection<TSettings> : ISettingsSection<TSettings>
 
     public string? Description { get; }
 
+    public virtual bool ShowInSettingsNavigation => true;
+
     public int Version { get; }
 
     public Type SettingsType => typeof(TSettings);

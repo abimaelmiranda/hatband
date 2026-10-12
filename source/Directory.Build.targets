@@ -1,0 +1,24 @@
+<Project>
+  <Target Name="CopyHatbandPluginManifest"
+          AfterTargets="Build"
+          Condition="'$(PluginId)' != ''">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\hatband-plugin.json"
+          DestinationFiles="$(TargetDir)hatband-plugin.json"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="GetHatbandPluginPackageFiles"
+          DependsOnTargets="Build;CopyHatbandPluginManifest"
+          Returns="@(HatbandPluginPackageFile)"
+          Condition="'$(PluginId)' != ''">
+    <ItemGroup>
+      <HatbandPluginPackageFile Include="$(TargetDir)**\*">
+        <PluginId>$(PluginId)</PluginId>
+      </HatbandPluginPackageFile>
+      <HatbandPluginPackageFile Update="@(HatbandPluginPackageFile)">
+        <PluginRelativePath>%(HatbandPluginPackageFile.RecursiveDir)%(HatbandPluginPackageFile.Filename)%(HatbandPluginPackageFile.Extension)</PluginRelativePath>
+        <PluginSourcePath>%(HatbandPluginPackageFile.FullPath)</PluginSourcePath>
+      </HatbandPluginPackageFile>
+    </ItemGroup>
+  </Target>
+</Project>

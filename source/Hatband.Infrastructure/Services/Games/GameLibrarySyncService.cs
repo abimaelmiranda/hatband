@@ -12,7 +12,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
     private readonly IReadOnlyList<IGameMetadataProvider> metadataProviders;
     private readonly IReadOnlyList<IGameArtworkProvider> artworkProviders;
     private readonly IGameArtworkStorage artworkStorage;
-    private readonly IHowLongToBeatProvider howLongToBeatProvider;
+    private readonly IHowLongToBeatProvider? howLongToBeatProvider;
     private readonly ILogger<GameLibrarySyncService> logger;
     private readonly SemaphoreSlim syncGate = new(1, 1);
 
@@ -24,7 +24,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         IEnumerable<IGameMetadataProvider> metadataProviders,
         IEnumerable<IGameArtworkProvider> artworkProviders,
         IGameArtworkStorage artworkStorage,
-        IHowLongToBeatProvider howLongToBeatProvider,
+        IEnumerable<IHowLongToBeatProvider> howLongToBeatProviders,
         ILogger<GameLibrarySyncService> logger)
     {
         ArgumentNullException.ThrowIfNull(gameRepository);
@@ -34,7 +34,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         ArgumentNullException.ThrowIfNull(metadataProviders);
         ArgumentNullException.ThrowIfNull(artworkProviders);
         ArgumentNullException.ThrowIfNull(artworkStorage);
-        ArgumentNullException.ThrowIfNull(howLongToBeatProvider);
+        ArgumentNullException.ThrowIfNull(howLongToBeatProviders);
         ArgumentNullException.ThrowIfNull(logger);
         this.gameRepository = gameRepository;
         this.libraryRepository = libraryRepository;
@@ -43,7 +43,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         this.metadataProviders = metadataProviders.ToArray();
         this.artworkProviders = artworkProviders.ToArray();
         this.artworkStorage = artworkStorage;
-        this.howLongToBeatProvider = howLongToBeatProvider;
+        this.howLongToBeatProvider = howLongToBeatProviders.SingleOrDefault();
         this.logger = logger;
     }
 
@@ -162,7 +162,8 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
             return true;
         }
 
-        return HasMissingCompatibilityTier(game, sourceId) || game.TimeToBeat is null;
+        return HasMissingCompatibilityTier(game, sourceId) ||
+            (howLongToBeatProvider is not null && game.TimeToBeat is null);
     }
 
     public async Task RefreshMetadataAsync(CancellationToken cancellationToken = default)
@@ -298,7 +299,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
 
         await RefreshCompatibilityTierAsync(game, sourceId, cancellationToken, refreshAll);
 
-        if (game.TimeToBeat is null || refreshAll)
+        if (howLongToBeatProvider is not null && (game.TimeToBeat is null || refreshAll))
         {
             try
             {

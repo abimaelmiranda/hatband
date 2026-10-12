@@ -17,8 +17,8 @@ public abstract class HatbandPlugin
     public virtual string Version => "1.0.0";
 
     /// <summary>
-    /// Optional concrete provider types for built-in plugins that share an assembly.
-    /// External plugins discover capabilities from their entry assembly when this is empty.
+    /// Optional explicit selection of concrete capability implementations.
+    /// When empty, capabilities are discovered throughout the entry assembly.
     /// </summary>
     public virtual IReadOnlyCollection<Type> CapabilityImplementations => [];
 

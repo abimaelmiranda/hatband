@@ -312,7 +312,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         var originalCompatibilityLayer = game.CompatibilityLayer;
         try
         {
-            if (CompatibilityEditor.IsLinux)
+            if (CompatibilityEditor.SupportsCustomCompatibility)
             {
                 var compatibilityError = CompatibilityEditor.ValidateConfiguration();
                 if (compatibilityError is not null)
@@ -339,7 +339,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
             game.Name = Name.Trim();
             game.Metadata = metadata;
             game.Artwork = artwork;
-            if (CompatibilityEditor.IsLinux)
+            if (CompatibilityEditor.SupportsCustomCompatibility)
             {
                 if (CompatibilityEditor.IsCustom || selectedCompatibilityTier is not null || originalCompatibilityLayer is not null)
                 {

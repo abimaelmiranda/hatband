@@ -18,6 +18,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
 {
     private readonly ICompatibilityToolDiscoveryService toolDiscoveryService;
     private readonly IGameManagementService gameManagementService;
+    private readonly IGameLaunchRuntimeRegistry runtimeRegistry;
     private readonly IHostSystemInfo hostSystemInfo;
     private readonly IAppDataFileSystem appDataFileSystem;
     private CompatibilityLayer? originalLayer;
@@ -32,6 +33,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
     public CompatibilityEditorViewModel(
         ICompatibilityToolDiscoveryService toolDiscoveryService,
         IGameManagementService gameManagementService,
+        IGameLaunchRuntimeRegistry runtimeRegistry,
         IHostSystemInfo hostSystemInfo,
         IAppDataFileSystem appDataFileSystem)
     {
@@ -41,6 +43,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
         this.toolDiscoveryService = toolDiscoveryService;
         this.gameManagementService = gameManagementService;
+        this.runtimeRegistry = runtimeRegistry;
         this.hostSystemInfo = hostSystemInfo;
         this.appDataFileSystem = appDataFileSystem;
         EnvironmentVariables.CollectionChanged += OnEnvironmentVariablesCollectionChanged;
@@ -84,7 +87,10 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
 
     public bool IsLinux => hostSystemInfo.Platform == HostOperatingSystem.Linux;
 
-    public bool IsSteamGame => game?.SourceId == GameSourceIds.Steam;
+    public bool SupportsLaunchOptions => game is not null && gameManagementService.SupportsLaunchOptions(game);
+
+    public bool SupportsCustomCompatibility => hostSystemInfo.Platform != HostOperatingSystem.Windows &&
+        runtimeRegistry.Supports(hostSystemInfo.Platform, HostOperatingSystem.Windows);
 
     public bool IsGameInstalled => game?.InstallationInfo is not null;
 
@@ -119,7 +125,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
             return Resources.CompatibilityToolRequired;
         }
 
-        if (IsSteamGame && IsGameInstalled && SelectedLaunchOption is null &&
+        if (SupportsLaunchOptions && IsGameInstalled && SelectedLaunchOption is null &&
             string.IsNullOrWhiteSpace(ExecutablePath))
         {
             return Resources.CompatibilityLaunchOptionRequired;
@@ -205,7 +211,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
         ErrorMessage = null;
         configurationRevision = 0;
         launchConfigurationRevision = 0;
-        OnPropertyChanged(nameof(IsSteamGame));
+        OnPropertyChanged(nameof(SupportsLaunchOptions));
         OnPropertyChanged(nameof(IsGameInstalled));
         NotifyConfigurationChanged();
         _ = RefreshAsync();
@@ -224,7 +230,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
     [RelayCommand]
     private async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsLinux || game is null)
+        if (!SupportsCustomCompatibility || game is null)
         {
             return;
         }
@@ -268,7 +274,7 @@ public partial class CompatibilityEditorViewModel : ViewModelBase
                 isApplyingRefreshResult = false;
             }
 
-            if (currentGame.SourceId == GameSourceIds.Steam && currentGame.InstallationInfo is not null)
+            if (SupportsLaunchOptions && currentGame.InstallationInfo is not null)
             {
                 var options = await gameManagementService.GetLaunchOptionsAsync(CreateLaunchOptionsQuerySnapshot(currentGame), refreshToken);
                 if (!IsCurrentRefresh(currentGame, generation, refreshToken))

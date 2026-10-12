@@ -28,7 +28,10 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
         this.secretVault = secretVault;
     }
 
-    public async Task<ConnectorSession?> LoadAsync(string sourceId, CancellationToken cancellationToken = default)
+    public async Task<StoredConnectorCredentials<TCredentials>?> LoadAsync<TCredentials>(
+        string sourceId,
+        CancellationToken cancellationToken = default)
+        where TCredentials : class
     {
         ValidateSource(sourceId);
         await gate.WaitAsync(cancellationToken);
@@ -55,7 +58,7 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
                     throw new InvalidDataException("The saved connector session has an unsupported or invalid format.");
                 }
 
-                return DecryptSession(sourceId, contents, key);
+                return DecryptCredentials<TCredentials>(contents, key);
             }
             finally
             {
@@ -68,35 +71,36 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
         }
     }
 
-    public async Task SaveAsync(ConnectorSession session, CancellationToken cancellationToken = default)
+    public async Task SaveAsync<TCredentials>(
+        string sourceId,
+        int version,
+        TCredentials credentials,
+        CancellationToken cancellationToken = default)
+        where TCredentials : class
     {
-        ArgumentNullException.ThrowIfNull(session);
-        ValidateSource(session.SourceId);
-        if (session.Profile is null || session.Profile.SourceId != session.SourceId ||
-            string.IsNullOrWhiteSpace(session.Profile.AccountId) ||
-            string.IsNullOrWhiteSpace(session.AccessToken) ||
-            string.IsNullOrWhiteSpace(session.RefreshToken))
-        {
-            throw new ArgumentException("The connector session is missing a profile or authentication token.", nameof(session));
-        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
+        ArgumentNullException.ThrowIfNull(credentials);
+        ValidateSource(sourceId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(version);
 
         await gate.WaitAsync(cancellationToken);
         byte[]? key = null;
         byte[]? plaintext = null;
         try
         {
-            key = await secretVault.ReadAsync(GetVaultKey(session.SourceId), cancellationToken);
+            key = await secretVault.ReadAsync(GetVaultKey(sourceId), cancellationToken);
             if (key is null)
             {
                 key = RandomNumberGenerator.GetBytes(KeySize);
-                await secretVault.WriteAsync(GetVaultKey(session.SourceId), key, cancellationToken);
+                await secretVault.WriteAsync(GetVaultKey(sourceId), key, cancellationToken);
             }
             else if (key.Length != KeySize)
             {
                 throw new InvalidDataException("The encryption key for the connector session has an invalid size.");
             }
 
-            plaintext = JsonSerializer.SerializeToUtf8Bytes(session);
+            var storedCredentials = new StoredConnectorCredentials<TCredentials>(version, credentials);
+            plaintext = JsonSerializer.SerializeToUtf8Bytes(storedCredentials);
             var nonce = RandomNumberGenerator.GetBytes(NonceSize);
             var ciphertext = new byte[plaintext.Length];
             var tag = new byte[TagSize];
@@ -112,7 +116,7 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
                 nonce.CopyTo(contents, 1);
                 tag.CopyTo(contents, 1 + NonceSize);
                 ciphertext.CopyTo(contents, 1 + NonceSize + TagSize);
-                await fileSystem.WriteAllBytesAtomicallyAsync(GetPath(session.SourceId), contents, cancellationToken);
+                await fileSystem.WriteAllBytesAtomicallyAsync(GetPath(sourceId), contents, cancellationToken);
             }
             finally
             {
@@ -160,7 +164,8 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
 
     private string GetPath(string sourceId) => $"sessions/{sourceId.ToString().ToLowerInvariant()}.enc";
 
-    private static ConnectorSession DecryptSession(string sourceId, byte[] contents, byte[] key)
+    private static StoredConnectorCredentials<TCredentials> DecryptCredentials<TCredentials>(byte[] contents, byte[] key)
+        where TCredentials : class
     {
         var ciphertext = contents.AsSpan(1 + NonceSize + TagSize);
         var plaintext = new byte[ciphertext.Length];
@@ -172,17 +177,14 @@ public sealed class EncryptedConnectorSessionStore : IConnectorSessionStore
                 ciphertext,
                 contents.AsSpan(1 + NonceSize, TagSize),
                 plaintext);
-            var session = JsonSerializer.Deserialize<ConnectorSession>(plaintext)
-                ?? throw new InvalidDataException("The saved connector session is empty.");
-            if (session.SourceId != sourceId || session.Profile is null || session.Profile.SourceId != sourceId ||
-                string.IsNullOrWhiteSpace(session.Profile.AccountId) ||
-                string.IsNullOrWhiteSpace(session.AccessToken) ||
-                string.IsNullOrWhiteSpace(session.RefreshToken))
+            var storedCredentials = JsonSerializer.Deserialize<StoredConnectorCredentials<TCredentials>>(plaintext)
+                ?? throw new InvalidDataException("The saved connector credentials are empty.");
+            if (storedCredentials.Version <= 0 || storedCredentials.Credentials is null)
             {
-                throw new InvalidDataException("The saved connector session is incomplete or belongs to another connector.");
+                throw new InvalidDataException("The saved connector credentials are incomplete.");
             }
 
-            return session;
+            return storedCredentials;
         }
         catch (CryptographicException exception)
         {

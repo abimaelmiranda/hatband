@@ -14,8 +14,6 @@ using Hatband.Infrastructure.Services.Games;
 using Hatband.Infrastructure.Services.Games.PostInstall;
 using Hatband.Infrastructure.Settings;
 using Hatband.Infrastructure.Storage.Artwork;
-using Hatband.Integrations;
-using Hatband.Integrations.Steam;
 using Hatband.SDK.Plugins;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,7 +26,8 @@ public static class InfrastructureServiceCollectionExtensions
     public static IServiceCollection AddHatbandInfrastructure(
         this IServiceCollection services,
         string connectionString,
-        IAppDataFileSystem appDataFileSystem)
+        IAppDataFileSystem appDataFileSystem,
+        PluginLoadingOptions? pluginLoadingOptions = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -40,9 +39,6 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ICacheService, CacheService>();
         services.AddHttpClient(string.Empty, client => client.Timeout = TimeSpan.FromSeconds(25));
-        services.AddHttpClient("Artwork", client => client.Timeout = TimeSpan.FromSeconds(20));
-        services.AddHttpClient("SteamPlayer", client => client.Timeout = TimeSpan.FromSeconds(30));
-        services.AddHttpClient("Protondb", client => client.Timeout = TimeSpan.FromSeconds(10));
         services.AddSingleton(appDataFileSystem);
         services.TryAddSingleton<IHostSystemInfo, HostSystemInfo>();
         services.AddSingleton<DatabaseInitializer>();
@@ -58,21 +54,23 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<ICompatibilityToolReleaseCatalogService, CompatibilityToolReleaseCatalogService>();
         services.AddSingleton<ICompatibilityToolDiscoveryService, CompatibilityToolDiscoveryService>();
         services.AddSingleton<ICompatibilityToolInstallationService, CompatibilityToolInstallationService>();
-        services.AddSingleton<UmuDependencyService>();
-        services.AddSingleton<GamePostInstallService>();
+        services.AddSingleton<IGamePostInstallService, GamePostInstallService>();
+        services.AddSingleton<IGameManagementProvider, ManualGameManagementProvider>();
         services.AddSingleton<IGameManagementService, GameManagementService>();
+        services.AddSingleton<IGameLaunchRuntime, NativeGameLaunchRuntime>();
+        services.AddSingleton<IGameLaunchRuntimeRegistry, GameLaunchRuntimeRegistry>();
+        services.AddSingleton<IGameSourceCatalog, GameSourceCatalog>();
         services.AddSingleton<IGameProcessMonitor, GameProcessMonitor>();
         services.AddSingleton<IGameInstallationStateSyncService, GameInstallationStateSyncService>();
         services.AddSingleton<IHostApplicationLauncher, HostApplicationLauncher>();
         services.AddSingleton<IGameLibrarySyncService, GameLibrarySyncService>();
         services.AddSingleton<IPluginDataStore, PluginDataStore>();
 
-        var pluginLoader = new PluginCatalogLoader();
+        pluginLoadingOptions ??= new PluginLoadingOptions(Path.Combine(AppContext.BaseDirectory, "plugins"));
+        var pluginLoader = new PluginCatalogLoader(pluginLoadingOptions);
         pluginLoader.LoadAndRegister(
             services,
-            appDataFileSystem.GetPath("plugins"),
-            typeof(IntegrationAssemblyMarker).Assembly,
-            typeof(ManualGamesPlugin).Assembly);
+            appDataFileSystem.GetPath("plugins"));
 
         return services;
     }

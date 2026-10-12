@@ -23,6 +23,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly IGameInstallationStateSyncService _gameInstallationStateSyncService;
     private readonly IHostSystemInfo _hostSystemInfo;
     private readonly IGameManagementService _gameManagementService;
+    private readonly IGameSourceCatalog _sourceCatalog;
+    private readonly IReadOnlyDictionary<string, IGameManagementPresentationProvider> _presentationProviders;
     private readonly GameProcessSessionService _gameProcessSessionService;
     private readonly ILogger<LibrarySessionViewModel> _logger;
     private readonly ArtworkImageLoader _artworkImageLoader;
@@ -49,6 +51,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         IGameInstallationStateSyncService gameInstallationStateSyncService,
         IHostSystemInfo hostSystemInfo,
         IGameManagementService gameManagementService,
+        IGameSourceCatalog sourceCatalog,
+        IEnumerable<IGameManagementPresentationProvider> presentationProviders,
         GameProcessSessionService gameProcessSessionService,
         ILogger<LibrarySessionViewModel> logger,
         ArtworkImageLoader artworkImageLoader,
@@ -60,6 +64,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         _gameInstallationStateSyncService = gameInstallationStateSyncService;
         _hostSystemInfo = hostSystemInfo;
         _gameManagementService = gameManagementService;
+        _sourceCatalog = sourceCatalog;
+        _presentationProviders = presentationProviders.ToDictionary(provider => provider.SourceId, StringComparer.Ordinal);
         _gameProcessSessionService = gameProcessSessionService;
         _logger = logger;
         _artworkImageLoader = artworkImageLoader;
@@ -76,10 +82,9 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     public event EventHandler? GameSessionEnded;
     public event EventHandler? GameUninstallationCompleted;
     public event EventHandler? GameInstallationCompleted;
-    public event EventHandler? SteamFallbackRequested;
+    public event EventHandler? StoreFallbackRequested;
     public event Action<bool>? WindowTopmostRequested;
 
-    public bool IsSteamSilentModeEnabled => _settingsScreen.IsSteamSilentModeEnabled;
 
     private void OnTimeZoneChanged(string timeZone)
     {
@@ -567,7 +572,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     /// </summary>
     public async Task InstallGameAsync(Game game, GameInstallLocation? location, CancellationToken cancellationToken)
     {
-        var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceIds.Steam;
+        var shouldRequestTopmost = await ShouldKeepHostInForegroundAsync(game, cancellationToken);
         if (shouldRequestTopmost)
         {
             WindowTopmostRequested?.Invoke(true);
@@ -591,7 +596,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             GameManagementResult.FallbackStoreClientOpened or
             GameManagementResult.FallbackUnavailable)
         {
-            SteamFallbackRequested?.Invoke(this, EventArgs.Empty);
+            StoreFallbackRequested?.Invoke(this, EventArgs.Empty);
         }
 
         if (result is GameManagementResult.ProtocolOpened or
@@ -728,7 +733,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         try
         {
             var game = gameCard.Game;
-            var shouldRequestTopmost = IsSteamSilentModeEnabled && game.SourceId == GameSourceIds.Steam;
+            var shouldRequestTopmost = await ShouldKeepHostInForegroundAsync(game, cancellationToken);
             if (shouldRequestTopmost)
             {
                 WindowTopmostRequested?.Invoke(true);
@@ -752,7 +757,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 GameManagementResult.FallbackStoreClientOpened or
                 GameManagementResult.FallbackUnavailable)
             {
-                SteamFallbackRequested?.Invoke(this, EventArgs.Empty);
+                StoreFallbackRequested?.Invoke(this, EventArgs.Empty);
             }
 
             if (result is GameManagementResult.ProtocolOpened or
@@ -884,6 +889,16 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private async Task<bool> ShouldKeepHostInForegroundAsync(Game game, CancellationToken cancellationToken)
+    {
+        if (!_presentationProviders.TryGetValue(game.SourceId, out var provider))
+        {
+            return false;
+        }
+
+        return await provider.KeepHostInForegroundAsync(game, cancellationToken);
+    }
+
     private static string GetGameManagementStatus(GameManagementResult result, GameManagementAction action)
     {
         return result switch
@@ -893,8 +908,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             GameManagementResult.FallbackProtocolOpened or
             GameManagementResult.SilentCommandStarted => action switch
             {
-                GameManagementAction.Install => Resources.SteamInstallRequested,
-                GameManagementAction.Uninstall => Resources.SteamUninstallRequested,
+                GameManagementAction.Install => Resources.GameInstallRequested,
+                GameManagementAction.Uninstall => Resources.GameUninstallRequested,
                 GameManagementAction.Launch => Resources.GameLaunchRequested,
                 _ => throw new ArgumentOutOfRangeException(nameof(action))
             },
@@ -1016,7 +1031,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         await _librarySyncGate.WaitAsync(cancellationToken);
         try
         {
-            _librarySyncSourceName = _settingsScreen.GetConnectorDisplayName(sourceId);
+            _librarySyncSourceName = _sourceCatalog.GetDisplayName(sourceId);
             IsLibrarySyncRunning = true;
             _librarySyncProgress.BeginLibrarySync(_librarySyncSourceName);
             StatusMessage = null;
@@ -1028,13 +1043,13 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 mode);
             await FinishLibrarySyncAsync(games);
             HasCompletedLibrarySync = true;
-            _librarySyncProgress.CompleteSync(_settingsScreen.GetConnectorDisplayName(sourceId));
+            _librarySyncProgress.CompleteSync(_sourceCatalog.GetDisplayName(sourceId));
             return games.Count;
         }
         catch (Exception exception)
         {
             await LoadGamesAsync(CancellationToken.None);
-            _librarySyncProgress.CompleteSync(_settingsScreen.GetConnectorDisplayName(sourceId), exception);
+            _librarySyncProgress.CompleteSync(_sourceCatalog.GetDisplayName(sourceId), exception);
             throw;
         }
         finally

@@ -1,6 +1,7 @@
 using Hatband.Core.Abstractions.Games;
 using Hatband.Core.Abstractions.Host;
 using Hatband.Core.Enums.Games;
+using Hatband.Core.Enums.Host;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models;
 using Hatband.Core.Models.Games;
@@ -18,6 +19,8 @@ public sealed class ManualGameManagementProvider : IGameManagementProvider
     }
 
     public string SourceId => GameSourceIds.Manual;
+
+    public bool SupportsLaunchOptions => false;
 
     public Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default)
     {
@@ -71,24 +74,61 @@ public sealed class ManualGameManagementProvider : IGameManagementProvider
         return new GameLaunchResult(GameManagementResult.GameActionStarted, watchTarget);
     }
 
-    public Task<GameLaunchCommand> PrepareCustomLaunchAsync(Game game, CancellationToken cancellationToken = default)
+    public Task<GameLaunchPlan> PrepareLaunchAsync(
+        Game game,
+        GameLaunchContext context,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
         var action = GetPrimaryAction(game);
-        if (action.Type != GameActionType.Executable)
+        if (context.ExecutionMode == GameExecutionMode.Custom && context.HostOperatingSystem != HostOperatingSystem.Linux)
         {
-            throw new InvalidOperationException("Custom Proton requires an executable launch action.");
+            return Task.FromResult<GameLaunchPlan>(new DelegatedGameLaunchPlan());
         }
 
-        ValidateExecutable(action.Target);
-        var layer = game.CompatibilityLayer
-            ?? throw new InvalidOperationException($"Custom compatibility is not configured for '{game.Name}'.");
-        return Task.FromResult(new GameLaunchCommand(
+        if (action.Type != GameActionType.Executable)
+        {
+            if (context.ExecutionMode == GameExecutionMode.Original)
+            {
+                return Task.FromResult<GameLaunchPlan>(new DelegatedGameLaunchPlan());
+            }
+
+            throw new InvalidOperationException("Custom compatibility requires an executable launch action.");
+        }
+
+        if (context.ExecutionMode == GameExecutionMode.Original &&
+            (!Path.IsPathFullyQualified(action.Target) || !File.Exists(action.Target)))
+        {
+            return Task.FromResult<GameLaunchPlan>(new DelegatedGameLaunchPlan());
+        }
+
+        if (context.ExecutionMode == GameExecutionMode.Custom)
+        {
+            ValidateExecutable(action.Target);
+        }
+
+        var workingDirectory = action.WorkingDirectory;
+        if (context.ExecutionMode == GameExecutionMode.Custom)
+        {
+            var layer = game.CompatibilityLayer
+                ?? throw new InvalidOperationException($"Custom compatibility is not configured for '{game.Name}'.");
+            workingDirectory = layer.WorkingDirectory ?? workingDirectory;
+        }
+
+        workingDirectory ??= Path.GetDirectoryName(action.Target);
+        var command = new GameLaunchCommand(
             action.Target,
             action.Arguments,
-            layer.WorkingDirectory ?? action.WorkingDirectory ?? Path.GetDirectoryName(action.Target),
-            new Dictionary<string, string>(StringComparer.Ordinal)));
+            workingDirectory,
+            new Dictionary<string, string>(StringComparer.Ordinal));
+        var targetOperatingSystem = context.ExecutionMode == GameExecutionMode.Custom
+            ? HostOperatingSystem.Windows
+            : context.HostOperatingSystem;
+        return Task.FromResult<GameLaunchPlan>(new ExecutableGameLaunchPlan(
+            command,
+            targetOperatingSystem));
     }
 
     public Task<IReadOnlyList<GameLaunchOption>> GetLaunchOptionsAsync(Game game, CancellationToken cancellationToken = default)

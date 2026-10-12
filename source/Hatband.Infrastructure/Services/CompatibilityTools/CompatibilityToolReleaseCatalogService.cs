@@ -29,7 +29,7 @@ public sealed class CompatibilityToolReleaseCatalogService : ICompatibilityToolR
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         var provider = _releaseProviders.FirstOrDefault(candidate => candidate.Id == providerId)
-            ?? throw new ArgumentException($"Unknown Proton release provider '{providerId}'.", nameof(providerId));
+            ?? throw new ArgumentException($"Unknown compatibility tool release provider '{providerId}'.", nameof(providerId));
 
         try
         {
@@ -53,7 +53,8 @@ public sealed class CompatibilityToolReleaseCatalogService : ICompatibilityToolR
             .FirstOrDefault(group => group.Count() > 1);
         if (duplicateId is not null)
         {
-            throw new InvalidOperationException($"The Proton release provider id '{duplicateId.Key}' is registered more than once.");
+            throw new InvalidOperationException(
+                $"The compatibility tool release provider id '{duplicateId.Key}' is registered more than once.");
         }
     }
 }

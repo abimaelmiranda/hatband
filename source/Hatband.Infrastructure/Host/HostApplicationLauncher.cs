@@ -65,30 +65,68 @@ public sealed class HostApplicationLauncher : IHostApplicationLauncher
         ArgumentNullException.ThrowIfNull(environmentVariables);
         cancellationToken.ThrowIfCancellationRequested();
 
-        try
+        return StartApplication(executable, workingDirectory, environmentVariables, startInfo =>
         {
-            var startInfo = new ProcessStartInfo(executable)
-            {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
             foreach (var argument in arguments)
             {
                 startInfo.ArgumentList.Add(argument);
             }
+        });
+    }
 
-            if (!string.IsNullOrWhiteSpace(workingDirectory))
-            {
-                startInfo.WorkingDirectory = workingDirectory;
-            }
+    public Task<HostApplicationProcess?> StartApplicationAsync(
+        string executable,
+        string? arguments,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string> environmentVariables,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executable);
+        ArgumentNullException.ThrowIfNull(environmentVariables);
+        cancellationToken.ThrowIfCancellationRequested();
 
-            foreach (var (name, value) in environmentVariables)
-            {
-                startInfo.Environment[name] = value;
-            }
+        return StartApplication(
+            executable,
+            workingDirectory,
+            environmentVariables,
+            startInfo => startInfo.Arguments = arguments ?? string.Empty);
+    }
 
+    private static ProcessStartInfo CreateStartInfo(
+        string executable,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string> environmentVariables)
+    {
+        var startInfo = new ProcessStartInfo(executable)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            startInfo.WorkingDirectory = workingDirectory;
+        }
+
+        foreach (var (name, value) in environmentVariables)
+        {
+            startInfo.Environment[name] = value;
+        }
+
+        return startInfo;
+    }
+
+    private Task<HostApplicationProcess?> StartApplication(
+        string executable,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string> environmentVariables,
+        Action<ProcessStartInfo> configureArguments)
+    {
+        try
+        {
+            var startInfo = CreateStartInfo(executable, workingDirectory, environmentVariables);
+            configureArguments(startInfo);
             var process = Process.Start(startInfo);
             if (process is null)
             {

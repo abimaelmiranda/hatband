@@ -9,6 +9,8 @@ public interface IGameManagementProvider
 {
     string SourceId { get; }
 
+    bool SupportsLaunchOptions { get; }
+
     Task<IReadOnlyList<GameInstallLocation>> GetInstallLocationsAsync(Game game, CancellationToken cancellationToken = default);
 
     Task<GameManagementResult> InstallAsync(Game game, GameInstallLocation? location = null, CancellationToken cancellationToken = default);
@@ -17,7 +19,10 @@ public interface IGameManagementProvider
 
     Task<GameLaunchResult> LaunchOriginalAsync(Game game, CancellationToken cancellationToken = default);
 
-    Task<GameLaunchCommand> PrepareCustomLaunchAsync(Game game, CancellationToken cancellationToken = default);
+    Task<GameLaunchPlan> PrepareLaunchAsync(
+        Game game,
+        GameLaunchContext context,
+        CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<GameLaunchOption>> GetLaunchOptionsAsync(Game game, CancellationToken cancellationToken = default);
 }

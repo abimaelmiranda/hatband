@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="SilentMode" xml:space="preserve"><value>Silent mode</value></data>
+  <data name="SilentModeDescription" xml:space="preserve"><value>When launching a game with silent mode on, Hatband starts Steam in the background if it is closed or uses a Steam link if it is open. Silent installs and uninstalls may restart Steam. If a command cannot start, Hatband falls back to a Steam link.</value></data>
+  <data name="ConnectSteamAccount" xml:space="preserve"><value>Connect Steam account</value></data>
+  <data name="ConnectDescription" xml:space="preserve"><value>Connect an account and sync its library.</value></data>
+  <data name="ScanQrDescription" xml:space="preserve"><value>Scan this QR code with the Steam mobile app and confirm access.</value></data>
+  <data name="CancelConnection" xml:space="preserve"><value>Cancel connection</value></data>
+  <data name="Connected" xml:space="preserve"><value>Connected</value></data>
+  <data name="ConnectedAs" xml:space="preserve"><value>Connected as {0}.</value></data>
+  <data name="NotConnected" xml:space="preserve"><value>Not connected</value></data>
+  <data name="SyncLibrary" xml:space="preserve"><value>Sync library</value></data>
+  <data name="DisconnectAccount" xml:space="preserve"><value>Disconnect account</value></data>
+  <data name="Connecting" xml:space="preserve"><value>Connecting to Steam…</value></data>
+  <data name="ScanQr" xml:space="preserve"><value>Scan the QR code to sign in.</value></data>
+  <data name="SessionTemporary" xml:space="preserve"><value>Temporary session; you will need to sign in again next time.</value></data>
+  <data name="LoginCancelled" xml:space="preserve"><value>Steam sign in cancelled.</value></data>
+  <data name="LoginSyncFailed" xml:space="preserve"><value>Steam sign in or library sync failed: {0}</value></data>
+  <data name="SyncingLibrary" xml:space="preserve"><value>Syncing Steam library…</value></data>
+  <data name="SyncComplete" xml:space="preserve"><value>Steam library sync complete.</value></data>
+  <data name="SyncFailed" xml:space="preserve"><value>Steam library sync failed: {0}</value></data>
+  <data name="AccountDisconnected" xml:space="preserve"><value>Steam account disconnected.</value></data>
+  <data name="DisconnectFailed" xml:space="preserve"><value>Steam account could not be disconnected: {0}</value></data>
+</root>

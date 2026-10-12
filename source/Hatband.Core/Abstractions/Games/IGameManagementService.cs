@@ -12,6 +12,8 @@ public interface IGameManagementService
 
     Task<GameManagementResult> UninstallAsync(Game game, CancellationToken cancellationToken = default);
 
+    bool SupportsLaunchOptions(Game game);
+
     Task<GameLaunchResult> LaunchAsync(
         Game game,
         IProgress<GamePreparationProgress>? progress = null,

@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Hatband.Core.Abstractions.Settings;
 using Hatband.Core.Models.Settings;
-using Hatband.Integrations.Settings;
 
 namespace Hatband.Infrastructure.Settings;
 
@@ -100,12 +99,6 @@ public sealed class JsonSettingsApi : ISettingsApi
                 root.Remove(legacyKey);
             }
 
-            if (section.SettingsType == typeof(ConnectorsSettings))
-            {
-                root.Remove("hatband.steam");
-                root.Remove("steam");
-            }
-
             root[section.Id] = new JsonObject
             {
                 ["Version"] = section.Version,
@@ -179,20 +172,13 @@ public sealed class JsonSettingsApi : ISettingsApi
 
     private static JsonObject? FindLegacySection(JsonObject root, Type settingsType)
     {
-        if (settingsType == typeof(ConnectorsSettings) && root["hatband.steam"] is JsonObject steamSection)
-        {
-            return steamSection;
-        }
-
         var legacyKey = GetLegacyKey(settingsType);
         return legacyKey is null ? null : root[legacyKey] as JsonObject;
     }
 
     private static string? GetLegacyKey(Type settingsType) => settingsType == typeof(GeneralSettings)
         ? "general"
-        : settingsType == typeof(ConnectorsSettings)
-            ? "steam"
-            : null;
+        : null;
 
     private sealed record SectionData(JsonNode Settings, int Version);
 }

@@ -9,7 +9,7 @@ using Hatband.Core.Models.Games.PostInstall;
 namespace Hatband.Infrastructure.Services.Games.PostInstall;
 
 /// <summary>Applies a source-provided post-install plan inside a game's compatibility prefix.</summary>
-public sealed class GamePostInstallService
+public sealed class GamePostInstallService : IGamePostInstallService
 {
     private const string StateDirectoryName = ".hatband";
     private const string StateFileName = "post_install_state.json";

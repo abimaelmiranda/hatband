@@ -5,8 +5,8 @@ namespace Hatband.Core.Abstractions.Settings;
 
 /// <summary>
 /// Describes one root settings section contributed by the application or an extension. Its ID is
-/// the section key in the settings JSON and can be used as the section's navigation identity in the
-/// UI. Section IDs and settings types must each be unique among the registered sections.
+/// the section key in the settings JSON. Sections can opt out of host navigation while remaining
+/// available to their plugin UI. Section IDs and settings types must each be unique.
 /// </summary>
 public interface ISettingsSection
 {
@@ -18,6 +18,9 @@ public interface ISettingsSection
     string DisplayName { get; }
 
     string? Description { get; }
+
+    /// <summary>Whether the section appears in the host's settings navigation list.</summary>
+    bool ShowInSettingsNavigation => true;
 
     /// <summary>
     /// Current schema version for this section.

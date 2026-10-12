@@ -1,0 +1,8 @@
+{
+  "id": "steam",
+  "name": "Steam",
+  "version": "1.0.0",
+  "apiVersion": 2,
+  "entryAssembly": "Hatband.Plugins.Steam.dll",
+  "entryType": "Hatband.Plugins.Steam.Plugin.SteamPlugin"
+}
