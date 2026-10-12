@@ -30,22 +30,6 @@
                 </Border.Background>
             </Border>
 
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="54,34,54,0">
-                <Border Width="48"
-                        Height="48"
-                        CornerRadius="24"
-                        Background="#AA17212B"
-                        BorderBrush="#667B8792"
-                        BorderThickness="1">
-                    <Image Source="avares://Hatband.App/Assets/hatband-icon.png"
-                           Width="34"
-                           Height="34"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center" />
-                </Border>
-            </Grid>
-
             <Grid Grid.Row="1"
                   Grid.RowSpan="2"
                   Margin="0,8,0,60"
