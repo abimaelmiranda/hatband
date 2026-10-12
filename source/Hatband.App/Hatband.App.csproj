@@ -26,6 +26,7 @@
     <ProjectReference Include="..\Hatband.Infrastructure\Hatband.Infrastructure.csproj" />
     <ProjectReference Include="..\Hatband.SDK.UI\Hatband.SDK.UI.csproj" />
     <HatbandPluginProject Include="..\Hatband.Plugins.Steam\Hatband.Plugins.Steam.csproj" />
+    <HatbandPluginProject Include="..\Hatband.Plugins.SteamGridDB\Hatband.Plugins.SteamGridDB.csproj" />
     <HatbandPluginProject Include="..\Hatband.Plugins.IGN\Hatband.Plugins.IGN.csproj" />
     <HatbandPluginProject Include="..\Hatband.Plugins.HowLongToBeat\Hatband.Plugins.HowLongToBeat.csproj" />
     <HatbandPluginProject Include="..\Hatband.Plugins.Proton\Hatband.Plugins.Proton.csproj" />

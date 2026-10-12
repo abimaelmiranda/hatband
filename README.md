@@ -6,7 +6,7 @@ Hatband is an open-source desktop game library manager in active development. It
 
 - Connect to Steam with a QR code and sync your game library.
 - View game details, installation state, and locally stored library data.
-- Search for metadata and artwork from available providers, including Steam and experimental IGN support.
+- Search for metadata and artwork from available providers, including Steam, SteamGridDB, and experimental IGN support.
 - Browse HowLongToBeat completion-time estimates.
 - Store library data in SQLite and artwork as local files.
 

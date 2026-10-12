@@ -1,0 +1,8 @@
+{
+  "id": "steamgriddb",
+  "name": "SteamGridDB",
+  "version": "1.0.0",
+  "apiVersion": 3,
+  "entryAssembly": "Hatband.Plugins.SteamGridDB.dll",
+  "entryType": "Hatband.Plugins.SteamGridDB.Plugin.SteamGridDBPlugin"
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="PluginName" xml:space="preserve"><value>SteamGridDB</value></data>
+  <data name="ModeTitle" xml:space="preserve"><value>Artwork source mode</value></data>
+  <data name="ScraperMode" xml:space="preserve"><value>Scraper</value></data>
+  <data name="ApiMode" xml:space="preserve"><value>API key</value></data>
+  <data name="ModeDescription" xml:space="preserve"><value>Scraper mode uses public SteamGridDB pages. API mode requires your own API key.</value></data>
+  <data name="KeyTitle" xml:space="preserve"><value>SteamGridDB API key</value></data>
+  <data name="KeyWatermark" xml:space="preserve"><value>Paste API key to save or replace</value></data>
+  <data name="KeyConfigured" xml:space="preserve"><value>An API key is configured. It is stored in the system credential store and will not be shown here.</value></data>
+  <data name="KeyMissing" xml:space="preserve"><value>No API key is configured.</value></data>
+  <data name="SaveKey" xml:space="preserve"><value>Save API key</value></data>
+  <data name="DeleteKey" xml:space="preserve"><value>Delete API key</value></data>
+  <data name="ModeSaved" xml:space="preserve"><value>SteamGridDB mode saved.</value></data>
+  <data name="ModeSaveFailed" xml:space="preserve"><value>SteamGridDB mode could not be saved.</value></data>
+  <data name="KeySaved" xml:space="preserve"><value>SteamGridDB API key saved in the system credential store.</value></data>
+  <data name="KeyDeleted" xml:space="preserve"><value>SteamGridDB API key deleted.</value></data>
+  <data name="KeySaveFailed" xml:space="preserve"><value>The system credential store could not save the SteamGridDB API key.</value></data>
+  <data name="KeyDeleteFailed" xml:space="preserve"><value>The system credential store could not delete the SteamGridDB API key.</value></data>
+  <data name="KeyRequired" xml:space="preserve"><value>Enter an API key before saving.</value></data>
+  <data name="KeyStoreUnavailable" xml:space="preserve"><value>The system credential store could not be accessed.</value></data>
+  <data name="SettingsUnavailable" xml:space="preserve"><value>SteamGridDB settings could not be loaded.</value></data>
+  <data name="MissingKeyForApiMode" xml:space="preserve"><value>Save a SteamGridDB API key in Settings &gt; Connectors before using API mode.</value></data>
+  <data name="EmptyApiKey" xml:space="preserve"><value>The saved SteamGridDB API key is empty.</value></data>
+  <data name="InvalidMode" xml:space="preserve"><value>SteamGridDB mode is invalid.</value></data>
+  <data name="ApiKeyRejected" xml:space="preserve"><value>SteamGridDB rejected the API key.</value></data>
+  <data name="ApiRedirected" xml:space="preserve"><value>SteamGridDB redirected an authenticated API request.</value></data>
+  <data name="InvalidApiKey" xml:space="preserve"><value>The SteamGridDB API key contains unsupported whitespace or control characters.</value></data>
+</root>

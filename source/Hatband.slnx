@@ -5,6 +5,7 @@
   <Project Path="Hatband.SDK/Hatband.SDK.csproj" />
   <Project Path="Hatband.SDK.UI/Hatband.SDK.UI.csproj" />
   <Project Path="Hatband.Plugins.Steam/Hatband.Plugins.Steam.csproj" />
+  <Project Path="Hatband.Plugins.SteamGridDB/Hatband.Plugins.SteamGridDB.csproj" />
   <Project Path="Hatband.Plugins.IGN/Hatband.Plugins.IGN.csproj" />
   <Project Path="Hatband.Plugins.HowLongToBeat/Hatband.Plugins.HowLongToBeat.csproj" />
   <Project Path="Hatband.Plugins.Proton/Hatband.Plugins.Proton.csproj" />
