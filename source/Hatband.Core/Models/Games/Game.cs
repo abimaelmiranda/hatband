@@ -20,6 +20,11 @@ public sealed class Game : ModelBase
     public required string SourceId { get; set; }
 
     /// <summary>
+    /// Persisted store record used for presentation. <see cref="SourceId"/> remains the plugin routing key.
+    /// </summary>
+    public int GameStoreId { get; set; }
+
+    /// <summary>
     /// Identifier assigned to this game by its source. Required for non-manual sources.
     /// </summary>
     public string? SourceGameId { get; set; }

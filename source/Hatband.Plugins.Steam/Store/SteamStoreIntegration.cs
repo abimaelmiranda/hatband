@@ -33,6 +33,8 @@ public sealed class SteamStoreIntegration : IGameStoreIntegration, IConnectorSes
 
     public string DisplayName => "Steam";
 
+    public string? LogoAssetPath => "Assets/Stores/steam-badge-white-cutout.png";
+
     public ConnectorAccount? CurrentAccount => steamPlayerService.CurrentAccount;
 
     public bool IsConnected => steamPlayerService.CurrentAccount is not null;

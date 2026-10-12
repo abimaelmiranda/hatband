@@ -35,40 +35,6 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                     b.ToTable("CacheEntries", (string)null);
                 });
 
-            modelBuilder.Entity("Hatband.Core.Models.Games.GamePluginData", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DataKey")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("GameId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("JsonPayload")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PluginId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("SchemaVersion")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("GameId", "PluginId", "DataKey")
-                        .IsUnique();
-
-                    b.ToTable("GamePluginData", (string)null);
-                });
-
             modelBuilder.Entity("Hatband.Core.Models.Games.Game", b =>
                 {
                     b.Property<Guid>("Id")
@@ -79,6 +45,9 @@ namespace Hatband.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("GameLibraryId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("GameStoreId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long?>("InstallSizeBytes")
                         .HasColumnType("INTEGER");
@@ -234,37 +203,11 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                             b1.HasDiscriminator<string>("Discriminator").HasValue("GameArtwork");
                         });
 
-                    b.OwnsOne("Hatband.Core.Models.Games.PostInstall.GamePostInstallPlan", "PostInstallPlan", b1 =>
-                        {
-                            b1.Property<Guid>("GameId")
-                                .HasColumnType("TEXT");
-
-                            b1.Property<string>("Diagnostics")
-                                .IsRequired()
-                                .HasColumnType("TEXT")
-                                .HasColumnName("PostInstallPlan_Diagnostics");
-
-                            b1.Property<string>("Revision")
-                                .IsRequired()
-                                .HasColumnType("TEXT")
-                                .HasColumnName("PostInstallPlan_Revision");
-
-                            b1.Property<string>("Steps")
-                                .IsRequired()
-                                .HasColumnType("TEXT")
-                                .HasColumnName("PostInstallPlan_Steps");
-
-                            b1.HasKey("GameId");
-
-                            b1.ToTable("GamePostInstallPlans");
-
-                            b1.WithOwner()
-                                .HasForeignKey("GameId");
-                        });
-
                     b.HasKey("Id");
 
                     b.HasIndex("GameLibraryId");
+
+                    b.HasIndex("GameStoreId");
 
                     b.HasIndex("SourceId", "SourceGameId")
                         .IsUnique();
@@ -307,6 +250,65 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                     b.ToTable("GameActions", (string)null);
                 });
 
+            modelBuilder.Entity("Hatband.Core.Models.Games.GamePluginData", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DataKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("JsonPayload")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PluginId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GameId", "PluginId", "DataKey")
+                        .IsUnique();
+
+                    b.ToTable("GamePluginData", (string)null);
+                });
+
+            modelBuilder.Entity("Hatband.Core.Models.Games.GameStore", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LogoPath")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceId")
+                        .IsUnique();
+
+                    b.ToTable("GameStores", (string)null);
+                });
+
             modelBuilder.Entity("Hatband.Core.Models.Libraries.GameLibrary", b =>
                 {
                     b.Property<Guid>("Id")
@@ -327,6 +329,12 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                         .WithMany("Games")
                         .HasForeignKey("GameLibraryId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Hatband.Core.Models.Games.GameStore", null)
+                        .WithMany()
+                        .HasForeignKey("GameStoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.OwnsOne("Hatband.Core.Models.Games.GameInstallationInfo", "InstallationInfo", b1 =>
                         {
@@ -432,6 +440,34 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("GameId");
                         });
 
+                    b.OwnsOne("Hatband.Core.Models.Games.PostInstall.GamePostInstallPlan", "PostInstallPlan", b1 =>
+                        {
+                            b1.Property<Guid>("GameId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("Diagnostics")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PostInstallPlan_Diagnostics");
+
+                            b1.Property<string>("Revision")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PostInstallPlan_Revision");
+
+                            b1.Property<string>("Steps")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("PostInstallPlan_Steps");
+
+                            b1.HasKey("GameId");
+
+                            b1.ToTable("GamePostInstallPlans", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("GameId");
+                        });
+
                     b.Navigation("InstallationInfo");
 
                     b.Navigation("Metadata")
@@ -455,7 +491,8 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                     b.HasOne("Hatband.Core.Models.Games.Game", null)
                         .WithMany()
                         .HasForeignKey("GameId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Hatband.Core.Models.Games.Game", b =>

@@ -17,4 +17,9 @@
     <PackageReference Include="SteamKit2" Version="3.4.0" />
     <PackageReference Include="ValveKeyValue" Version="0.71.0.528" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\Assets\Stores\steam-badge-white-cutout.png"
+             Link="Assets\Stores\steam-badge-white-cutout.png"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

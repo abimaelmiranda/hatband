@@ -67,6 +67,7 @@ public sealed class GameRepository : IGameRepository
         _appDataFileSystem.CreateDirectory(Path.Combine("games", game.Id.ToString("D"), "artwork"));
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var library = await context.Libraries.SingleAsync(item => item.Id == libraryId, cancellationToken);
+        await AssignGameStoreAsync(context, game, cancellationToken);
         context.Games.Add(game);
         library.Games.Add(game);
         await context.SaveChangesAsync(cancellationToken);
@@ -76,6 +77,7 @@ public sealed class GameRepository : IGameRepository
     {
         ArgumentNullException.ThrowIfNull(game);
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        await AssignGameStoreAsync(context, game, cancellationToken);
         context.Games.Update(game);
         await context.SaveChangesAsync(cancellationToken);
     }
@@ -115,5 +117,17 @@ public sealed class GameRepository : IGameRepository
 
         context.Games.Remove(game);
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task AssignGameStoreAsync(
+        HatbandDbContext context,
+        Game game,
+        CancellationToken cancellationToken)
+    {
+        var gameStore = await context.GameStores
+            .SingleOrDefaultAsync(store => store.SourceId == game.SourceId, cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"No persisted store is registered for game source '{game.SourceId}'.");
+        game.GameStoreId = gameStore.Id;
     }
 }

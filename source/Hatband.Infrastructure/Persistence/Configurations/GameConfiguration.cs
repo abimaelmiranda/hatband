@@ -13,6 +13,10 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
     {
         builder.ToTable("Games");
         builder.Property(game => game.Name).IsRequired();
+        builder.HasOne<GameStore>()
+            .WithMany()
+            .HasForeignKey(game => game.GameStoreId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder
             .HasIndex(game => new { game.SourceId, game.SourceGameId })
             .IsUnique();

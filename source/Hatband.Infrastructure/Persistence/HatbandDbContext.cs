@@ -16,6 +16,8 @@ public sealed class HatbandDbContext : DbContext
 
     public DbSet<Game> Games => Set<Game>();
 
+    public DbSet<GameStore> GameStores => Set<GameStore>();
+
     public DbSet<CacheEntry> CacheEntries => Set<CacheEntry>();
 
     public DbSet<GamePluginData> GamePluginData => Set<GamePluginData>();
