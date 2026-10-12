@@ -19,6 +19,7 @@ namespace Hatband.App.ViewModels;
 public sealed class LibraryScreenViewModel : ScreenViewModel
 {
     private VerticalAlignment _libraryAlignment = VerticalAlignment.Bottom;
+    private VerticalAlignment _storeLogoVerticalAlignment = VerticalAlignment.Bottom;
     private bool _showCoverTitles = true;
     private LibraryTitleModeOption _libraryTitleMode = LibraryTitleModeOption.None;
     private FontFamily _titleFontFamily = LibraryTitleTypography.GetFontFamily(LibraryTitleFont.Cinema);
@@ -57,6 +58,7 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
     public LibrarySessionViewModel Session { get; }
 
     public VerticalAlignment LibraryAlignment => _libraryAlignment;
+    public VerticalAlignment StoreLogoVerticalAlignment => _storeLogoVerticalAlignment;
     public bool ShowCoverTitles => _showCoverTitles;
     public LibraryTitleModeOption LibraryTitleMode => _libraryTitleMode;
     public bool IsTextTitleMode => _libraryTitleMode == LibraryTitleModeOption.Text;
@@ -82,8 +84,16 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
             LibraryPosition.Bottom => VerticalAlignment.Bottom,
             _ => throw new ArgumentOutOfRangeException(nameof(settings))
         };
+        var storeLogoAlignment = settings.LibraryPosition switch
+        {
+            LibraryPosition.Top => VerticalAlignment.Top,
+            LibraryPosition.Center => VerticalAlignment.Center,
+            LibraryPosition.Bottom => VerticalAlignment.Bottom,
+            _ => throw new ArgumentOutOfRangeException(nameof(settings))
+        };
 
         SetProperty(ref _libraryAlignment, alignment, nameof(LibraryAlignment));
+        SetProperty(ref _storeLogoVerticalAlignment, storeLogoAlignment, nameof(StoreLogoVerticalAlignment));
         SetProperty(ref _showCoverTitles, settings.ShowCoverTitles, nameof(ShowCoverTitles));
         SetProperty(ref _libraryTitleMode, settings.LibraryTitleMode, nameof(LibraryTitleMode));
         var showStoreLogosChanged = SetProperty(

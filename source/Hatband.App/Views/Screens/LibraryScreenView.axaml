@@ -40,6 +40,7 @@
                       IsVisible="{Binding !Session.IsLibraryBusy}">
                     <Grid Grid.Row="{Binding TitleRow}"
                           ColumnDefinitions="*,Auto"
+                          MinHeight="128"
                           MaxWidth="1600">
                         <Image Grid.Column="1"
                                Source="{Binding SelectedStoreLogoImage}"
@@ -47,7 +48,7 @@
                                MaxWidth="140"
                                MaxHeight="40"
                                Stretch="Uniform"
-                               VerticalAlignment="Bottom"
+                               VerticalAlignment="{Binding StoreLogoVerticalAlignment}"
                                HorizontalAlignment="Right"
                                Margin="24,4,24,4" />
                         <TextBlock Grid.Column="0"
