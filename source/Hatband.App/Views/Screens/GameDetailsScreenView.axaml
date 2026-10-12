@@ -213,7 +213,7 @@
             </Grid>
 
             <Border Grid.Row="1"
-                    Padding="16,9"
+                    Padding="16,5"
                     CornerRadius="7"
                     Background="#C0090D12">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
@@ -231,9 +231,9 @@
                                VerticalAlignment="Center"
                                IsVisible="{Binding Session.SelectedGameCard.HasTimeToBeat}" />
                     <Image Grid.Column="2"
-                           Source="avares://Hatband.App/Assets/Stores/steam-wordmark-white.png"
-                           Width="76"
-                           Height="20"
+                           Source="avares://Hatband.App/Assets/Stores/steam-logo-lockup-white.png"
+                           Width="88"
+                           Height="28"
                            Stretch="Uniform"
                            IsVisible="{Binding Session.SelectedGameCard.IsSteamSource}" />
                     <TextBlock Grid.Column="2"

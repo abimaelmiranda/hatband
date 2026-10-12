@@ -17,4 +17,6 @@ public sealed class AppearanceSettings
     public LibraryTitleFont TitleFont { get; set; } = LibraryTitleFont.Cinema;
 
     public bool NormalizeLibraryLogos { get; set; }
+
+    public bool ShowLibraryStoreLogos { get; set; }
 }

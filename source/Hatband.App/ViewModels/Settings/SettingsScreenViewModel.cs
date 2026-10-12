@@ -780,6 +780,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
                 GetRequiredBoolean(value, propertyPath[0].Name);
                 break;
             case nameof(AppearanceSettings.NormalizeLibraryLogos):
+            case nameof(AppearanceSettings.ShowLibraryStoreLogos):
                 GetRequiredBoolean(value, propertyPath[0].Name);
                 break;
             default:

@@ -1010,6 +1010,9 @@
   <data name="NormalizeLibraryLogos" xml:space="preserve">
     <value>Normalize library logos</value>
   </data>
+  <data name="ShowLibraryStoreLogos" xml:space="preserve">
+    <value>Show store logos in the library</value>
+  </data>
   <data name="LibraryLogoNormalizationPreparing" xml:space="preserve">
     <value>Preparing logo normalization…</value>
   </data>

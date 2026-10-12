@@ -860,6 +860,7 @@ public partial class SettingsSectionEditorView : UserControl
                     nameof(AppearanceSettings.LibraryTitleMode) => AppResources.LibraryTitleModeLabel,
                     nameof(AppearanceSettings.TitleFont) => AppResources.LibraryTitleFontLabel,
                     nameof(AppearanceSettings.NormalizeLibraryLogos) => AppResources.NormalizeLibraryLogos,
+                    nameof(AppearanceSettings.ShowLibraryStoreLogos) => AppResources.ShowLibraryStoreLogos,
                     _ => SettingsFieldConvention.GetDisplayName(property)
                 }
                 : SettingsFieldConvention.GetDisplayName(property);
