@@ -50,9 +50,12 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource? _statusMessageTimeoutCancellation;
     private CancellationTokenSource? _selectedLogoCancellation;
     private CancellationTokenSource? _selectedBackgroundCancellation;
+    private CancellationTokenSource? _selectedLogoDebounceCancellation;
+    private CancellationTokenSource? _selectedCardScaleDebounceCancellation;
     private long _selectedLogoRevision;
     private long _selectedBackgroundRevision;
     private GameCardViewModel? _selectedLogoCard;
+    private GameCardViewModel? _scaleSelectedGameCard;
     private bool _normalizeLibraryLogos;
     private bool _showSelectedGameLogos;
     private bool _isLibraryScreenActive;
@@ -122,9 +125,10 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     public void RefreshSelectedGameLogo()
     {
         _isLibraryScreenActive = true;
-        if (SelectedGameCard is { } gameCard && _showSelectedGameLogos)
+        if (SelectedGameCard is { } gameCard)
         {
-            _ = LoadSelectedGameLogoAsync(gameCard);
+            _ = LoadBackgroundAsync(gameCard);
+            ScheduleSelectedLogoLoad(gameCard);
         }
     }
 
@@ -146,6 +150,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         _applicationLifetime.Cancel();
         _libraryLogoNormalization.Dispose();
         _applicationLifetime.Dispose();
+        CancelSelectedLogoDebounce();
+        CancelSelectedCardScaleDebounce();
         _selectedLogoCancellation?.Cancel();
         _selectedBackgroundCancellation?.Cancel();
         ClearGameLogoCache();
@@ -1424,24 +1430,25 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         NotifyGamePreparationChanged();
         OnPropertyChanged(nameof(SelectedGameHiddenActionLabel));
 
-        foreach (var game in _allGames)
+        if (oldValue is not null)
         {
-            game.IsSelected = ReferenceEquals(game, newValue);
+            oldValue.IsSelected = false;
         }
 
         if (newValue is not null)
         {
+            newValue.IsSelected = true;
+            ScheduleSelectedCardScale(newValue);
             _ = LoadBackgroundAsync(newValue);
-            if (_isLibraryScreenActive)
-            {
-                _ = LoadSelectedGameLogoAsync(newValue);
-            }
+            ScheduleSelectedLogoLoad(newValue);
+            return;
         }
-        else
-        {
-            CancelSelectedGameLogoRequest();
-            CancelSelectedBackgroundLoad();
-        }
+
+        CancelSelectedCardScaleDebounce();
+        SetScaleSelectedGameCard(null);
+        CancelSelectedLogoDebounce();
+        CancelSelectedGameLogoRequest();
+        CancelSelectedBackgroundLoad();
     }
 
     private void OnAppearanceSettingsChanged(AppearanceSettings settings)
@@ -1543,7 +1550,117 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     public void CancelSelectedGameLogoLoad()
     {
         _isLibraryScreenActive = false;
+        CancelSelectedLogoDebounce();
         CancelSelectedGameLogoRequest();
+        CancelSelectedBackgroundLoad();
+    }
+
+    private void ScheduleSelectedLogoLoad(GameCardViewModel gameCard)
+    {
+        CancelSelectedLogoDebounce();
+        CancelSelectedGameLogoRequest();
+
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_applicationLifetime.Token);
+        _selectedLogoDebounceCancellation = cancellation;
+        _ = LoadSelectedLogoAfterQuietPeriodAsync(gameCard, cancellation);
+    }
+
+    private async Task LoadSelectedLogoAfterQuietPeriodAsync(
+        GameCardViewModel gameCard,
+        CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(SelectionQuietPeriod, cancellation.Token);
+            if (!ReferenceEquals(SelectedGameCard, gameCard) || !_isLibraryScreenActive)
+            {
+                return;
+            }
+
+            if (_showSelectedGameLogos)
+            {
+                _ = LoadSelectedGameLogoAsync(gameCard);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_selectedLogoDebounceCancellation, cancellation))
+            {
+                _selectedLogoDebounceCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelSelectedLogoDebounce()
+    {
+        var cancellation = _selectedLogoDebounceCancellation;
+        _selectedLogoDebounceCancellation = null;
+        cancellation?.Cancel();
+    }
+
+    private void ScheduleSelectedCardScale(GameCardViewModel gameCard)
+    {
+        CancelSelectedCardScaleDebounce();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_applicationLifetime.Token);
+        _selectedCardScaleDebounceCancellation = cancellation;
+        _ = ApplySelectedCardScaleAfterQuietPeriodAsync(gameCard, cancellation);
+    }
+
+    private async Task ApplySelectedCardScaleAfterQuietPeriodAsync(
+        GameCardViewModel gameCard,
+        CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(SelectionQuietPeriod, cancellation.Token);
+            if (ReferenceEquals(SelectedGameCard, gameCard))
+            {
+                SetScaleSelectedGameCard(gameCard);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_selectedCardScaleDebounceCancellation, cancellation))
+            {
+                _selectedCardScaleDebounceCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelSelectedCardScaleDebounce()
+    {
+        var cancellation = _selectedCardScaleDebounceCancellation;
+        _selectedCardScaleDebounceCancellation = null;
+        cancellation?.Cancel();
+    }
+
+    private void SetScaleSelectedGameCard(GameCardViewModel? gameCard)
+    {
+        if (ReferenceEquals(_scaleSelectedGameCard, gameCard))
+        {
+            return;
+        }
+
+        if (_scaleSelectedGameCard is not null)
+        {
+            _scaleSelectedGameCard.IsScaleSelected = false;
+        }
+
+        _scaleSelectedGameCard = gameCard;
+        if (_scaleSelectedGameCard is not null)
+        {
+            _scaleSelectedGameCard.IsScaleSelected = true;
+        }
     }
 
     private void CancelSelectedGameLogoRequest()

@@ -29,6 +29,9 @@ public partial class GameCardViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsScaleSelected { get; set; }
+
     public GameCardViewModel(
         Game game,
         DateTimeDisplayFormatter dateTimeDisplayFormatter,
@@ -248,14 +251,18 @@ public partial class GameCardViewModel : ObservableObject
 
     public Thickness SelectionBorderThickness => IsSelected ? new Thickness(4) : new Thickness(0);
 
-    public double CardWidth => IsSelected ? 184 : 158;
+    public double CardWidth => IsScaleSelected ? 184 : 158;
 
-    public double CardHeight => IsSelected ? 264 : 226;
+    public double CardHeight => IsScaleSelected ? 264 : 226;
 
     partial void OnIsSelectedChanged(bool value)
     {
         OnPropertyChanged(nameof(SelectionBrush));
         OnPropertyChanged(nameof(SelectionBorderThickness));
+    }
+
+    partial void OnIsScaleSelectedChanged(bool value)
+    {
         OnPropertyChanged(nameof(CardWidth));
         OnPropertyChanged(nameof(CardHeight));
     }

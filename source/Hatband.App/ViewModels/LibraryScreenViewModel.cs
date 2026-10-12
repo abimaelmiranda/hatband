@@ -31,6 +31,7 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
     private readonly ILogger<LibraryScreenViewModel> _logger;
     private CancellationTokenSource? _storeLogoLoadCancellation;
     private Bitmap? _selectedStoreLogoImage;
+    private string? _selectedStoreLogoPath;
     private bool _showLibraryStoreLogos;
     private bool _isActive;
     private long _storeLogoLoadVersion;
@@ -128,6 +129,7 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
         _isActive = false;
         Session.CancelSelectedGameLogoLoad();
         CancelStoreLogoLoad();
+        _selectedStoreLogoPath = null;
         SetSelectedStoreLogoImage(null);
     }
 
@@ -167,18 +169,31 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
 
     private void RefreshSelectedStoreLogo()
     {
-        CancelStoreLogoLoad();
-        SetSelectedStoreLogoImage(null);
         if (!_isActive || !_showLibraryStoreLogos || Session.SelectedGameCard is not { } selectedCard)
         {
+            CancelStoreLogoLoad();
+            _selectedStoreLogoPath = null;
+            SetSelectedStoreLogoImage(null);
             return;
         }
 
         var logoPath = _sourceCatalog.GetLogoPath(selectedCard.Game.SourceId);
         if (logoPath is null)
         {
+            CancelStoreLogoLoad();
+            _selectedStoreLogoPath = null;
+            SetSelectedStoreLogoImage(null);
             return;
         }
+
+        if (string.Equals(_selectedStoreLogoPath, logoPath, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        CancelStoreLogoLoad();
+        SetSelectedStoreLogoImage(null);
+        _selectedStoreLogoPath = logoPath;
 
         var version = _storeLogoLoadVersion;
         var cancellation = new CancellationTokenSource();
@@ -210,6 +225,14 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Could not load the store logo for game {GameId}.", gameId);
+        }
+        finally
+        {
+            if (_storeLogoLoadCancellation is { } cancellation && cancellation.Token == cancellationToken)
+            {
+                _storeLogoLoadCancellation = null;
+                cancellation.Dispose();
+            }
         }
     }
 
