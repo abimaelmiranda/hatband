@@ -32,12 +32,20 @@ public sealed class IgnArtworkProvider : IGameArtworkProvider
 
     public string DisplayName => "IGN";
 
+    public IReadOnlySet<GameArtworkSlot> SupportedSlots { get; } = new HashSet<GameArtworkSlot>
+    {
+        GameArtworkSlot.Cover,
+        GameArtworkSlot.Background
+    };
+
     public Task<IReadOnlyList<GameArtworkImage>> GetDefaultArtworksAsync(
         Game game,
+        IReadOnlySet<GameArtworkSlot> requestedSlots,
         string languageTag,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(requestedSlots);
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult<IReadOnlyList<GameArtworkImage>>([]);
@@ -45,12 +53,18 @@ public sealed class IgnArtworkProvider : IGameArtworkProvider
 
     public async Task<IReadOnlyList<GameArtworkImage>> GetArtworksAsync(
         Game game,
+        IReadOnlySet<GameArtworkSlot> requestedSlots,
         string languageTag,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(requestedSlots);
         ArgumentException.ThrowIfNullOrWhiteSpace(game.Name);
         ArgumentException.ThrowIfNullOrWhiteSpace(languageTag);
+        if (requestedSlots.Count == 0)
+        {
+            return [];
+        }
 
         var search = await client.SearchGamesAsync(game.Name, "US", languageTag, cancellationToken);
         if (search.ErrorMessage is not null)
@@ -75,8 +89,10 @@ public sealed class IgnArtworkProvider : IGameArtworkProvider
 
         using var document = gallery.Value
             ?? throw new InvalidOperationException("IGN returned a successful artwork response without data.");
-        var sources = IgnGraphQlParser.ReadArtwork(document.RootElement, selectedGame.PrimaryImageUrl);
-        var images = new List<GameArtworkImage>(sources.Count);
+        var sources = IgnGraphQlParser.ReadArtwork(document.RootElement, selectedGame.PrimaryImageUrl)
+            .Where(source => requestedSlots.Contains(source.Slot))
+            .ToArray();
+        var images = new List<GameArtworkImage>(sources.Length);
         using var httpClient = httpClientFactory.CreateClient("Hatband.Plugin.IGN");
         foreach (var (url, slot) in sources)
         {

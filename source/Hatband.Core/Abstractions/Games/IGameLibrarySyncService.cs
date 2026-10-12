@@ -1,4 +1,5 @@
 using Hatband.Core.Enums.Stores;
+using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Enums.Games;
 using Hatband.Core.Models.Games;
 
@@ -24,4 +25,12 @@ public interface IGameLibrarySyncService
     /// Explicitly refreshes metadata, artwork, compatibility, and play-time estimates for one game.
     /// </summary>
     Task<Game> RefreshGameDataAsync(Guid gameId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ensures that requested default artwork slots are available for an existing, visible game.
+    /// </summary>
+    Task<Game> EnsureArtworkAsync(
+        Guid gameId,
+        IReadOnlySet<GameArtworkSlot> slots,
+        CancellationToken cancellationToken = default);
 }

@@ -4,5 +4,6 @@ public enum GameArtworkSlot
 {
     Cover,
     Background,
-    Icon
+    Icon,
+    Logo
 }

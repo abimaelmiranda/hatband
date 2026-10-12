@@ -133,6 +133,10 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                             b1.Property<string>("IconPath")
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Artwork_IconPath");
+
+                            b1.Property<string>("LogoPath")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Artwork_LogoPath");
                         });
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "CompatibilityLayer", "Hatband.Core.Models.Games.Game.CompatibilityLayer#CompatibilityLayer", b1 =>
@@ -222,6 +226,10 @@ namespace Hatband.Infrastructure.Persistence.Migrations
                             b1.Property<string>("IconPath")
                                 .HasColumnType("TEXT")
                                 .HasColumnName("DefaultArtwork_IconPath");
+
+                            b1.Property<string>("LogoPath")
+                                .HasColumnType("TEXT")
+                                .HasColumnName("DefaultArtwork_LogoPath");
 
                             b1.HasDiscriminator<string>("Discriminator").HasValue("GameArtwork");
                         });

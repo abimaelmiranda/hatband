@@ -40,6 +40,7 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                 artwork.Property(value => value.CoverImagePath).HasColumnName("Artwork_CoverImagePath");
                 artwork.Property(value => value.BackgroundImagePath).HasColumnName("Artwork_BackgroundImagePath");
                 artwork.Property(value => value.IconPath).HasColumnName("Artwork_IconPath");
+                artwork.Property(value => value.LogoPath).HasColumnName("Artwork_LogoPath");
             });
         builder.ComplexProperty(
             game => game.DefaultArtwork,
@@ -49,6 +50,7 @@ public sealed class GameConfiguration : ModelBaseConfiguration<Game>
                 artwork.Property(value => value.CoverImagePath).HasColumnName("DefaultArtwork_CoverImagePath");
                 artwork.Property(value => value.BackgroundImagePath).HasColumnName("DefaultArtwork_BackgroundImagePath");
                 artwork.Property(value => value.IconPath).HasColumnName("DefaultArtwork_IconPath");
+                artwork.Property(value => value.LogoPath).HasColumnName("DefaultArtwork_LogoPath");
             });
 
         builder.OwnsOne(

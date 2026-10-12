@@ -1,3 +1,4 @@
+using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Services;
 using Microsoft.Extensions.Logging;
 
@@ -5,6 +6,7 @@ namespace Hatband.Infrastructure.Services.Games;
 
 public sealed class GameLibrarySyncService : IGameLibrarySyncService
 {
+    private static readonly IReadOnlySet<GameArtworkSlot> AllArtworkSlots = Enum.GetValues<GameArtworkSlot>().ToHashSet();
     private readonly IGameRepository gameRepository;
     private readonly IGameLibraryRepository libraryRepository;
     private readonly ISettingsApi settingsApi;
@@ -156,14 +158,34 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
             return true;
         }
 
-        var artworkProvider = GetArtworkProvider(game, sourceId);
-        if (artworkProvider is not null && (game.DefaultArtwork is null || game.DefaultArtwork.IsEmpty))
+        if (NeedsArtworkEnrichment(game, sourceId))
         {
             return true;
         }
 
         return HasMissingCompatibilityTier(game, sourceId) ||
             (howLongToBeatProvider is not null && game.TimeToBeat is null);
+    }
+
+    private bool NeedsArtworkEnrichment(Game game, string sourceId)
+    {
+        foreach (var provider in GetArtworkProvidersForGame(game, sourceId))
+        {
+            foreach (var slot in provider.SupportedSlots)
+            {
+                if (NeedsArtworkSlot(game, slot))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private bool NeedsArtworkSlot(Game game, GameArtworkSlot slot)
+    {
+        return !HasArtworkPath(game.DefaultArtwork, slot) || game.Artwork.GetPath(slot) is null;
     }
 
     public async Task RefreshMetadataAsync(CancellationToken cancellationToken = default)
@@ -221,6 +243,11 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
         {
             var game = await gameRepository.GetByIdAsync(gameId, cancellationToken)
                 ?? throw new KeyNotFoundException($"Game '{gameId}' was not found.");
+            if (game.IsHidden)
+            {
+                return game;
+            }
+
             var settings = await settingsApi.GetSectionAsync<GeneralSettings>(cancellationToken);
             await EnrichImportedGameAsync(
                 game,
@@ -230,6 +257,48 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
                 replaceMetadata: true,
                 cancellationToken: cancellationToken);
             await gameRepository.UpdateAsync(game, cancellationToken);
+            return game;
+        }
+        finally
+        {
+            syncGate.Release();
+        }
+    }
+
+    public async Task<Game> EnsureArtworkAsync(
+        Guid gameId,
+        IReadOnlySet<GameArtworkSlot> slots,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(slots);
+        if (slots.Any(slot => !Enum.IsDefined(slot)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(slots), slots, "Requested artwork slots must be defined values.");
+        }
+
+        await syncGate.WaitAsync(cancellationToken);
+        try
+        {
+            var game = await gameRepository.GetByIdAsync(gameId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Game '{gameId}' was not found.");
+            if (game.IsHidden || slots.Count == 0)
+            {
+                return game;
+            }
+
+            var settings = await settingsApi.GetSectionAsync<GeneralSettings>(cancellationToken);
+            var artworkChanged = await EnsureDefaultArtworkSlotsAsync(
+                game,
+                game.SourceId,
+                slots,
+                settings.LanguageTag,
+                refreshAll: false,
+                cancellationToken);
+            if (artworkChanged)
+            {
+                await gameRepository.UpdateAsync(game, cancellationToken);
+            }
+
             return game;
         }
         finally
@@ -273,29 +342,7 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
             }
         }
 
-        var artworkProvider = GetArtworkProvider(game, sourceId);
-        if (artworkProvider is not null &&
-            (refreshAll || game.DefaultArtwork is null || game.DefaultArtwork.IsEmpty))
-        {
-            try
-            {
-                var images = await artworkProvider.GetDefaultArtworksAsync(game, languageTag, cancellationToken);
-                var defaults = await artworkStorage.StoreAsync(game.Id, images, game.DefaultArtwork ?? new GameArtwork(), cancellationToken);
-                game.DefaultArtwork = defaults;
-                if (game.Artwork.IsEmpty)
-                {
-                    game.Artwork = defaults;
-                }
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                logger.LogWarning(exception, "Default artwork lookup failed during sync for {GameName}.", game.Name);
-            }
-        }
+        await EnsureDefaultArtworkSlotsAsync(game, sourceId, AllArtworkSlots, languageTag, refreshAll, cancellationToken);
 
         await RefreshCompatibilityTierAsync(game, sourceId, cancellationToken, refreshAll);
 
@@ -317,6 +364,98 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
             }
         }
     }
+
+    private async Task<bool> EnsureDefaultArtworkSlotsAsync(
+        Game game,
+        string sourceId,
+        IReadOnlySet<GameArtworkSlot> requestedSlots,
+        string languageTag,
+        bool refreshAll,
+        CancellationToken cancellationToken)
+    {
+        var previousDefaults = game.DefaultArtwork;
+        var artworkChanged = false;
+        foreach (var slot in requestedSlots)
+        {
+            var selectedPath = game.Artwork.GetPath(slot);
+            var defaultPath = game.DefaultArtwork?.GetPath(slot);
+            if (selectedPath is null && defaultPath is { } availablePath && artworkStorage.IsAvailable(availablePath))
+            {
+                game.Artwork = game.Artwork.WithPath(slot, availablePath);
+                artworkChanged = true;
+            }
+        }
+
+        var remainingSlots = requestedSlots
+            .Where(slot => refreshAll || !HasArtworkPath(game.DefaultArtwork, slot))
+            .ToHashSet();
+        if (remainingSlots.Count == 0)
+        {
+            return artworkChanged;
+        }
+
+        foreach (var provider in GetArtworkProvidersForGame(game, sourceId))
+        {
+            var providerSlots = remainingSlots.Intersect(provider.SupportedSlots).ToHashSet();
+            if (providerSlots.Count == 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                var images = await provider.GetDefaultArtworksAsync(game, providerSlots, languageTag, cancellationToken);
+                var relevantImages = images
+                    .Where(image => providerSlots.Contains(image.Slot))
+                    .ToArray();
+                if (relevantImages.Length == 0)
+                {
+                    continue;
+                }
+
+                var defaults = await artworkStorage.StoreAsync(
+                    game.Id,
+                    relevantImages,
+                    game.DefaultArtwork ?? new GameArtwork(),
+                    GameArtworkStorageKind.Default,
+                    cancellationToken);
+                game.DefaultArtwork = defaults;
+                artworkChanged |= previousDefaults != defaults;
+                foreach (var image in relevantImages)
+                {
+                    var slot = image.Slot;
+                    var oldDefaultPath = previousDefaults?.GetPath(slot);
+                    var selectedPath = game.Artwork.GetPath(slot);
+                    var canReplaceSelectedPath = selectedPath is null || selectedPath == oldDefaultPath;
+                    var newDefaultPath = defaults.GetPath(slot);
+                    if (canReplaceSelectedPath && newDefaultPath is not null)
+                    {
+                        var selectedArtwork = game.Artwork;
+                        game.Artwork = selectedArtwork.WithPath(slot, newDefaultPath);
+                        artworkChanged |= selectedArtwork != game.Artwork;
+                    }
+
+                    if (defaults.GetPath(slot) is not null)
+                    {
+                        remainingSlots.Remove(slot);
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Default artwork lookup from {Provider} failed during sync for {GameName}.", provider.DisplayName, game.Name);
+            }
+        }
+
+        return artworkChanged;
+    }
+
+    private bool HasArtworkPath(GameArtwork? artwork, GameArtworkSlot slot) =>
+        artworkStorage.IsAvailable(artwork?.GetPath(slot));
 
     private async Task<bool> RefreshCompatibilityTierAsync(
         Game game,
@@ -406,9 +545,11 @@ public sealed class GameLibrarySyncService : IGameLibrarySyncService
                            provider.SourceId is null)
         .OrderByDescending(provider => provider.SourceId == game.Metadata.StoreSourceId || provider.SourceId == sourceId);
 
-    private IGameArtworkProvider? GetArtworkProvider(Game game, string sourceId)
+    private IEnumerable<IGameArtworkProvider> GetArtworkProvidersForGame(Game game, string sourceId)
     {
         var artworkSourceId = game.Metadata.StoreSourceId ?? sourceId;
-        return artworkProviders.SingleOrDefault(provider => provider.SourceId == artworkSourceId);
+        return artworkProviders
+            .Where(provider => provider.SourceId == artworkSourceId || provider.SourceId is null)
+            .OrderByDescending(provider => provider.SourceId == artworkSourceId);
     }
 }

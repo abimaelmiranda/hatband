@@ -1,3 +1,4 @@
+using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Games;
 
@@ -12,17 +13,21 @@ public interface IGameArtworkProvider
 
     string? SourceId { get; }
 
+    IReadOnlySet<GameArtworkSlot> SupportedSlots { get; }
+
     /// <summary>
     /// Gets the preferred artwork for the game's library source. An empty list means this provider has no default artwork.
     /// </summary>
     Task<IReadOnlyList<GameArtworkImage>> GetDefaultArtworksAsync(
         Game game,
+        IReadOnlySet<GameArtworkSlot> requestedSlots,
         string languageTag,
         CancellationToken cancellationToken = default);
 
     /// <param name="languageTag">The user's preferred BCP-47 language tag.</param>
     Task<IReadOnlyList<GameArtworkImage>> GetArtworksAsync(
         Game game,
+        IReadOnlySet<GameArtworkSlot> requestedSlots,
         string languageTag,
         CancellationToken cancellationToken = default);
 }

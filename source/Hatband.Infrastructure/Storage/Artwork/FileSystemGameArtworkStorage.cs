@@ -29,10 +29,15 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
         Guid gameId,
         IReadOnlyList<GameArtworkImage> images,
         GameArtwork existingArtwork,
+        GameArtworkStorageKind kind,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(images);
         ArgumentNullException.ThrowIfNull(existingArtwork);
+        if (!Enum.IsDefined(kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown artwork storage kind.");
+        }
 
         var storedPaths = new Dictionary<GameArtworkSlot, string>();
         foreach (var image in images)
@@ -43,15 +48,16 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
                 continue;
             }
 
-            storedPaths[image.Slot] = await StoreImageAsync(gameId, image, cancellationToken);
+            storedPaths[image.Slot] = await StoreImageAsync(gameId, image, kind, cancellationToken);
         }
 
-        return new GameArtwork
+        var storedArtwork = existingArtwork;
+        foreach (var (slot, path) in storedPaths)
         {
-            CoverImagePath = storedPaths.GetValueOrDefault(GameArtworkSlot.Cover) ?? existingArtwork.CoverImagePath,
-            BackgroundImagePath = storedPaths.GetValueOrDefault(GameArtworkSlot.Background) ?? existingArtwork.BackgroundImagePath,
-            IconPath = storedPaths.GetValueOrDefault(GameArtworkSlot.Icon) ?? existingArtwork.IconPath
-        };
+            storedArtwork = storedArtwork.WithPath(slot, path);
+        }
+
+        return storedArtwork;
     }
 
     public async Task<string> ImportLocalAsync(
@@ -120,7 +126,11 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
         }
     }
 
-    private async Task<string> StoreImageAsync(Guid gameId, GameArtworkImage image, CancellationToken cancellationToken)
+    private async Task<string> StoreImageAsync(
+        Guid gameId,
+        GameArtworkImage image,
+        GameArtworkStorageKind kind,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentException.ThrowIfNullOrWhiteSpace(image.ContentType);
@@ -139,7 +149,13 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
         };
         var relativeDirectory = Path.Combine("games", gameId.ToString("D"), "artwork");
         appDataFileSystem.CreateDirectory(relativeDirectory);
-        var relativePath = Path.Combine(relativeDirectory, $"{GetAssetName(image.Slot)}{extension}")
+        var fileName = kind switch
+        {
+            GameArtworkStorageKind.Default => $"default-{GetAssetName(image.Slot)}{extension}",
+            GameArtworkStorageKind.Custom => $"custom-{GetAssetName(image.Slot)}-{Guid.NewGuid():N}{extension}",
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown artwork storage kind.")
+        };
+        var relativePath = Path.Combine(relativeDirectory, fileName)
             .Replace(Path.DirectorySeparatorChar, '/');
         await appDataFileSystem.WriteAllBytesAtomicallyAsync(relativePath, image.Content, cancellationToken);
         return relativePath;
@@ -160,6 +176,7 @@ public sealed class FileSystemGameArtworkStorage : IGameArtworkStorage
             GameArtworkSlot.Cover => "cover",
             GameArtworkSlot.Background => "background",
             GameArtworkSlot.Icon => "icon",
+            GameArtworkSlot.Logo => "logo",
             _ => throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown artwork slot.")
         };
     }

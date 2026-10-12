@@ -15,6 +15,7 @@ public interface IGameArtworkStorage
         Guid gameId,
         IReadOnlyList<GameArtworkImage> images,
         GameArtwork existingArtwork,
+        GameArtworkStorageKind kind,
         CancellationToken cancellationToken = default);
 
     Task<string> ImportLocalAsync(

@@ -40,28 +40,74 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
 
     public string DisplayName => "Steam";
 
+    public IReadOnlySet<GameArtworkSlot> SupportedSlots { get; } = new HashSet<GameArtworkSlot>
+    {
+        GameArtworkSlot.Cover,
+        GameArtworkSlot.Background,
+        GameArtworkSlot.Logo
+    };
+
     public async Task<IReadOnlyList<GameArtworkImage>> GetDefaultArtworksAsync(
         Game game,
+        IReadOnlySet<GameArtworkSlot> requestedSlots,
         string languageTag,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(requestedSlots);
+        if (requestedSlots.Count == 0)
+        {
+            return [];
+        }
+
         using var httpClient = httpClientFactory.CreateClient("Hatband.Plugin.Steam");
         var sources = await GetArtworkSourcesAsync(httpClient, game, languageTag, cancellationToken);
-        var defaultSources = sources
+        var defaultSourceGroups = sources
+            .Where(source => requestedSlots.Contains(source.Slot))
             .GroupBy(source => source.Slot)
-            .Select(group => group.First())
             .ToArray();
-        return await DownloadArtworksAsync(httpClient, defaultSources, cancellationToken);
+        var images = new List<GameArtworkImage>(defaultSourceGroups.Length);
+        foreach (var sourceGroup in defaultSourceGroups)
+        {
+            if (sourceGroup.Key != GameArtworkSlot.Logo)
+            {
+                images.AddRange(await DownloadArtworksAsync(
+                    httpClient,
+                    [sourceGroup.First()],
+                    cancellationToken));
+                continue;
+            }
+
+            foreach (var source in sourceGroup)
+            {
+                var logo = await DownloadArtworksAsync(httpClient, [source], cancellationToken);
+                if (logo.Count == 0)
+                {
+                    continue;
+                }
+
+                images.Add(logo[0]);
+                break;
+            }
+        }
+
+        return images;
     }
 
     public async Task<IReadOnlyList<GameArtworkImage>> GetArtworksAsync(
         Game game,
+        IReadOnlySet<GameArtworkSlot> requestedSlots,
         string languageTag,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(requestedSlots);
+        if (requestedSlots.Count == 0)
+        {
+            return [];
+        }
+
         using var httpClient = httpClientFactory.CreateClient("Hatband.Plugin.Steam");
         var sources = await GetArtworkSourcesAsync(httpClient, game, languageTag, cancellationToken);
-        return await DownloadArtworksAsync(httpClient, sources, cancellationToken);
+        return await DownloadArtworksAsync(httpClient, sources.Where(source => requestedSlots.Contains(source.Slot)).ToArray(), cancellationToken);
     }
 
     private async Task<IReadOnlyList<(string Url, GameArtworkSlot Slot)>> GetArtworkSourcesAsync(
@@ -289,6 +335,8 @@ public sealed class SteamArtworkProvider : IGameArtworkProvider
         AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/library_hero.jpg", GameArtworkSlot.Background);
         AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/background.jpg", GameArtworkSlot.Background);
         AddSource(sources, $"{LegacyArtworkBaseUri}{appIdText}/header.jpg", GameArtworkSlot.Background);
+        AddSource(sources, $"{AssetStoreBaseUri}steam/apps/{appIdText}/logo_2x.png", GameArtworkSlot.Logo);
+        AddSource(sources, $"{AssetStoreBaseUri}steam/apps/{appIdText}/logo.png", GameArtworkSlot.Logo);
 
         return sources;
     }
