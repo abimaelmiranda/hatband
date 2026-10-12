@@ -12,13 +12,12 @@ using Hatband.Core.Enums.Stores;
 
 namespace Hatband.App.ViewModels;
 
-/// <summary>Owns editable game metadata and routes artwork selection through the global modal host.</summary>
+/// <summary>Owns the editable metadata and artwork draft for a game.</summary>
 public partial class GameMetadataEditorViewModel : ScreenViewModel
 {
     private readonly IGameRepository gameRepository;
     private readonly IGameArtworkStorage artworkStorage;
     private readonly IReadOnlyList<IGameMetadataProvider> metadataProviders;
-    private readonly IModalService _modalService;
     private readonly CompatibilityEditorViewModel compatibilityEditor;
     private CancellationTokenSource? _artworkSearchCancellation;
     private Game? game;
@@ -83,7 +82,6 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         IEnumerable<IGameMetadataProvider> metadataProviders,
         IEnumerable<IGameArtworkProvider> artworkProviders,
         ArtworkImageLoader artworkImageLoader,
-        IModalService modalService,
         CompatibilityEditorViewModel compatibilityEditor)
     {
         ArgumentNullException.ThrowIfNull(gameRepository);
@@ -91,12 +89,10 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         ArgumentNullException.ThrowIfNull(metadataProviders);
         ArgumentNullException.ThrowIfNull(artworkProviders);
         ArgumentNullException.ThrowIfNull(artworkImageLoader);
-        ArgumentNullException.ThrowIfNull(modalService);
         ArgumentNullException.ThrowIfNull(compatibilityEditor);
         this.gameRepository = gameRepository;
         this.artworkStorage = artworkStorage;
         this.metadataProviders = metadataProviders.ToArray();
-        _modalService = modalService;
         this.compatibilityEditor = compatibilityEditor;
         ArtworkPicker = new GameArtworkPickerViewModel(artworkProviders, artworkImageLoader);
     }
@@ -184,41 +180,38 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         SelectedMetadataSource = MetadataSources.FirstOrDefault();
     }
 
-    /// <summary>Shows the shared artwork picker modally and imports the confirmed preview into the edit draft.</summary>
-    public async Task OpenArtworkPickerAsync(GameArtworkSlot slot, CancellationToken cancellationToken = default)
+    /// <summary>Loads artwork choices for the selected slot and keeps the picker open for inline selection.</summary>
+    public async Task SearchArtworkAsync(GameArtworkSlot slot, CancellationToken cancellationToken = default)
     {
         _artworkSearchCancellation?.Cancel();
-        using var searchCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var searchCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _artworkSearchCancellation = searchCancellation;
-        Task artworkSearchTask = Task.CompletedTask;
         try
         {
-            artworkSearchTask = ArtworkPicker.OpenAsync(slot, Name, searchCancellation.Token);
-            var modal = new ArtworkPickerModalViewModel(ArtworkPicker);
-            var completion = await _modalService.ShowAsync(modal, this);
-            if (completion.Outcome == ModalOutcome.Confirmed)
+            if (!string.IsNullOrWhiteSpace(Name))
             {
-                ArtworkPicker.SelectedActiveArtworkOption = completion.GetConfirmedValue();
-                ApplySelectedArtwork();
+                await ArtworkPicker.OpenAsync(slot, Name.Trim(), searchCancellation.Token);
             }
+        }
+        catch (OperationCanceledException) when (searchCancellation.IsCancellationRequested)
+        {
         }
         finally
         {
-            searchCancellation.Cancel();
-            ArtworkPicker.Close();
-            try
-            {
-                await artworkSearchTask;
-            }
-            catch (OperationCanceledException) when (searchCancellation.IsCancellationRequested)
-            {
-            }
-
             if (ReferenceEquals(_artworkSearchCancellation, searchCancellation))
             {
                 _artworkSearchCancellation = null;
             }
+
+            searchCancellation.Dispose();
         }
+    }
+
+    public void CloseArtworkSearch()
+    {
+        _artworkSearchCancellation?.Cancel();
+        _artworkSearchCancellation = null;
+        ArtworkPicker.Close();
     }
 
     public void ApplySelectedArtwork()
@@ -254,7 +247,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
                 throw new ArgumentOutOfRangeException(nameof(ArtworkPicker.ActiveArtworkSlot));
         }
 
-        ArtworkPicker.Close();
+        CloseArtworkSearch();
     }
 
     public void ImportArtwork(GameArtworkImage image)

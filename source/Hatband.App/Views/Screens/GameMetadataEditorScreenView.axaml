@@ -144,6 +144,20 @@
                             <Button Grid.Column="3" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Logo" Click="OnImportArtworkClick" />
                         </Grid>
 
+                        <components:ArtworkPickerCarouselView x:Name="ArtworkPickerCarousel"
+                                                              DataContext="{Binding ArtworkPicker}" />
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8"
+                                    IsVisible="{Binding ArtworkPicker.IsArtworkPickerOpen}">
+                            <Button Content="{x:Static lang:Resources.UseArtwork}"
+                                    Classes="subtle-action standard-action"
+                                    Click="OnUseSelectedArtworkClick"
+                                    IsEnabled="{Binding ArtworkPicker.CanApplyActiveArtwork}" />
+                            <Button Content="{x:Static lang:Resources.Cancel}"
+                                    Classes="subtle-action standard-action"
+                                    Click="OnCloseArtworkPickerClick" />
+                        </StackPanel>
+
                             </StackPanel>
                         </ScrollViewer>
 

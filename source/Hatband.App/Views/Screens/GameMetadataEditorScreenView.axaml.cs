@@ -14,7 +14,7 @@ using Hatband.Core.Models.Games;
 
 namespace Hatband.App.Views.Screens;
 
-/// <summary>Hosts the metadata editor and keeps section, content, and modal navigation scoped locally.</summary>
+/// <summary>Hosts the metadata editor and keeps section and content navigation scoped locally.</summary>
 public partial class GameMetadataEditorScreenView : FullScreenView
 {
     private readonly ConsoleNavigationItemView[] sectionItems;
@@ -85,6 +85,22 @@ public partial class GameMetadataEditorScreenView : FullScreenView
                 : NavigationActionHandling.Unhandled;
         }
 
+        if (DataContext is GameMetadataEditorViewModel artworkViewModel &&
+            artworkViewModel.ArtworkPicker.IsArtworkPickerOpen)
+        {
+            if (action == NavigationAction.Confirm && ArtworkPickerCarousel.IsArtworkOptionFocused)
+            {
+                UseFocusedArtworkOption();
+                return NavigationActionHandling.Handled;
+            }
+
+            if ((action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right) &&
+                ArtworkPickerCarousel.HasActiveArtworkList)
+            {
+                return NavigationActionHandling.Native;
+            }
+        }
+
         var focusedControl = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
         var sourceTabFocused = focusedControl is TabItem tab &&
             tab.GetVisualAncestors().Contains(MetadataSourceTabs);
@@ -133,6 +149,14 @@ public partial class GameMetadataEditorScreenView : FullScreenView
         if (DataContext is not GameMetadataEditorViewModel viewModel)
         {
             return false;
+        }
+
+        if (viewModel.ArtworkPicker.IsArtworkPickerOpen)
+        {
+            var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
+            viewModel.CloseArtworkSearch();
+            FocusArtworkSearchButton(slot);
+            return true;
         }
 
         if (isSectionContentActive)
@@ -310,7 +334,39 @@ public partial class GameMetadataEditorScreenView : FullScreenView
 
         e.Handled = true;
         var slot = ParseArtworkSlot(slotName);
-        await viewModel.OpenArtworkPickerAsync(slot);
+        await viewModel.SearchArtworkAsync(slot);
+        ArtworkPickerCarousel.FocusSelectedArtworkOption();
+    }
+
+    private void OnUseSelectedArtworkClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        UseFocusedArtworkOption();
+    }
+
+    private void UseFocusedArtworkOption()
+    {
+        if (DataContext is not GameMetadataEditorViewModel viewModel ||
+            !viewModel.ArtworkPicker.CanApplyActiveArtwork)
+        {
+            return;
+        }
+
+        var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
+        viewModel.ApplySelectedArtwork();
+        FocusArtworkSearchButton(slot);
+    }
+
+    private void OnCloseArtworkPickerClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GameMetadataEditorViewModel viewModel)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
+        viewModel.CloseArtworkSearch();
         FocusArtworkSearchButton(slot);
     }
 

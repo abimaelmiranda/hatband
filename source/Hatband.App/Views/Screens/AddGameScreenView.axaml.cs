@@ -27,35 +27,11 @@ public partial class AddGameScreenView : FullScreenView
 
     public Control ArtworkPickerNavigationRoot => ImagesPanel;
 
-    public bool IsArtworkOptionFocused => GetActiveArtworkList() is { } activeList &&
-        (activeList.IsFocused || activeList.GetVisualDescendants()
-            .OfType<ListBoxItem>()
-            .Any(item => item.IsFocused));
+    public bool IsArtworkOptionFocused => ArtworkPickerCarousel.IsArtworkOptionFocused;
 
     public void FocusSelectedArtworkOption()
     {
-        var activeList = GetActiveArtworkList();
-        if (activeList is null)
-        {
-            return;
-        }
-
-        DirectionalFocusNavigator.Focus(activeList);
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (activeList.SelectedItem is not GameArtworkSourceOption selectedOption)
-            {
-                return;
-            }
-
-            var selectedItem = activeList.GetVisualDescendants()
-                .OfType<ListBoxItem>()
-                .FirstOrDefault(item => ReferenceEquals(item.DataContext, selectedOption));
-            if (selectedItem is not null)
-            {
-                DirectionalFocusNavigator.Focus(selectedItem);
-            }
-        });
+        ArtworkPickerCarousel.FocusSelectedArtworkOption();
     }
 
     public void FocusActiveArtworkSearchButton()
@@ -127,7 +103,7 @@ public partial class AddGameScreenView : FullScreenView
         if ((action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right) &&
             DataContext is AddGameViewModel viewModel &&
             viewModel.ArtworkPicker.IsArtworkPickerOpen &&
-            GetActiveArtworkList() is not null)
+            ArtworkPickerCarousel.HasActiveArtworkList)
         {
             return NavigationActionHandling.Native;
         }
@@ -505,24 +481,6 @@ public partial class AddGameScreenView : FullScreenView
         var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
         viewModel.CloseArtworkSearch();
         DirectionalFocusNavigator.Focus(GetArtworkSearchButton(slot));
-    }
-
-    private ListBox? GetActiveArtworkList()
-    {
-        if (DataContext is not AddGameViewModel viewModel ||
-            !viewModel.ArtworkPicker.IsArtworkPickerOpen)
-        {
-            return null;
-        }
-
-        return viewModel.ArtworkPicker.ActiveArtworkSlot switch
-        {
-            GameArtworkSlot.Cover => CoverArtworkOptions,
-            GameArtworkSlot.Background => BackgroundArtworkOptions,
-            GameArtworkSlot.Icon => IconArtworkOptions,
-            GameArtworkSlot.Logo => LogoArtworkOptions,
-            _ => throw new ArgumentOutOfRangeException(nameof(viewModel.ArtworkPicker.ActiveArtworkSlot))
-        };
     }
 
     private Button GetArtworkSearchButton(GameArtworkSlot slot) => slot switch

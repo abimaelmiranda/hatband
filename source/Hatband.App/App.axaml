@@ -57,9 +57,6 @@
         <DataTemplate DataType="{x:Type vm:MetadataSearchModalViewModel}">
             <modals:MetadataSearchModalView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ArtworkPickerModalViewModel}">
-            <modals:ArtworkPickerModalView />
-        </DataTemplate>
         <DataTemplate DataType="{x:Type settings:ProtonReleaseSelectionModalViewModel}">
             <modals:ProtonReleaseSelectionModalView />
         </DataTemplate>
