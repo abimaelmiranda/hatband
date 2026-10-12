@@ -1,4 +1,3 @@
-using Hatband.Core.Enums.Stores;
 using Hatband.Core.Abstractions.Settings;
 using Hatband.Plugins.Steam.Store;
 using Hatband.SDK.UI.Connectors;
@@ -18,18 +17,13 @@ public sealed class SteamConnectorUiProvider : IConnectorUiProvider
         this.settingsApi = settingsApi;
     }
 
-    public string SourceId => GameSourceIds.Steam;
+    public string Id => "steam";
 
     public string DisplayName => "Steam";
 
     public PluginPanel CreatePanel(ConnectorUiContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (context.SourceId != SourceId)
-        {
-            throw new ArgumentException("The connector context belongs to another source.", nameof(context));
-        }
-
         return new SteamConnectorPanel(steamStore, settingsApi, context);
     }
 }

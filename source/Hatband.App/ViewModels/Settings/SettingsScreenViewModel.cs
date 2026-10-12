@@ -251,20 +251,20 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     public PluginPanel CreateConnectorPanel(IConnectorUiProvider provider)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        if (_connectorPanels.TryGetValue(provider.SourceId, out var existingPanel))
+        if (_connectorPanels.TryGetValue(provider.Id, out var existingPanel))
         {
             return existingPanel;
         }
 
         var panel = provider.CreatePanel(new ConnectorUiContext(
-            provider.SourceId,
-            async cancellationToken =>
+            async (sourceId, cancellationToken) =>
             {
+                ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
                 var synchronize = _synchronizeLibrary
                     ?? throw new InvalidOperationException("The library synchronization callback has not been configured.");
-                await synchronize(provider.SourceId, cancellationToken);
+                await synchronize(sourceId, cancellationToken);
             }));
-        _connectorPanels.Add(provider.SourceId, panel);
+        _connectorPanels.Add(provider.Id, panel);
         return panel;
     }
 

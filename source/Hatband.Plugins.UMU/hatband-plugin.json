@@ -2,7 +2,7 @@
   "id": "umu",
   "name": "UMU",
   "version": "1.0.0",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "entryAssembly": "Hatband.Plugins.UMU.dll",
   "entryType": "Hatband.Plugins.UMU.Plugin.UmuPlugin"
 }

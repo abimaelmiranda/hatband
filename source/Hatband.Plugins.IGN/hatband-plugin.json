@@ -2,7 +2,7 @@
   "id": "ign",
   "name": "IGN",
   "version": "1.0.0",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "entryAssembly": "Hatband.Plugins.IGN.dll",
   "entryType": "Hatband.Plugins.IGN.Plugin.IgnPlugin"
 }

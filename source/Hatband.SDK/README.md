@@ -10,7 +10,7 @@ dependencies. Restart the application after adding a package.
   "id": "example.connector",
   "name": "Example connector",
   "version": "1.0.0",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "entryAssembly": "ConnectorPlugin.dll",
   "entryType": "ConnectorPlugin.ExamplePlugin"
 }
@@ -32,16 +32,19 @@ Built-in projects are included in the application's packaging references; the
 shared build target collects the entire plugin output for build and publish.
 
 IDs are stable lowercase strings and unique across built-in and external plugins.
-API version 2 changes authentication, launch and UI contracts; version 1 plugins
-must be rebuilt. The loader shares Core, SDK, SDK.UI, Avalonia and host framework
+API version 3 separates connector UI identity from game store identity and lets a
+connector request synchronization for an explicit source ID. Earlier plugins must
+be rebuilt. The loader shares Core, SDK, SDK.UI, Avalonia and host framework
 contracts, while resolving private managed and native dependencies from the
 package. Plugins run in the application process; this is not a security sandbox.
 
 ## Connector UI and authentication
 
-`IConnectorUiProvider` contributes a panel by source ID. The app owns the Connectors
-section and tabs; the plugin owns its views, ViewModels and authentication flow.
-`ConnectorUiContext.SyncAsync` starts host-owned library synchronization. Panels
+`IConnectorUiProvider` contributes a panel with its own stable `Id` and display name.
+That ID is independent of a game store source. The app owns the Connectors section
+and tabs; the plugin owns its views, ViewModels and authentication flow.
+`ConnectorUiContext.SyncAsync(sourceId, cancellationToken)` starts host-owned library synchronization
+for the source explicitly requested by the connector. Panels
 are cached, activated when shown and deactivated when left. Deactivation should
 cancel interactive login, not an already started background sync.
 

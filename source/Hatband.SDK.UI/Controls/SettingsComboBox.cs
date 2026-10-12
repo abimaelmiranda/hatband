@@ -1,9 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
-namespace Hatband.App.Views.Components;
+namespace Hatband.SDK.UI.Controls;
 
-internal sealed class SettingsComboBox : ComboBox
+/// <summary>A settings picker that commits only after the user confirms its selection.</summary>
+public sealed class SettingsComboBox : ComboBox
 {
     private object? selectionBeforeOpening;
     private bool processingSelection;
@@ -52,20 +53,14 @@ internal sealed class SettingsComboBox : ComboBox
         }
     }
 
-    private void OnDropDownOpened(object? sender, EventArgs args)
-    {
-        selectionBeforeOpening = SelectedItem;
-    }
+    private void OnDropDownOpened(object? sender, EventArgs args) => selectionBeforeOpening = SelectedItem;
 
     private void OnDropDownClosed(object? sender, EventArgs args)
     {
-        // Native selection closes the popup before returning the confirmed item.
-        if (processingSelection)
+        if (!processingSelection)
         {
-            return;
+            SetCurrentValue(SelectedItemProperty, selectionBeforeOpening);
         }
-
-        SetCurrentValue(SelectedItemProperty, selectionBeforeOpening);
     }
 
     private void CommitSelection()

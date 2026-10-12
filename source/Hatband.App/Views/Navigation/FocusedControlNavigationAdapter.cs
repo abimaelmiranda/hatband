@@ -5,7 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Hatband.App.Navigation;
-using Hatband.App.Views.Components;
+using Hatband.SDK.UI.Controls;
 
 namespace Hatband.App.Views.Navigation;
 

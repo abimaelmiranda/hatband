@@ -2,7 +2,7 @@
   "id": "proton",
   "name": "Proton",
   "version": "1.0.0",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "entryAssembly": "Hatband.Plugins.Proton.dll",
   "entryType": "Hatband.Plugins.Proton.Plugin.ProtonPlugin"
 }

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Avalonia.Threading;
 using Hatband.Core.Abstractions.Settings;
+using Hatband.Core.Enums.Stores;
 using Hatband.Core.Models.Authentication;
 using Hatband.Plugins.Steam.Authentication;
 using Hatband.Plugins.Steam.Localization;
@@ -322,7 +323,7 @@ public sealed class SteamConnectorViewModel : INotifyPropertyChanged
 
     private async Task SynchronizeAsync()
     {
-        await context.SyncAsync(CancellationToken.None);
+        await context.SyncAsync(GameSourceIds.Steam, CancellationToken.None);
         ConnectionStatus = SteamResources.SyncComplete;
     }
 

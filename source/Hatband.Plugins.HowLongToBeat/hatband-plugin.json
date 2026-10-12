@@ -2,7 +2,7 @@
   "id": "howlongtobeat",
   "name": "HowLongToBeat",
   "version": "1.0.0",
-  "apiVersion": 2,
+  "apiVersion": 3,
   "entryAssembly": "Hatband.Plugins.HowLongToBeat.dll",
   "entryType": "Hatband.Plugins.HowLongToBeat.Plugin.HowLongToBeatPlugin"
 }
