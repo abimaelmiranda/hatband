@@ -8,6 +8,8 @@ using CommunityToolkit.Mvvm.Input;
 using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.App.ViewModels.Settings;
+using Hatband.Core.Enums.Artwork;
+using Hatband.Core.Models.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace Hatband.App.ViewModels;
@@ -31,6 +33,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly DateTimeDisplayFormatter _dateTimeDisplayFormatter;
     private readonly SettingsScreenViewModel _settingsScreen;
     private readonly LibrarySyncProgressViewModel _librarySyncProgress;
+    private readonly LibraryLogoNormalizationViewModel _libraryLogoNormalization;
     private List<GameCardViewModel> _allGames = [];
     private readonly Dictionary<Guid, bool> _pendingInstallationStates = [];
     private readonly HashSet<Guid> _pendingLaunchGameIds = [];
@@ -38,12 +41,30 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _librarySyncGate = new(1, 1);
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
     private readonly Dictionary<Guid, GamePreparationActivityViewModel> _preparations = [];
+    private readonly Dictionary<Guid, CachedGameLogo> _cachedGameLogos = [];
+    private readonly LinkedList<Guid> _gameLogoCacheLru = [];
     private readonly CancellationTokenSource _applicationLifetime = new();
     private CancellationTokenSource? _installationPollingCancellation;
     private CancellationTokenSource? _statusMessageTimeoutCancellation;
+    private CancellationTokenSource? _selectedLogoCancellation;
+    private CancellationTokenSource? _selectedBackgroundCancellation;
+    private long _selectedLogoRevision;
+    private long _selectedBackgroundRevision;
+    private GameCardViewModel? _selectedLogoCard;
+    private bool _normalizeLibraryLogos;
+    private bool _showSelectedGameLogos;
+    private bool _isLibraryScreenActive;
     private Task? _installationPollingTask;
     private string? _librarySyncSourceName;
     private Guid? _activeGameSessionId;
+    private const int MaximumCachedGameLogos = 8;
+
+    private sealed record CachedGameLogo(
+        string? Source,
+        bool NormalizationRequested,
+        bool IsNormalized,
+        Bitmap Image,
+        LinkedListNode<Guid> Node);
 
     public LibrarySessionViewModel(
         IGameRepository gameRepository,
@@ -55,6 +76,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         IEnumerable<IGameManagementPresentationProvider> presentationProviders,
         GameProcessSessionService gameProcessSessionService,
         ILogger<LibrarySessionViewModel> logger,
+        ILogger<LibraryLogoNormalizationViewModel> logoNormalizationLogger,
+        IGameLogoNormalizationService gameLogoNormalizationService,
         ArtworkImageLoader artworkImageLoader,
         DateTimeDisplayFormatter dateTimeDisplayFormatter,
         SettingsScreenViewModel settingsScreen)
@@ -72,9 +95,16 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         _dateTimeDisplayFormatter = dateTimeDisplayFormatter;
         _settingsScreen = settingsScreen;
         _librarySyncProgress = new LibrarySyncProgressViewModel();
+        _libraryLogoNormalization = new LibraryLogoNormalizationViewModel(
+            gameLogoNormalizationService,
+            logoNormalizationLogger,
+            _applicationLifetime.Token);
         _librarySyncProgress.PropertyChanged += OnLibrarySyncProgressPropertyChanged;
         _librarySyncProgress.CompletionError += OnSyncError;
+        _libraryLogoNormalization.PropertyChanged += OnLibraryLogoNormalizationPropertyChanged;
+        _libraryLogoNormalization.GameCompleted += OnGameLogoNormalizationCompleted;
         _settingsScreen.TimeZoneChanged += OnTimeZoneChanged;
+        _settingsScreen.AppearanceSettingsChanged += OnAppearanceSettingsChanged;
     }
 
     public event EventHandler? GameVisibilityChanged;
@@ -85,6 +115,14 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     public event EventHandler? StoreFallbackRequested;
     public event Action<bool>? WindowTopmostRequested;
 
+    public void RefreshSelectedGameLogo()
+    {
+        _isLibraryScreenActive = true;
+        if (SelectedGameCard is { } gameCard && _showSelectedGameLogos)
+        {
+            _ = LoadSelectedGameLogoAsync(gameCard);
+        }
+    }
 
     private void OnTimeZoneChanged(string timeZone)
     {
@@ -102,13 +140,33 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         _applicationLifetime.Cancel();
+        _libraryLogoNormalization.Dispose();
         _applicationLifetime.Dispose();
+        _selectedLogoCancellation?.Cancel();
+        _selectedBackgroundCancellation?.Cancel();
+        ClearGameLogoCache();
+        foreach (var gameCard in _allGames)
+        {
+            gameCard.LogoImage = null;
+        }
+
+        BackgroundImage?.Dispose();
+        if (PreviousBackgroundImage is not null && !ReferenceEquals(PreviousBackgroundImage, BackgroundImage))
+        {
+            PreviousBackgroundImage.Dispose();
+        }
+
+        BackgroundImage = null;
+        PreviousBackgroundImage = null;
         StopPendingInstallationPolling();
         StopGameProcessMonitoring();
         _statusMessageTimeoutCancellation?.Cancel();
         _settingsScreen.TimeZoneChanged -= OnTimeZoneChanged;
+        _settingsScreen.AppearanceSettingsChanged -= OnAppearanceSettingsChanged;
         _librarySyncProgress.PropertyChanged -= OnLibrarySyncProgressPropertyChanged;
         _librarySyncProgress.CompletionError -= OnSyncError;
+        _libraryLogoNormalization.PropertyChanged -= OnLibraryLogoNormalizationPropertyChanged;
+        _libraryLogoNormalization.GameCompleted -= OnGameLogoNormalizationCompleted;
     }
 
     [ObservableProperty]
@@ -193,6 +251,12 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     public double TimeToBeatSyncProgressPercent => _librarySyncProgress.TimeToBeatSyncProgressPercent;
 
+    public bool IsLibraryLogoNormalizationRunning => _libraryLogoNormalization.IsRunning;
+
+    public string? LibraryLogoNormalizationStatus => _libraryLogoNormalization.Status;
+
+    public double LibraryLogoNormalizationProgressPercent => _libraryLogoNormalization.ProgressPercent;
+
 
     public bool IsLibraryEmpty => Games.Count == 0 && !IsLibraryBusy;
 
@@ -269,7 +333,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         ? Resources.UnhideGame
         : Resources.HideGame;
 
-    public bool IsSyncActivityVisible => IsLibrarySyncRunning || IsLibraryEnrichmentRunning || IsTimeToBeatSyncRunning;
+    public bool IsSyncActivityVisible => IsLibrarySyncRunning || IsLibraryEnrichmentRunning ||
+        IsTimeToBeatSyncRunning || IsLibraryLogoNormalizationRunning;
 
     public bool IsSyncActivityIndeterminate => IsLibrarySyncRunning && !IsLibraryEnrichmentRunning;
 
@@ -287,13 +352,39 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 return string.Format(CultureInfo.CurrentCulture, Resources.ConnectorSyncActivity, _librarySyncSourceName);
             }
 
-            return TimeToBeatSyncStatus ?? Resources.HltbSyncActivity;
+            if (IsTimeToBeatSyncRunning)
+            {
+                return TimeToBeatSyncStatus ?? Resources.HltbSyncActivity;
+            }
+
+            return LibraryLogoNormalizationStatus ?? TimeToBeatSyncStatus ?? Resources.HltbSyncActivity;
         }
     }
 
-    public double SyncActivityProgressPercent => IsLibraryEnrichmentRunning
-        ? LibraryEnrichmentProgressPercent
-        : TimeToBeatSyncProgressPercent;
+    public double SyncActivityProgressPercent
+    {
+        get
+        {
+            if (IsLibraryEnrichmentRunning)
+            {
+                return LibraryEnrichmentProgressPercent;
+            }
+
+            if (IsLibrarySyncRunning)
+            {
+                return 0;
+            }
+
+            if (IsTimeToBeatSyncRunning)
+            {
+                return TimeToBeatSyncProgressPercent;
+            }
+
+            return IsLibraryLogoNormalizationRunning
+                ? LibraryLogoNormalizationProgressPercent
+                : TimeToBeatSyncProgressPercent;
+        }
+    }
 
     public string EmptyLibraryTitle => IsShowingHiddenGames
         ? Resources.HiddenGamesEmptyTitle
@@ -967,6 +1058,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     private void SetGames(IEnumerable<GameCardViewModel> games)
     {
+        ClearGameLogoCache();
         _allGames = games.ToList();
         RefreshVisibleGames();
     }
@@ -1180,7 +1272,22 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         {
             IsSelected = wasSelected
         };
+        if (_cachedGameLogos.TryGetValue(game.Id, out var cachedLogo))
+        {
+            if (string.Equals(cachedLogo.Source, game.Artwork.LogoPath, StringComparison.Ordinal) &&
+                cachedLogo.NormalizationRequested == _normalizeLibraryLogos)
+            {
+                card.LogoImage = cachedLogo.Image;
+                TouchCachedGameLogo(cachedLogo);
+            }
+            else
+            {
+                RemoveCachedGameLogo(game.Id);
+            }
+        }
+
         _allGames[allGamesIndex] = card;
+        previousCard.LogoImage = null;
 
         var visibleGameIndex = Games.IndexOf(previousCard);
         if (visibleGameIndex >= 0)
@@ -1235,7 +1342,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         public void Report(T value) => report(value);
     }
 
-    partial void OnSelectedGameCardChanged(GameCardViewModel? value)
+    partial void OnSelectedGameCardChanged(GameCardViewModel? oldValue, GameCardViewModel? newValue)
     {
         OnPropertyChanged(nameof(IsPrimaryGameActionInstall));
         OnPropertyChanged(nameof(PrimaryGameActionLabel));
@@ -1248,30 +1355,374 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
         foreach (var game in _allGames)
         {
-            game.IsSelected = ReferenceEquals(game, value);
+            game.IsSelected = ReferenceEquals(game, newValue);
         }
 
-        if (value is not null)
+        if (newValue is not null)
         {
-            _ = LoadBackgroundAsync(value);
+            _ = LoadBackgroundAsync(newValue);
+            if (_isLibraryScreenActive)
+            {
+                _ = LoadSelectedGameLogoAsync(newValue);
+            }
+        }
+        else
+        {
+            CancelSelectedGameLogoRequest();
+            CancelSelectedBackgroundLoad();
         }
     }
 
-    private async Task LoadBackgroundAsync(GameCardViewModel game)
+    private void OnAppearanceSettingsChanged(AppearanceSettings settings)
     {
-        PreviousBackgroundImage = BackgroundImage;
-        PreviousBackgroundImageOpacity = PreviousBackgroundImage is null ? 0 : 1;
-        BackgroundImageOpacity = 0;
+        var wasNormalizationEnabled = _showSelectedGameLogos && _normalizeLibraryLogos;
+        var normalizationChanged = _normalizeLibraryLogos != settings.NormalizeLibraryLogos;
+        var wasShowingSelectedGameLogo = _showSelectedGameLogos;
+        _showSelectedGameLogos = settings.LibraryTitleMode == LibraryTitleMode.Logo;
+        _normalizeLibraryLogos = settings.NormalizeLibraryLogos;
+        var isNormalizationEnabled = _showSelectedGameLogos && _normalizeLibraryLogos;
+        if (!isNormalizationEnabled)
+        {
+            if (wasShowingSelectedGameLogo)
+            {
+                CancelSelectedGameLogoRequest();
+            }
 
-        var image = await _artworkImageLoader.LoadAsync(game.BackgroundSource);
-        if (!ReferenceEquals(SelectedGameCard, game))
+            _libraryLogoNormalization.Cancel();
+            return;
+        }
+
+        if (normalizationChanged && SelectedGameCard is { } selectedCard)
+        {
+            CancelSelectedGameLogoRequest();
+            RemoveCachedGameLogo(selectedCard.Game.Id);
+        }
+
+        if (SelectedGameCard is { } gameCard && _isLibraryScreenActive)
+        {
+            _ = LoadSelectedGameLogoAsync(gameCard);
+        }
+
+        if (!wasNormalizationEnabled)
+        {
+            QueueLibraryLogoNormalization();
+        }
+    }
+
+    private void QueueLibraryLogoNormalization()
+    {
+        if (_showSelectedGameLogos && _normalizeLibraryLogos)
+        {
+            _libraryLogoNormalization.RequestRun();
+        }
+    }
+
+    public void RequestLibraryLogoNormalization() => QueueLibraryLogoNormalization();
+
+    private void OnGameLogoNormalizationCompleted(GameLogoNormalizationProgress progress)
+    {
+        if (!_showSelectedGameLogos || !_normalizeLibraryLogos ||
+            progress.ErrorMessage is not null || progress.NormalizedPath is null)
         {
             return;
         }
 
-        BackgroundImage = image;
-        BackgroundImageOpacity = 1;
-        PreviousBackgroundImageOpacity = 0;
+        var gameCard = _allGames.FirstOrDefault(card => card.Game.Id == progress.GameId);
+        if (gameCard is null)
+        {
+            return;
+        }
+
+        if (_cachedGameLogos.TryGetValue(progress.GameId, out var cachedLogo) &&
+            cachedLogo.IsNormalized &&
+            string.Equals(cachedLogo.Source, gameCard.Game.Artwork.LogoPath, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        RemoveCachedGameLogo(progress.GameId);
+        if (_isLibraryScreenActive && ReferenceEquals(SelectedGameCard, gameCard))
+        {
+            CancelSelectedGameLogoRequest();
+            _ = LoadSelectedGameLogoAsync(gameCard);
+        }
+    }
+
+    private void OnLibraryLogoNormalizationPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        switch (args.PropertyName)
+        {
+            case nameof(LibraryLogoNormalizationViewModel.IsRunning):
+                OnPropertyChanged(nameof(IsLibraryLogoNormalizationRunning));
+                OnPropertyChanged(nameof(IsSyncActivityVisible));
+                OnPropertyChanged(nameof(SyncActivityStatus));
+                OnPropertyChanged(nameof(SyncActivityProgressPercent));
+                break;
+            case nameof(LibraryLogoNormalizationViewModel.Status):
+                OnPropertyChanged(nameof(LibraryLogoNormalizationStatus));
+                OnPropertyChanged(nameof(SyncActivityStatus));
+                break;
+            case nameof(LibraryLogoNormalizationViewModel.ProgressPercent):
+                OnPropertyChanged(nameof(LibraryLogoNormalizationProgressPercent));
+                OnPropertyChanged(nameof(SyncActivityProgressPercent));
+                break;
+        }
+    }
+
+    public void CancelSelectedGameLogoLoad()
+    {
+        _isLibraryScreenActive = false;
+        CancelSelectedGameLogoRequest();
+    }
+
+    private void CancelSelectedGameLogoRequest()
+    {
+        _selectedLogoRevision++;
+        _selectedLogoCancellation?.Cancel();
+        _selectedLogoCard = null;
+    }
+
+    private async Task LoadSelectedGameLogoAsync(GameCardViewModel gameCard)
+    {
+        if (_selectedLogoCancellation is not null && !ReferenceEquals(_selectedLogoCard, gameCard))
+        {
+            CancelSelectedGameLogoRequest();
+        }
+
+        if (!_showSelectedGameLogos)
+        {
+            return;
+        }
+
+        var normalize = _normalizeLibraryLogos;
+        if (TryGetCachedGameLogo(gameCard, normalize, out var cachedImage))
+        {
+            if (!ReferenceEquals(gameCard.LogoImage, cachedImage))
+            {
+                gameCard.LogoImage = cachedImage;
+            }
+
+            return;
+        }
+
+        if (_selectedLogoCancellation is not null &&
+            ReferenceEquals(_selectedLogoCard, gameCard) &&
+            !_selectedLogoCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _selectedLogoCancellation?.Cancel();
+        _selectedLogoCancellation = null;
+        var revision = ++_selectedLogoRevision;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_applicationLifetime.Token);
+        var cancellationToken = cancellation.Token;
+        _selectedLogoCancellation = cancellation;
+        _selectedLogoCard = gameCard;
+        try
+        {
+            var logo = await gameCard.LoadLogoAsync(_artworkImageLoader, normalize, cancellationToken);
+            if (!IsCurrentSelectedLogo(gameCard, revision, cancellation, normalize))
+            {
+                logo.Image?.Dispose();
+                return;
+            }
+
+            if (logo.Image is not null)
+            {
+                CacheGameLogo(gameCard, logo.Image, normalize, logo.IsNormalized);
+                return;
+            }
+
+            var updatedGame = await _gameLibrarySyncService.EnsureArtworkAsync(
+                gameCard.Game.Id,
+                new HashSet<GameArtworkSlot> { GameArtworkSlot.Logo },
+                cancellationToken);
+            if (!IsCurrentSelectedLogo(gameCard, revision, cancellation, normalize))
+            {
+                return;
+            }
+
+            gameCard.RefreshArtwork(updatedGame);
+            logo = await gameCard.LoadLogoAsync(_artworkImageLoader, normalize, cancellationToken);
+            if (!IsCurrentSelectedLogo(gameCard, revision, cancellation, normalize))
+            {
+                logo.Image?.Dispose();
+                return;
+            }
+
+            if (logo.Image is not null)
+            {
+                CacheGameLogo(gameCard, logo.Image, normalize, logo.IsNormalized);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Could not load library logo for game {GameId}.", gameCard.Game.Id);
+        }
+        finally
+        {
+            if (ReferenceEquals(_selectedLogoCancellation, cancellation))
+            {
+                _selectedLogoCancellation = null;
+                _selectedLogoCard = null;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private bool IsCurrentSelectedLogo(
+        GameCardViewModel gameCard,
+        long revision,
+        CancellationTokenSource cancellation,
+        bool normalize) =>
+        !cancellation.IsCancellationRequested &&
+        revision == _selectedLogoRevision &&
+        ReferenceEquals(SelectedGameCard, gameCard) &&
+        normalize == _normalizeLibraryLogos &&
+        _showSelectedGameLogos;
+
+    private bool TryGetCachedGameLogo(GameCardViewModel gameCard, bool normalize, out Bitmap? image)
+    {
+        if (!_cachedGameLogos.TryGetValue(gameCard.Game.Id, out var cachedLogo))
+        {
+            image = null;
+            return false;
+        }
+
+        if (!string.Equals(cachedLogo.Source, gameCard.Game.Artwork.LogoPath, StringComparison.Ordinal) ||
+            cachedLogo.NormalizationRequested != normalize)
+        {
+            RemoveCachedGameLogo(gameCard.Game.Id);
+            image = null;
+            return false;
+        }
+
+        TouchCachedGameLogo(cachedLogo);
+        image = cachedLogo.Image;
+        return true;
+    }
+
+    private void CacheGameLogo(GameCardViewModel gameCard, Bitmap image, bool normalize, bool isNormalized)
+    {
+        RemoveCachedGameLogo(gameCard.Game.Id);
+        var node = _gameLogoCacheLru.AddFirst(gameCard.Game.Id);
+        _cachedGameLogos.Add(
+            gameCard.Game.Id,
+            new CachedGameLogo(gameCard.Game.Artwork.LogoPath, normalize, isNormalized, image, node));
+        gameCard.LogoImage = image;
+
+        while (_cachedGameLogos.Count > MaximumCachedGameLogos)
+        {
+            var last = _gameLogoCacheLru.Last;
+            if (last is null)
+            {
+                throw new InvalidOperationException("The selected game logo cache is inconsistent.");
+            }
+
+            RemoveCachedGameLogo(last.Value);
+        }
+    }
+
+    private void TouchCachedGameLogo(CachedGameLogo cachedLogo)
+    {
+        _gameLogoCacheLru.Remove(cachedLogo.Node);
+        _gameLogoCacheLru.AddFirst(cachedLogo.Node);
+    }
+
+    private void RemoveCachedGameLogo(Guid gameId)
+    {
+        if (!_cachedGameLogos.Remove(gameId, out var cachedLogo))
+        {
+            return;
+        }
+
+        _gameLogoCacheLru.Remove(cachedLogo.Node);
+        foreach (var card in _allGames)
+        {
+            if (ReferenceEquals(card.LogoImage, cachedLogo.Image))
+            {
+                card.LogoImage = null;
+            }
+        }
+
+        cachedLogo.Image.Dispose();
+    }
+
+    private void ClearGameLogoCache()
+    {
+        foreach (var cachedLogo in _cachedGameLogos.Values)
+        {
+            foreach (var card in _allGames)
+            {
+                if (ReferenceEquals(card.LogoImage, cachedLogo.Image))
+                {
+                    card.LogoImage = null;
+                }
+            }
+
+            cachedLogo.Image.Dispose();
+        }
+
+        _cachedGameLogos.Clear();
+        _gameLogoCacheLru.Clear();
+    }
+
+    private void CancelSelectedBackgroundLoad()
+    {
+        _selectedBackgroundRevision++;
+        _selectedBackgroundCancellation?.Cancel();
+    }
+
+    private async Task LoadBackgroundAsync(GameCardViewModel game)
+    {
+        CancelSelectedBackgroundLoad();
+        var revision = ++_selectedBackgroundRevision;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_applicationLifetime.Token);
+        var cancellationToken = cancellation.Token;
+        _selectedBackgroundCancellation = cancellation;
+        try
+        {
+            var image = await _artworkImageLoader.LoadAsync(game.BackgroundSource, cancellationToken);
+            if (cancellationToken.IsCancellationRequested ||
+                revision != _selectedBackgroundRevision ||
+                !ReferenceEquals(SelectedGameCard, game))
+            {
+                image?.Dispose();
+                return;
+            }
+
+            var obsoletePreviousImage = PreviousBackgroundImage;
+            PreviousBackgroundImage = BackgroundImage;
+            PreviousBackgroundImageOpacity = PreviousBackgroundImage is null ? 0 : 1;
+            BackgroundImage = image;
+            BackgroundImageOpacity = 1;
+            PreviousBackgroundImageOpacity = 0;
+            if (obsoletePreviousImage is not null && !ReferenceEquals(obsoletePreviousImage, BackgroundImage))
+            {
+                obsoletePreviousImage.Dispose();
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Could not load library background for game {GameId}.", game.Game.Id);
+        }
+        finally
+        {
+            if (ReferenceEquals(_selectedBackgroundCancellation, cancellation))
+            {
+                _selectedBackgroundCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
     }
 
     partial void OnStatusMessageChanged(string? value)

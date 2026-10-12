@@ -34,6 +34,8 @@ public partial class AddGameViewModel : ScreenViewModel
     private Guid _draftGameId = Guid.CreateVersion7();
     private GameArtworkImage? _selectedCoverImage;
     private GameArtworkImage? _selectedBackgroundImage;
+    private GameArtworkImage? _selectedIconImage;
+    private GameArtworkImage? _selectedLogoImage;
     private CancellationTokenSource? _metadataSearchCancellation;
 
     public AddGameViewModel(
@@ -102,6 +104,12 @@ public partial class AddGameViewModel : ScreenViewModel
 
     [ObservableProperty]
     public partial string? BackgroundArtworkSelection { get; set; }
+
+    [ObservableProperty]
+    public partial string? IconArtworkSelection { get; set; }
+
+    [ObservableProperty]
+    public partial string? LogoArtworkSelection { get; set; }
 
     [ObservableProperty]
     public partial ObservableCollection<GameMetadataSourceViewModel> MetadataSources { get; set; } = [];
@@ -347,11 +355,45 @@ public partial class AddGameViewModel : ScreenViewModel
                 _selectedBackgroundImage = option.Image;
                 BackgroundArtworkSelection = option.DisplayName;
                 break;
+            case GameArtworkSlot.Icon:
+                _selectedIconImage = option.Image;
+                IconArtworkSelection = option.DisplayName;
+                break;
+            case GameArtworkSlot.Logo:
+                _selectedLogoImage = option.Image;
+                LogoArtworkSelection = option.DisplayName;
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(ArtworkPicker.ActiveArtworkSlot));
         }
 
         ArtworkPicker.Close();
+    }
+
+    public void ImportArtwork(GameArtworkImage image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        switch (image.Slot)
+        {
+            case GameArtworkSlot.Cover:
+                _selectedCoverImage = image;
+                CoverArtworkSelection = Resources.LocalFileArtwork;
+                break;
+            case GameArtworkSlot.Background:
+                _selectedBackgroundImage = image;
+                BackgroundArtworkSelection = Resources.LocalFileArtwork;
+                break;
+            case GameArtworkSlot.Icon:
+                _selectedIconImage = image;
+                IconArtworkSelection = Resources.LocalFileArtwork;
+                break;
+            case GameArtworkSlot.Logo:
+                _selectedLogoImage = image;
+                LogoArtworkSelection = Resources.LocalFileArtwork;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(image));
+        }
     }
 
     public void CloseArtworkSearch() => ArtworkPicker.Close();
@@ -369,12 +411,16 @@ public partial class AddGameViewModel : ScreenViewModel
         _metadataSearchCancellation?.Cancel();
         CoverArtworkSelection = null;
         BackgroundArtworkSelection = null;
+        IconArtworkSelection = null;
+        LogoArtworkSelection = null;
         _metadataStoreName = null;
         _metadataStoreGameId = null;
         _metadataStoreSourceId = null;
         _nativePlatforms = null;
         _selectedCoverImage = null;
         _selectedBackgroundImage = null;
+        _selectedIconImage = null;
+        _selectedLogoImage = null;
         ArtworkPicker.Close();
         ArtworkPicker.InvalidateSearch();
         MetadataSources = [];
@@ -609,9 +655,17 @@ public partial class AddGameViewModel : ScreenViewModel
             {
                 selectedArtwork.Add(_selectedBackgroundImage);
             }
+            if (_selectedIconImage is not null)
+            {
+                selectedArtwork.Add(_selectedIconImage);
+            }
+            if (_selectedLogoImage is not null)
+            {
+                selectedArtwork.Add(_selectedLogoImage);
+            }
             if (selectedArtwork.Count > 0)
             {
-                game.Artwork = await _artworkStorage.StoreAsync(game.Id, selectedArtwork, game.Artwork, cancellationToken);
+                game.Artwork = await _artworkStorage.StoreAsync(game.Id, selectedArtwork, game.Artwork, GameArtworkStorageKind.Custom, cancellationToken);
             }
 
             await _gameRepository.AddAsync(library.Id, game, cancellationToken);

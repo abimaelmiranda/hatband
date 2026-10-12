@@ -222,11 +222,20 @@
   <data name="Icon" xml:space="preserve">
     <value>Icono</value>
   </data>
+  <data name="Logo" xml:space="preserve">
+    <value>Logotipo</value>
+  </data>
   <data name="UseArtwork" xml:space="preserve">
     <value>Usar imagen</value>
   </data>
   <data name="SearchArtwork" xml:space="preserve">
     <value>Buscar imágenes</value>
+  </data>
+  <data name="ImportArtwork" xml:space="preserve">
+    <value>Importar archivo</value>
+  </data>
+  <data name="LocalFileArtwork" xml:space="preserve">
+    <value>Archivo local</value>
   </data>
   <data name="ArtworkPickerTitle" xml:space="preserve">
     <value>Elegir imagen</value>
@@ -980,14 +989,32 @@
   <data name="BackgroundDimmingPercent" xml:space="preserve">
     <value>Oscurecimiento del fondo (%)</value>
   </data>
-  <data name="ShowSelectedGameTitle" xml:space="preserve">
-    <value>Mostrar título en la biblioteca</value>
+  <data name="LibraryTitleModeLabel" xml:space="preserve">
+    <value>Título del juego seleccionado</value>
+  </data>
+  <data name="LibraryTitleModeNone" xml:space="preserve">
+    <value>Ninguno</value>
+  </data>
+  <data name="LibraryTitleModeText" xml:space="preserve">
+    <value>Texto</value>
+  </data>
+  <data name="LibraryTitleModeLogo" xml:space="preserve">
+    <value>Logotipo</value>
   </data>
   <data name="BackgroundDimmingHint" xml:space="preserve">
     <value>Al 0%, se elimina el oscurecimiento uniforme. El degradado inferior se mantiene.</value>
   </data>
   <data name="LibraryTitleFontLabel" xml:space="preserve">
     <value>Fuente del título</value>
+  </data>
+  <data name="NormalizeLibraryLogos" xml:space="preserve">
+    <value>Normalizar logotipos de la biblioteca</value>
+  </data>
+  <data name="LibraryLogoNormalizationPreparing" xml:space="preserve">
+    <value>Preparando la normalización de logotipos…</value>
+  </data>
+  <data name="LibraryLogoNormalizationProgress" xml:space="preserve">
+    <value>Normalizando logotipos ({0}/{1})</value>
   </data>
   <data name="LibraryTitleFontCinema" xml:space="preserve">
     <value>Cine — Bebas Neue</value>

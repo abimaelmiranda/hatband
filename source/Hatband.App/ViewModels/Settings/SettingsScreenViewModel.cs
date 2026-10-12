@@ -366,6 +366,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
                 if (settings is AppearanceSettings appearanceSettings)
                 {
                     ValidateAppearanceSettings(appearanceSettings);
+                    Navigation.SetAppearanceTitleOptions(appearanceSettings.LibraryTitleMode);
                 }
 
                 settingsSection.SetSettings(settings);
@@ -548,6 +549,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         property.SetValue(target, value);
         if (settings is AppearanceSettings updatedAppearanceSettings)
         {
+            Navigation.SetAppearanceTitleOptions(updatedAppearanceSettings.LibraryTitleMode);
             AppearanceSettingsChanged?.Invoke(updatedAppearanceSettings);
         }
 
@@ -717,6 +719,11 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             throw new InvalidOperationException("The library title font must be a supported value.");
         }
 
+        if (!Enum.IsDefined(settings.LibraryTitleMode))
+        {
+            throw new InvalidOperationException("The library title mode must be a supported value.");
+        }
+
         if (!Enum.IsDefined(settings.LibraryPosition))
         {
             throw new InvalidOperationException("The library position must be a supported value.");
@@ -748,6 +755,13 @@ public partial class SettingsScreenViewModel : ScreenViewModel
                 }
 
                 break;
+            case nameof(AppearanceSettings.LibraryTitleMode):
+                if (value is not LibraryTitleMode titleMode || !Enum.IsDefined(titleMode))
+                {
+                    throw new InvalidOperationException("The library title mode must be a supported value.");
+                }
+
+                break;
             case nameof(AppearanceSettings.LibraryPosition):
                 if (value is not LibraryPosition position || !Enum.IsDefined(position))
                 {
@@ -763,7 +777,9 @@ public partial class SettingsScreenViewModel : ScreenViewModel
 
                 break;
             case nameof(AppearanceSettings.ShowCoverTitles):
-            case nameof(AppearanceSettings.ShowSelectedGameTitle):
+                GetRequiredBoolean(value, propertyPath[0].Name);
+                break;
+            case nameof(AppearanceSettings.NormalizeLibraryLogos):
                 GetRequiredBoolean(value, propertyPath[0].Name);
                 break;
             default:

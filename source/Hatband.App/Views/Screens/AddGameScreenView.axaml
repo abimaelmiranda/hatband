@@ -30,6 +30,17 @@
                 <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource Typography.Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
             </StackPanel>
         </DataTemplate>
+        <DataTemplate x:Key="LogoArtworkPreviewTemplate" x:DataType="vm:GameArtworkSourceOption">
+            <StackPanel Width="210" Spacing="6" Margin="5">
+                <Border Height="100" CornerRadius="6" Background="#11161C" ClipToBounds="True" Padding="4">
+                    <Grid>
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" IsVisible="{Binding HasPreviewImage}" />
+                        <TextBlock Text="{x:Static lang:Resources.ArtworkPreviewUnavailable}" Foreground="#AFC0CC" FontSize="{DynamicResource Typography.Caption}" TextAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPreviewUnavailable}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding DisplayName}" FontSize="{DynamicResource Typography.Caption}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
     <Grid Background="Transparent">
         <components:FullScreenNavigationLayout x:Name="AddGameNavigationLayout"
@@ -272,13 +283,25 @@
                                            Foreground="#AFC0CC"
                                            TextWrapping="Wrap" />
                                 <TextBlock Text="{Binding ArtworkPicker.ArtworkSourcesStatus}" Foreground="#AFC0CC" TextWrapping="Wrap" IsVisible="{Binding ArtworkPicker.HasArtworkSourcesStatus}" />
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                     <StackPanel Spacing="3"><TextBlock Text="{x:Static lang:Resources.Cover}" Foreground="#D9E0E5" /><TextBlock Text="{Binding CoverArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" /></StackPanel>
                                     <Button x:Name="SearchCoverArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Cover" Click="OnSearchArtworkClick" />
+                                    <Button Grid.Column="2" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Cover" Click="OnImportArtworkClick" />
                                 </Grid>
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                     <StackPanel Spacing="3"><TextBlock Text="{x:Static lang:Resources.Background}" Foreground="#D9E0E5" /><TextBlock Text="{Binding BackgroundArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" /></StackPanel>
                                     <Button x:Name="SearchBackgroundArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Background" Click="OnSearchArtworkClick" />
+                                    <Button Grid.Column="2" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Background" Click="OnImportArtworkClick" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <StackPanel Spacing="3"><TextBlock Text="{x:Static lang:Resources.Icon}" Foreground="#D9E0E5" /><TextBlock Text="{Binding IconArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" /></StackPanel>
+                                    <Button x:Name="SearchIconArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Icon" Click="OnSearchArtworkClick" />
+                                    <Button Grid.Column="2" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Icon" Click="OnImportArtworkClick" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <StackPanel Spacing="3"><TextBlock Text="{x:Static lang:Resources.Logo}" Foreground="#D9E0E5" /><TextBlock Text="{Binding LogoArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" /></StackPanel>
+                                    <Button x:Name="SearchLogoArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Logo" Click="OnSearchArtworkClick" />
+                                    <Button Grid.Column="2" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Logo" Click="OnImportArtworkClick" />
                                 </Grid>
                                 <ListBox x:Name="CoverArtworkOptions"
                                          ItemsSource="{Binding ArtworkPicker.ActiveArtworkOptions}"
@@ -288,6 +311,26 @@
                                          ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                          IsVisible="{Binding ArtworkPicker.IsCoverPickerActive}"
                                          MaxHeight="250">
+                                    <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                </ListBox>
+                                <ListBox x:Name="IconArtworkOptions"
+                                         ItemsSource="{Binding ArtworkPicker.ActiveArtworkOptions}"
+                                         SelectedItem="{Binding ArtworkPicker.SelectedActiveArtworkOption}"
+                                         ItemTemplate="{StaticResource CoverArtworkPreviewTemplate}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         IsVisible="{Binding ArtworkPicker.IsIconPickerActive}"
+                                         MaxHeight="180">
+                                    <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                </ListBox>
+                                <ListBox x:Name="LogoArtworkOptions"
+                                         ItemsSource="{Binding ArtworkPicker.ActiveArtworkOptions}"
+                                         SelectedItem="{Binding ArtworkPicker.SelectedActiveArtworkOption}"
+                                         ItemTemplate="{StaticResource LogoArtworkPreviewTemplate}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         IsVisible="{Binding ArtworkPicker.IsLogoPickerActive}"
+                                         MaxHeight="180">
                                     <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
                                 </ListBox>
                                 <ListBox x:Name="BackgroundArtworkOptions"

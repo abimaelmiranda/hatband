@@ -1,13 +1,16 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Hatband.App.Navigation;
+using AppResources = Hatband.App.Localization.Resources;
 using Hatband.App.ViewModels;
 using Hatband.App.Views;
 using Hatband.App.Views.Components;
 using Hatband.App.Views.Navigation;
 using Hatband.Core.Enums.Artwork;
+using Hatband.Core.Models.Games;
 
 namespace Hatband.App.Views.Screens;
 
@@ -323,11 +326,73 @@ public partial class GameMetadataEditorScreenView : FullScreenView
 
     private void FocusArtworkSearchButton(GameArtworkSlot slot)
     {
-        var button = slot == GameArtworkSlot.Cover
-            ? SearchCoverArtworkButton
-            : SearchBackgroundArtworkButton;
+        var button = slot switch
+        {
+            GameArtworkSlot.Cover => SearchCoverArtworkButton,
+            GameArtworkSlot.Background => SearchBackgroundArtworkButton,
+            GameArtworkSlot.Icon => SearchIconArtworkButton,
+            GameArtworkSlot.Logo => SearchLogoArtworkButton,
+            _ => throw new ArgumentOutOfRangeException(nameof(slot))
+        };
         DirectionalFocusNavigator.Focus(button);
     }
+
+    private async void OnImportArtworkClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GameMetadataEditorViewModel viewModel || sender is not Button { Tag: string slotName })
+        {
+            return;
+        }
+
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            viewModel.ErrorMessage = AppResources.FilePickerError;
+            return;
+        }
+
+        try
+        {
+            var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = AppResources.ImportArtwork,
+                AllowMultiple = false
+            });
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            var path = files[0].TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                viewModel.ErrorMessage = AppResources.ChooseLocalFile;
+                return;
+            }
+
+            viewModel.ImportArtwork(new GameArtworkImage
+            {
+                Slot = ParseArtworkSlot(slotName),
+                Content = await File.ReadAllBytesAsync(path),
+                ContentType = GetArtworkContentType(path)
+            });
+            viewModel.ErrorMessage = null;
+        }
+        catch (Exception exception)
+        {
+            viewModel.ErrorMessage = string.Format(AppResources.ArtworkSourcesError, exception.Message);
+        }
+    }
+
+    private static string GetArtworkContentType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".webp" => "image/webp",
+        ".bmp" => "image/bmp",
+        ".gif" => "image/gif",
+        _ => throw new InvalidOperationException("Select a supported image file.")
+    };
 
     private static GameArtworkSlot ParseArtworkSlot(string slotName)
     {
@@ -336,6 +401,7 @@ public partial class GameMetadataEditorScreenView : FullScreenView
             "Cover" => GameArtworkSlot.Cover,
             "Background" => GameArtworkSlot.Background,
             "Icon" => GameArtworkSlot.Icon,
+            "Logo" => GameArtworkSlot.Logo,
             _ => throw new ArgumentOutOfRangeException(nameof(slotName), slotName, "Unknown artwork slot.")
         };
     }

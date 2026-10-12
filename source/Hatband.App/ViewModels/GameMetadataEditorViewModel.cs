@@ -7,6 +7,7 @@ using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.App.ViewModels.Navigation;
 using Hatband.Core.Extensions;
+using Hatband.Core.Enums.Artwork;
 using Hatband.Core.Enums.Stores;
 
 namespace Hatband.App.ViewModels;
@@ -23,8 +24,12 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     private Game? game;
     private GameArtworkImage? selectedCoverImage;
     private GameArtworkImage? selectedBackgroundImage;
+    private GameArtworkImage? selectedIconImage;
+    private GameArtworkImage? selectedLogoImage;
     private bool restoreCover;
     private bool restoreBackground;
+    private bool restoreIcon;
+    private bool restoreLogo;
     private GamePlatform? selectedNativePlatforms;
     private GameCompatibilityTier? selectedCompatibilityTier;
     private string? _selectedStoreSourceId;
@@ -61,6 +66,12 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     public partial string? BackgroundArtworkSelection { get; set; }
 
     [ObservableProperty]
+    public partial string? IconArtworkSelection { get; set; }
+
+    [ObservableProperty]
+    public partial string? LogoArtworkSelection { get; set; }
+
+    [ObservableProperty]
     public partial ObservableCollection<GameMetadataSourceViewModel> MetadataSources { get; set; } = [];
 
     [ObservableProperty]
@@ -95,7 +106,7 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     public CompatibilityEditorViewModel CompatibilityEditor => compatibilityEditor;
 
     /// <summary>Publishes the updated game so the shell can refresh selection and return to its prior screen.</summary>
-    public event EventHandler<Game>? Saved;
+    public event Action<GameMetadataEditorSaveResult>? Saved;
 
     /// <summary>Requests that the shell cancel editing through global navigation.</summary>
     public event Action? CancelRequested;
@@ -111,6 +122,10 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
     public bool CanRestoreCover => game?.DefaultArtwork?.CoverImagePath is not null;
 
     public bool CanRestoreBackground => game?.DefaultArtwork?.BackgroundImagePath is not null;
+
+    public bool CanRestoreIcon => game?.DefaultArtwork?.IconPath is not null;
+
+    public bool CanRestoreLogo => game?.DefaultArtwork?.LogoPath is not null;
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(HasError));
 
@@ -140,12 +155,20 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         ReleaseDate = selectedGame.Metadata.ReleaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty;
         selectedCoverImage = null;
         selectedBackgroundImage = null;
+        selectedIconImage = null;
+        selectedLogoImage = null;
         restoreCover = false;
         restoreBackground = false;
+        restoreIcon = false;
+        restoreLogo = false;
         CoverArtworkSelection = selectedGame.Artwork.CoverImagePath is { } cover ? Path.GetFileName(cover) : null;
         BackgroundArtworkSelection = selectedGame.Artwork.BackgroundImagePath is { } background ? Path.GetFileName(background) : null;
+        IconArtworkSelection = selectedGame.Artwork.IconPath is { } icon ? Path.GetFileName(icon) : null;
+        LogoArtworkSelection = selectedGame.Artwork.LogoPath is { } logo ? Path.GetFileName(logo) : null;
         OnPropertyChanged(nameof(CanRestoreCover));
         OnPropertyChanged(nameof(CanRestoreBackground));
+        OnPropertyChanged(nameof(CanRestoreIcon));
+        OnPropertyChanged(nameof(CanRestoreLogo));
         ArtworkPicker.Initialize(selectedGame, languageTag);
         ErrorMessage = null;
         var region = GetRegion(languageTag);
@@ -217,11 +240,51 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
                 BackgroundArtworkSelection = option.DisplayName;
                 restoreBackground = false;
                 break;
+            case GameArtworkSlot.Icon:
+                selectedIconImage = option.Image;
+                IconArtworkSelection = option.DisplayName;
+                restoreIcon = false;
+                break;
+            case GameArtworkSlot.Logo:
+                selectedLogoImage = option.Image;
+                LogoArtworkSelection = option.DisplayName;
+                restoreLogo = false;
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(ArtworkPicker.ActiveArtworkSlot));
         }
 
         ArtworkPicker.Close();
+    }
+
+    public void ImportArtwork(GameArtworkImage image)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        switch (image.Slot)
+        {
+            case GameArtworkSlot.Cover:
+                selectedCoverImage = image;
+                CoverArtworkSelection = Resources.LocalFileArtwork;
+                restoreCover = false;
+                break;
+            case GameArtworkSlot.Background:
+                selectedBackgroundImage = image;
+                BackgroundArtworkSelection = Resources.LocalFileArtwork;
+                restoreBackground = false;
+                break;
+            case GameArtworkSlot.Icon:
+                selectedIconImage = image;
+                IconArtworkSelection = Resources.LocalFileArtwork;
+                restoreIcon = false;
+                break;
+            case GameArtworkSlot.Logo:
+                selectedLogoImage = image;
+                LogoArtworkSelection = Resources.LocalFileArtwork;
+                restoreLogo = false;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(image));
+        }
     }
 
     public void RestoreArtwork(GameArtworkSlot slot)
@@ -237,6 +300,16 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
                 selectedBackgroundImage = null;
                 BackgroundArtworkSelection = game?.DefaultArtwork?.BackgroundImagePath is { } background ? Path.GetFileName(background) : null;
                 restoreBackground = true;
+                break;
+            case GameArtworkSlot.Icon:
+                selectedIconImage = null;
+                IconArtworkSelection = game?.DefaultArtwork?.IconPath is { } icon ? Path.GetFileName(icon) : null;
+                restoreIcon = true;
+                break;
+            case GameArtworkSlot.Logo:
+                selectedLogoImage = null;
+                LogoArtworkSelection = game?.DefaultArtwork?.LogoPath is { } logo ? Path.GetFileName(logo) : null;
+                restoreLogo = true;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(slot));
@@ -360,7 +433,8 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
             }
 
             await gameRepository.UpdateAsync(game, cancellationToken);
-            Saved?.Invoke(this, game);
+            var logoChanged = !string.Equals(originalArtwork.LogoPath, artwork.LogoPath, StringComparison.Ordinal);
+            Saved?.Invoke(new GameMetadataEditorSaveResult(game, logoChanged));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -397,13 +471,17 @@ public partial class GameMetadataEditorViewModel : ScreenViewModel
         var images = new List<GameArtworkImage>();
         if (selectedCoverImage is not null) images.Add(selectedCoverImage);
         if (selectedBackgroundImage is not null) images.Add(selectedBackgroundImage);
+        if (selectedIconImage is not null) images.Add(selectedIconImage);
+        if (selectedLogoImage is not null) images.Add(selectedLogoImage);
         var stored = images.Count == 0
             ? current
-            : await artworkStorage.StoreAsync(selectedGame.Id, images, current, cancellationToken);
+            : await artworkStorage.StoreAsync(selectedGame.Id, images, current, GameArtworkStorageKind.Custom, cancellationToken);
         return stored with
         {
             CoverImagePath = restoreCover ? selectedGame.DefaultArtwork?.CoverImagePath : stored.CoverImagePath,
-            BackgroundImagePath = restoreBackground ? selectedGame.DefaultArtwork?.BackgroundImagePath : stored.BackgroundImagePath
+            BackgroundImagePath = restoreBackground ? selectedGame.DefaultArtwork?.BackgroundImagePath : stored.BackgroundImagePath,
+            IconPath = restoreIcon ? selectedGame.DefaultArtwork?.IconPath : stored.IconPath,
+            LogoPath = restoreLogo ? selectedGame.DefaultArtwork?.LogoPath : stored.LogoPath
         };
     }
 

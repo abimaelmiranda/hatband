@@ -13,7 +13,7 @@ namespace Hatband.App.ViewModels;
 public partial class GameCardViewModel : ObservableObject
 {
     private readonly string? coverSource;
-    private readonly string? backgroundSource;
+    private string? backgroundSource;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
     private readonly HostPlatformCompatibilityStatus platformCompatibilityStatus;
 
@@ -22,6 +22,9 @@ public partial class GameCardViewModel : ObservableObject
 
     [ObservableProperty]
     public partial Bitmap? BackgroundImage { get; set; }
+
+    [ObservableProperty]
+    public partial Bitmap? LogoImage { get; set; }
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
@@ -215,6 +218,29 @@ public partial class GameCardViewModel : ObservableObject
     public string? CoverSource => coverSource;
 
     public string? BackgroundSource => backgroundSource;
+
+    public Task<(Bitmap? Image, bool IsNormalized)> LoadLogoAsync(
+        ArtworkImageLoader loader,
+        bool normalize,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(loader);
+        return loader.LoadLogoAsync(Game.Id, Game.Artwork.LogoPath, normalize, cancellationToken);
+    }
+
+    public void RefreshArtwork(Game game)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+        if (game.Id != Game.Id)
+        {
+            throw new ArgumentException("The artwork game does not match this card.", nameof(game));
+        }
+
+        Game.Artwork = game.Artwork;
+        Game.DefaultArtwork = game.DefaultArtwork;
+        backgroundSource = game.Artwork.BackgroundImagePath;
+        OnPropertyChanged(nameof(BackgroundSource));
+    }
 
     public IBrush AccentBrush { get; }
 

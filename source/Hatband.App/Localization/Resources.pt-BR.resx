@@ -222,11 +222,20 @@
   <data name="Icon" xml:space="preserve">
     <value>Ícone</value>
   </data>
+  <data name="Logo" xml:space="preserve">
+    <value>Logotipo</value>
+  </data>
   <data name="UseArtwork" xml:space="preserve">
     <value>Usar imagem</value>
   </data>
   <data name="SearchArtwork" xml:space="preserve">
     <value>Buscar imagens</value>
+  </data>
+  <data name="ImportArtwork" xml:space="preserve">
+    <value>Importar arquivo</value>
+  </data>
+  <data name="LocalFileArtwork" xml:space="preserve">
+    <value>Arquivo local</value>
   </data>
   <data name="ArtworkPickerTitle" xml:space="preserve">
     <value>Escolher imagem</value>
@@ -980,14 +989,32 @@
   <data name="BackgroundDimmingPercent" xml:space="preserve">
     <value>Escurecimento do fundo (%)</value>
   </data>
-  <data name="ShowSelectedGameTitle" xml:space="preserve">
-    <value>Mostrar título na biblioteca</value>
+  <data name="LibraryTitleModeLabel" xml:space="preserve">
+    <value>Título do jogo selecionado</value>
+  </data>
+  <data name="LibraryTitleModeNone" xml:space="preserve">
+    <value>Nenhum</value>
+  </data>
+  <data name="LibraryTitleModeText" xml:space="preserve">
+    <value>Texto</value>
+  </data>
+  <data name="LibraryTitleModeLogo" xml:space="preserve">
+    <value>Logo</value>
   </data>
   <data name="BackgroundDimmingHint" xml:space="preserve">
     <value>Em 0%, o escurecimento uniforme é removido. O degradê inferior permanece.</value>
   </data>
   <data name="LibraryTitleFontLabel" xml:space="preserve">
     <value>Fonte do título</value>
+  </data>
+  <data name="NormalizeLibraryLogos" xml:space="preserve">
+    <value>Normalizar logos da biblioteca</value>
+  </data>
+  <data name="LibraryLogoNormalizationPreparing" xml:space="preserve">
+    <value>Preparando a normalização dos logos…</value>
+  </data>
+  <data name="LibraryLogoNormalizationProgress" xml:space="preserve">
+    <value>Normalizando logos ({0}/{1})</value>
   </data>
   <data name="LibraryTitleFontCinema" xml:space="preserve">
     <value>Cinema — Bebas Neue</value>

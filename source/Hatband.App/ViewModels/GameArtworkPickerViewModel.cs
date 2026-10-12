@@ -14,16 +14,24 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     private readonly ArtworkImageLoader artworkImageLoader;
     private Game? game;
     private string? artworkOptionsSearchName;
+    private GameArtworkSlot? artworkOptionsSearchSlot;
     private string preferredLanguageTag = "en-US";
     private string? _storeSourceId;
     private string? _storeGameId;
     private int searchRevision;
+    private int openRevision;
 
     [ObservableProperty]
     public partial ObservableCollection<GameArtworkSourceOption> CoverArtworkOptions { get; set; } = [];
 
     [ObservableProperty]
     public partial ObservableCollection<GameArtworkSourceOption> BackgroundArtworkOptions { get; set; } = [];
+
+    [ObservableProperty]
+    public partial ObservableCollection<GameArtworkSourceOption> LogoArtworkOptions { get; set; } = [];
+
+    [ObservableProperty]
+    public partial ObservableCollection<GameArtworkSourceOption> IconArtworkOptions { get; set; } = [];
 
     [ObservableProperty]
     public partial string? ArtworkSourcesStatus { get; set; }
@@ -52,6 +60,8 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     {
         GameArtworkSlot.Cover => CoverArtworkOptions,
         GameArtworkSlot.Background => BackgroundArtworkOptions,
+        GameArtworkSlot.Logo => LogoArtworkOptions,
+        GameArtworkSlot.Icon => IconArtworkOptions,
         _ => throw new ArgumentOutOfRangeException(nameof(ActiveArtworkSlot))
     };
 
@@ -59,10 +69,16 @@ public partial class GameArtworkPickerViewModel : ObservableObject
 
     public bool IsBackgroundPickerActive => IsArtworkPickerOpen && ActiveArtworkSlot == GameArtworkSlot.Background && !IsLoadingArtworkOptions && HasActiveArtworkOptions;
 
+    public bool IsLogoPickerActive => IsArtworkPickerOpen && ActiveArtworkSlot == GameArtworkSlot.Logo && !IsLoadingArtworkOptions && HasActiveArtworkOptions;
+
+    public bool IsIconPickerActive => IsArtworkPickerOpen && ActiveArtworkSlot == GameArtworkSlot.Icon && !IsLoadingArtworkOptions && HasActiveArtworkOptions;
+
     public string ActiveArtworkTitle => ActiveArtworkSlot switch
     {
         GameArtworkSlot.Cover => Resources.Cover,
         GameArtworkSlot.Background => Resources.Background,
+        GameArtworkSlot.Logo => Resources.Logo,
+        GameArtworkSlot.Icon => Resources.Icon,
         _ => throw new ArgumentOutOfRangeException(nameof(ActiveArtworkSlot))
     };
 
@@ -72,7 +88,7 @@ public partial class GameArtworkPickerViewModel : ObservableObject
 
     public bool HasNoActiveArtworkOptions => !HasActiveArtworkOptions && !IsLoadingArtworkOptions;
 
-    public bool HasArtworkOptions => CoverArtworkOptions.Count > 0 || BackgroundArtworkOptions.Count > 0;
+    public bool HasArtworkOptions => CoverArtworkOptions.Count > 0 || BackgroundArtworkOptions.Count > 0 || LogoArtworkOptions.Count > 0 || IconArtworkOptions.Count > 0;
 
     public bool CanApplyActiveArtwork => SelectedActiveArtworkOption is { IsPreviewLoaded: true, PreviewImage: not null };
 
@@ -94,9 +110,12 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     {
         searchRevision++;
         artworkOptionsSearchName = null;
-        CoverArtworkOptions.Clear();
-        BackgroundArtworkOptions.Clear();
+        artworkOptionsSearchSlot = null;
         SelectedActiveArtworkOption = null;
+        ClearOptions(CoverArtworkOptions);
+        ClearOptions(BackgroundArtworkOptions);
+        ClearOptions(LogoArtworkOptions);
+        ClearOptions(IconArtworkOptions);
         ArtworkSourcesStatus = null;
         OnPropertyChanged(nameof(ActiveArtworkOptions));
         OnPropertyChanged(nameof(HasActiveArtworkOptions));
@@ -118,23 +137,36 @@ public partial class GameArtworkPickerViewModel : ObservableObject
 
     public async Task OpenAsync(GameArtworkSlot slot, string editedGameName, CancellationToken cancellationToken = default)
     {
-        if (slot is not GameArtworkSlot.Cover and not GameArtworkSlot.Background)
+        if (slot is not GameArtworkSlot.Cover and not GameArtworkSlot.Background and not GameArtworkSlot.Logo and not GameArtworkSlot.Icon)
         {
             throw new ArgumentOutOfRangeException(nameof(slot));
         }
 
+        var currentOpenRevision = ++openRevision;
         ActiveArtworkSlot = slot;
         ArtworkSourcesStatus = Resources.LoadingArtworkSources;
         IsLoadingArtworkOptions = true;
         IsArtworkPickerOpen = true;
         try
         {
-            await LoadArtworkOptionsAsync(editedGameName.Trim(), cancellationToken);
+            await LoadArtworkOptionsAsync(editedGameName.Trim(), slot, currentOpenRevision, cancellationToken);
+            if (currentOpenRevision != openRevision || !IsArtworkPickerOpen)
+            {
+                return;
+            }
+
             var activeOptions = GetActiveArtworkOptionsCollection();
             if (activeOptions.Count > 0)
             {
                 ArtworkSourcesStatus = Resources.LoadingArtworkPreviews;
-                await LoadArtworkPreviewsAsync(activeOptions, cancellationToken);
+                await LoadArtworkPreviewsAsync(
+                    activeOptions,
+                    () => currentOpenRevision == openRevision && IsArtworkPickerOpen,
+                    cancellationToken);
+                if (currentOpenRevision != openRevision || !IsArtworkPickerOpen)
+                {
+                    return;
+                }
                 RemoveUnavailableArtworkPreviews(activeOptions);
                 SelectedActiveArtworkOption = activeOptions.FirstOrDefault();
                 ArtworkSourcesStatus = HasActiveArtworkOptions ? null : Resources.NoUsableArtworkFound;
@@ -146,15 +178,23 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         }
         finally
         {
-            IsLoadingArtworkOptions = false;
+            if (currentOpenRevision == openRevision)
+            {
+                IsLoadingArtworkOptions = false;
+            }
         }
     }
 
-    public void Close() => IsArtworkPickerOpen = false;
-
-    private async Task LoadArtworkOptionsAsync(string searchName, CancellationToken cancellationToken)
+    public void Close()
     {
-        if (string.Equals(artworkOptionsSearchName, searchName, StringComparison.Ordinal))
+        openRevision++;
+        IsLoadingArtworkOptions = false;
+        IsArtworkPickerOpen = false;
+    }
+
+    private async Task LoadArtworkOptionsAsync(string searchName, GameArtworkSlot requestedSlot, int currentOpenRevision, CancellationToken cancellationToken)
+    {
+        if (string.Equals(artworkOptionsSearchName, searchName, StringComparison.Ordinal) && artworkOptionsSearchSlot == requestedSlot)
         {
             ArtworkSourcesStatus = HasActiveArtworkOptions ? null : HasArtworkOptions
                 ? Resources.NoUsableArtworkFound
@@ -187,20 +227,34 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         };
         try
         {
-            var results = await Task.WhenAll(artworkProviders.Select(async provider =>
-                (Provider: provider, Images: await provider.GetArtworksAsync(searchGame, preferredLanguageTag, cancellationToken))));
-            if (currentSearchRevision != searchRevision)
+            var results = await Task.WhenAll(artworkProviders.Select(provider =>
+                GetProviderArtworkAsync(provider, searchGame, requestedSlot, cancellationToken)));
+            if (currentSearchRevision != searchRevision || currentOpenRevision != openRevision || !IsArtworkPickerOpen)
             {
                 return;
             }
 
+            SelectedActiveArtworkOption = null;
+            ClearOptions(CoverArtworkOptions);
+            ClearOptions(BackgroundArtworkOptions);
+            ClearOptions(LogoArtworkOptions);
+            ClearOptions(IconArtworkOptions);
             CoverArtworkOptions = CreateOptions(results, GameArtworkSlot.Cover, Resources.Cover);
             BackgroundArtworkOptions = CreateOptions(results, GameArtworkSlot.Background, Resources.Background);
+            LogoArtworkOptions = CreateOptions(results, GameArtworkSlot.Logo, Resources.Logo);
+            IconArtworkOptions = CreateOptions(results, GameArtworkSlot.Icon, Resources.Icon);
             artworkOptionsSearchName = searchName;
+            artworkOptionsSearchSlot = requestedSlot;
             OnPropertyChanged(nameof(ActiveArtworkOptions));
             OnPropertyChanged(nameof(HasActiveArtworkOptions));
             OnPropertyChanged(nameof(HasArtworkOptions));
-            ArtworkSourcesStatus = HasArtworkOptions ? null : Resources.NoArtworkSourcesFound;
+            var requestedArtworkExists = results.Any(result => result.Images.Any(image => image.Slot == requestedSlot));
+            var providerError = results.FirstOrDefault(result => result.ErrorMessage is not null).ErrorMessage;
+            ArtworkSourcesStatus = HasArtworkOptions || requestedArtworkExists
+                ? null
+                : providerError is null
+                    ? Resources.NoArtworkSourcesFound
+                    : string.Format(CultureInfo.CurrentCulture, Resources.ArtworkSourcesError, providerError);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -208,7 +262,7 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            if (currentSearchRevision == searchRevision)
+            if (currentSearchRevision == searchRevision && currentOpenRevision == openRevision)
             {
                 artworkOptionsSearchName = null;
                 ArtworkSourcesStatus = string.Format(CultureInfo.CurrentCulture, Resources.ArtworkSourcesError, exception.Message);
@@ -216,13 +270,54 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         }
     }
 
+    private async Task<(IGameArtworkProvider Provider, IReadOnlyList<GameArtworkImage> Images, string? ErrorMessage)> GetProviderArtworkAsync(
+        IGameArtworkProvider provider,
+        Game searchGame,
+        GameArtworkSlot requestedSlot,
+        CancellationToken cancellationToken)
+    {
+        if (!provider.SupportedSlots.Contains(requestedSlot))
+        {
+            return (provider, Array.Empty<GameArtworkImage>(), null);
+        }
+
+        try
+        {
+            var images = await provider.GetArtworksAsync(
+                searchGame,
+                new HashSet<GameArtworkSlot> { requestedSlot },
+                preferredLanguageTag,
+                cancellationToken);
+            return (provider, images, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return (provider, Array.Empty<GameArtworkImage>(), exception.Message);
+        }
+    }
+
+    private static void ClearOptions(ObservableCollection<GameArtworkSourceOption> options)
+    {
+        foreach (var option in options)
+        {
+            option.PreviewImage?.Dispose();
+            option.PreviewImage = null;
+        }
+
+        options.Clear();
+    }
+
     private static ObservableCollection<GameArtworkSourceOption> CreateOptions(
-        IEnumerable<(IGameArtworkProvider Provider, IReadOnlyList<GameArtworkImage> Images)> results,
+        IEnumerable<(IGameArtworkProvider Provider, IReadOnlyList<GameArtworkImage> Images, string? ErrorMessage)> results,
         GameArtworkSlot slot,
         string slotName)
     {
         var options = new List<GameArtworkSourceOption>();
-        foreach (var (provider, images) in results)
+        foreach (var (provider, images, _) in results)
         {
             var matchingImages = images.Where(image => image.Slot == slot).ToArray();
             for (var index = 0; index < matchingImages.Length; index++)
@@ -239,6 +334,8 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     {
         GameArtworkSlot.Cover => CoverArtworkOptions,
         GameArtworkSlot.Background => BackgroundArtworkOptions,
+        GameArtworkSlot.Logo => LogoArtworkOptions,
+        GameArtworkSlot.Icon => IconArtworkOptions,
         _ => throw new ArgumentOutOfRangeException(nameof(ActiveArtworkSlot))
     };
 
@@ -253,11 +350,21 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         }
     }
 
-    private async Task LoadArtworkPreviewsAsync(IEnumerable<GameArtworkSourceOption> options, CancellationToken cancellationToken)
+    private async Task LoadArtworkPreviewsAsync(
+        IEnumerable<GameArtworkSourceOption> options,
+        Func<bool> isCurrentOpen,
+        CancellationToken cancellationToken)
     {
         await Task.WhenAll(options.Select(async option =>
         {
-            option.PreviewImage = await artworkImageLoader.LoadAsync(option.Image);
+            var preview = await artworkImageLoader.LoadAsync(option.Image);
+            if (!isCurrentOpen())
+            {
+                preview?.Dispose();
+                return;
+            }
+
+            option.PreviewImage = preview;
             option.IsPreviewLoaded = true;
         }));
     }
@@ -270,6 +377,8 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         OnPropertyChanged(nameof(ActiveArtworkOptions));
         OnPropertyChanged(nameof(IsCoverPickerActive));
         OnPropertyChanged(nameof(IsBackgroundPickerActive));
+        OnPropertyChanged(nameof(IsLogoPickerActive));
+        OnPropertyChanged(nameof(IsIconPickerActive));
         OnPropertyChanged(nameof(ActiveArtworkTitle));
         OnPropertyChanged(nameof(HasActiveArtworkOptions));
     }
@@ -278,6 +387,8 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsCoverPickerActive));
         OnPropertyChanged(nameof(IsBackgroundPickerActive));
+        OnPropertyChanged(nameof(IsIconPickerActive));
+        OnPropertyChanged(nameof(IsLogoPickerActive));
     }
 
     partial void OnIsLoadingArtworkOptionsChanged(bool value)
@@ -285,6 +396,8 @@ public partial class GameArtworkPickerViewModel : ObservableObject
         OnPropertyChanged(nameof(HasNoActiveArtworkOptions));
         OnPropertyChanged(nameof(IsCoverPickerActive));
         OnPropertyChanged(nameof(IsBackgroundPickerActive));
+        OnPropertyChanged(nameof(IsLogoPickerActive));
+        OnPropertyChanged(nameof(IsIconPickerActive));
         OnPropertyChanged(nameof(CanApplyActiveArtwork));
     }
 
@@ -298,6 +411,20 @@ public partial class GameArtworkPickerViewModel : ObservableObject
     }
 
     partial void OnBackgroundArtworkOptionsChanged(ObservableCollection<GameArtworkSourceOption> value)
+    {
+        OnPropertyChanged(nameof(HasArtworkOptions));
+        OnPropertyChanged(nameof(ActiveArtworkOptions));
+        OnPropertyChanged(nameof(HasActiveArtworkOptions));
+    }
+
+    partial void OnLogoArtworkOptionsChanged(ObservableCollection<GameArtworkSourceOption> value)
+    {
+        OnPropertyChanged(nameof(HasArtworkOptions));
+        OnPropertyChanged(nameof(ActiveArtworkOptions));
+        OnPropertyChanged(nameof(HasActiveArtworkOptions));
+    }
+
+    partial void OnIconArtworkOptionsChanged(ObservableCollection<GameArtworkSourceOption> value)
     {
         OnPropertyChanged(nameof(HasArtworkOptions));
         OnPropertyChanged(nameof(ActiveArtworkOptions));

@@ -15,6 +15,7 @@ using Hatband.App.ViewModels.Settings;
 using Hatband.App.ViewModels.Settings.Fields;
 using Hatband.App.Views.Components;
 using Hatband.Core.Models.Settings;
+using Hatband.SDK.UI.Controls;
 using Hatband.SDK.UI.Connectors;
 using AppResources = Hatband.App.Localization.Resources;
 using LayoutHorizontalAlignment = Avalonia.Layout.HorizontalAlignment;
@@ -123,7 +124,7 @@ public partial class SettingsSectionEditorView : UserControl
         pendingFieldFocusSection = Section;
         if (TryFocusPendingField())
         {
-            return activePanel?.Fields[index];
+            return activePanel?.GetVisibleFields()[index];
         }
 
         SchedulePendingFieldFocus();
@@ -224,6 +225,7 @@ public partial class SettingsSectionEditorView : UserControl
 
         observedViewModel.Navigation.PropertyChanged += OnNavigationPropertyChanged;
         observedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        observedViewModel.AppearanceSettingsChanged += OnAppearanceSettingsChanged;
         isObservingViewModel = true;
     }
 
@@ -236,6 +238,7 @@ public partial class SettingsSectionEditorView : UserControl
 
         observedViewModel.Navigation.PropertyChanged -= OnNavigationPropertyChanged;
         observedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        observedViewModel.AppearanceSettingsChanged -= OnAppearanceSettingsChanged;
         isObservingViewModel = false;
     }
 
@@ -469,13 +472,28 @@ public partial class SettingsSectionEditorView : UserControl
         PanelEditorState state)
     {
         var editor = CreateEditor(settings, field);
-        var index = state.Fields.Count;
+        var visibleIndex = state.GetVisibleFields().Count;
         state.Fields.Add(editor);
-        var row = CreateFieldRow(field.Property, editor, state == activePanel ? index : -1);
+        var row = CreateFieldRow(field.Property, editor, state == activePanel ? visibleIndex : -1);
+        if (field.Property.DeclaringType == typeof(AppearanceSettings) &&
+            field.Property.Name == nameof(AppearanceSettings.TitleFont))
+        {
+            state.TitleFontRow = row;
+            row.IsVisible = settings is AppearanceSettings appearanceSettings &&
+                appearanceSettings.LibraryTitleMode == LibraryTitleMode.Text;
+        }
+        else if (field.Property.DeclaringType == typeof(AppearanceSettings) &&
+                 field.Property.Name == nameof(AppearanceSettings.NormalizeLibraryLogos))
+        {
+            state.NormalizeLibraryLogosRow = row;
+            row.IsVisible = settings is AppearanceSettings appearanceSettings &&
+                appearanceSettings.LibraryTitleMode == LibraryTitleMode.Logo;
+        }
         state.Borders.Add(row);
+        state.FieldRows.Add(row);
         editor.GotFocus += (_, _) =>
         {
-            observedViewModel?.SelectSettingsField(index);
+            observedViewModel?.SelectSettingsField(state.GetVisibleFieldIndex(editor));
             UpdateFieldSelectionBorders();
         };
         editor.LostFocus += (_, _) => UpdateFieldSelectionBorders();
@@ -702,6 +720,23 @@ public partial class SettingsSectionEditorView : UserControl
                     },
                     supportsRecycling: false);
             }
+            else if (type == typeof(LibraryTitleMode))
+            {
+                comboBox.Width = 300;
+                comboBox.HorizontalAlignment = LayoutHorizontalAlignment.Left;
+                comboBox.ItemTemplate = new FuncDataTemplate<LibraryTitleMode>(
+                    (mode, _) => new TextBlock
+                    {
+                        Text = mode switch
+                        {
+                            LibraryTitleMode.None => AppResources.LibraryTitleModeNone,
+                            LibraryTitleMode.Text => AppResources.LibraryTitleModeText,
+                            LibraryTitleMode.Logo => AppResources.LibraryTitleModeLogo,
+                            _ => throw new InvalidOperationException($"Unknown library title mode '{mode}'.")
+                        }
+                    },
+                    supportsRecycling: false);
+            }
 
             comboBox.SelectionCommitted += (_, _) => SaveValue(field.PropertyPath, comboBox.SelectedItem);
             return comboBox;
@@ -822,8 +857,9 @@ public partial class SettingsSectionEditorView : UserControl
                     nameof(AppearanceSettings.LibraryPosition) => AppResources.LibraryPositionLabel,
                     nameof(AppearanceSettings.ShowCoverTitles) => AppResources.ShowCoverTitles,
                     nameof(AppearanceSettings.BackgroundDimmingPercent) => AppResources.BackgroundDimmingPercent,
-                    nameof(AppearanceSettings.ShowSelectedGameTitle) => AppResources.ShowSelectedGameTitle,
+                    nameof(AppearanceSettings.LibraryTitleMode) => AppResources.LibraryTitleModeLabel,
                     nameof(AppearanceSettings.TitleFont) => AppResources.LibraryTitleFontLabel,
+                    nameof(AppearanceSettings.NormalizeLibraryLogos) => AppResources.NormalizeLibraryLogos,
                     _ => SettingsFieldConvention.GetDisplayName(property)
                 }
                 : SettingsFieldConvention.GetDisplayName(property);
@@ -943,8 +979,9 @@ public partial class SettingsSectionEditorView : UserControl
         for (var index = 0; index < activePanel.Borders.Count; index++)
         {
             var fieldHasFocus = activePanel.Fields[index].IsFocused;
-            activePanel.Borders[index].BorderBrush = fieldHasFocus
-                ? observedViewModel?.GetSettingsFieldBorderBrush(index) ?? Brushes.Transparent
+            var visibleIndex = activePanel.GetVisibleFieldIndex(activePanel.Fields[index]);
+            activePanel.Borders[index].BorderBrush = fieldHasFocus && visibleIndex >= 0
+                ? observedViewModel?.GetSettingsFieldBorderBrush(visibleIndex) ?? Brushes.Transparent
                 : Brushes.Transparent;
         }
     }
@@ -970,12 +1007,12 @@ public partial class SettingsSectionEditorView : UserControl
 
         if (observedViewModel?.Navigation.IsContentActive != true ||
             activePanel is null ||
-            index >= activePanel.Fields.Count)
+            index >= activePanel.GetVisibleFields().Count)
         {
             return false;
         }
 
-        var control = activePanel.Fields[index];
+        var control = activePanel.GetVisibleFields()[index];
         if (!control.IsEffectivelyVisible || !control.IsEffectivelyEnabled || !control.Focusable)
         {
             return false;
@@ -996,5 +1033,33 @@ public partial class SettingsSectionEditorView : UserControl
         public List<Control> Fields { get; } = [];
 
         public List<Border> Borders { get; } = [];
+
+        public List<Border> FieldRows { get; } = [];
+
+        public Border? TitleFontRow { get; set; }
+
+        public Border? NormalizeLibraryLogosRow { get; set; }
+
+        public IReadOnlyList<Control> GetVisibleFields() => Fields
+            .Where((_, index) => FieldRows[index].IsVisible)
+            .ToArray();
+
+        public int GetVisibleFieldIndex(Control field) => GetVisibleFields().ToList().IndexOf(field);
+    }
+
+    private void OnAppearanceSettingsChanged(AppearanceSettings settings)
+    {
+        foreach (var state in panelStates)
+        {
+            if (state.TitleFontRow is { } row)
+            {
+                row.IsVisible = settings.LibraryTitleMode == LibraryTitleMode.Text;
+            }
+
+            if (state.NormalizeLibraryLogosRow is { } logoNormalizationRow)
+            {
+                logoNormalizationRow.IsVisible = settings.LibraryTitleMode == LibraryTitleMode.Logo;
+            }
+        }
     }
 }

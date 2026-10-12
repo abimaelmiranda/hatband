@@ -1,10 +1,12 @@
 using Avalonia.Layout;
 using Avalonia.Media;
+using System.ComponentModel;
 using Hatband.App.Localization;
 using Hatband.App.Navigation;
 using Hatband.App.Services;
 using Hatband.App.ViewModels.Navigation;
 using Hatband.Core.Models.Settings;
+using LibraryTitleModeOption = Hatband.Core.Models.Settings.LibraryTitleMode;
 
 namespace Hatband.App.ViewModels;
 
@@ -15,7 +17,7 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
 {
     private VerticalAlignment _libraryAlignment = VerticalAlignment.Bottom;
     private bool _showCoverTitles = true;
-    private bool _showSelectedGameTitle;
+    private LibraryTitleModeOption _libraryTitleMode = LibraryTitleModeOption.None;
     private FontFamily _titleFontFamily = LibraryTitleTypography.GetFontFamily(LibraryTitleFont.Cinema);
     private FontWeight _titleFontWeight = LibraryTitleTypography.GetFontWeight(LibraryTitleFont.Cinema);
     private int _titleRow;
@@ -25,13 +27,18 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
     public LibraryScreenViewModel(LibrarySessionViewModel session)
     {
         Session = session;
+        Session.PropertyChanged += OnSessionPropertyChanged;
+        AttachSelectedCard(Session.SelectedGameCard);
     }
 
     public LibrarySessionViewModel Session { get; }
 
     public VerticalAlignment LibraryAlignment => _libraryAlignment;
     public bool ShowCoverTitles => _showCoverTitles;
-    public bool ShowSelectedGameTitle => _showSelectedGameTitle;
+    public LibraryTitleModeOption LibraryTitleMode => _libraryTitleMode;
+    public bool IsTextTitleMode => _libraryTitleMode == LibraryTitleModeOption.Text;
+    public bool IsLogoTitleMode => _libraryTitleMode == LibraryTitleModeOption.Logo;
+    public bool HasVisibleSelectedGameLogo => IsLogoTitleMode && Session.SelectedGameCard?.LogoImage is not null;
     public FontFamily TitleFontFamily => _titleFontFamily;
     public FontWeight TitleFontWeight => _titleFontWeight;
     public int TitleRow => _titleRow;
@@ -52,7 +59,10 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
 
         SetProperty(ref _libraryAlignment, alignment, nameof(LibraryAlignment));
         SetProperty(ref _showCoverTitles, settings.ShowCoverTitles, nameof(ShowCoverTitles));
-        SetProperty(ref _showSelectedGameTitle, settings.ShowSelectedGameTitle, nameof(ShowSelectedGameTitle));
+        SetProperty(ref _libraryTitleMode, settings.LibraryTitleMode, nameof(LibraryTitleMode));
+        OnPropertyChanged(nameof(IsTextTitleMode));
+        OnPropertyChanged(nameof(IsLogoTitleMode));
+        OnPropertyChanged(nameof(HasVisibleSelectedGameLogo));
         SetProperty(ref _titleFontFamily, LibraryTitleTypography.GetFontFamily(settings.TitleFont), nameof(TitleFontFamily));
         SetProperty(ref _titleFontWeight, LibraryTitleTypography.GetFontWeight(settings.TitleFont), nameof(TitleFontWeight));
         SetProperty(ref _titleRow, settings.LibraryPosition == LibraryPosition.Top ? 1 : 0, nameof(TitleRow));
@@ -71,6 +81,49 @@ public sealed class LibraryScreenViewModel : ScreenViewModel
 
     public event Action<GameCardViewModel>? GameOpened;
     public event Action<MenuAction>? MenuActionRequested;
+
+    protected override void OnActivated()
+    {
+        Session.RefreshSelectedGameLogo();
+    }
+
+    protected override void OnDeactivated()
+    {
+        Session.CancelSelectedGameLogoLoad();
+    }
+
+    private void OnSessionPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(LibrarySessionViewModel.SelectedGameCard))
+        {
+            AttachSelectedCard(Session.SelectedGameCard);
+            OnPropertyChanged(nameof(HasVisibleSelectedGameLogo));
+        }
+    }
+
+    private void AttachSelectedCard(GameCardViewModel? card)
+    {
+        if (selectedCard is not null)
+        {
+            selectedCard.PropertyChanged -= OnSelectedCardPropertyChanged;
+        }
+
+        selectedCard = card;
+        if (selectedCard is not null)
+        {
+            selectedCard.PropertyChanged += OnSelectedCardPropertyChanged;
+        }
+    }
+
+    private GameCardViewModel? selectedCard;
+
+    private void OnSelectedCardPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(GameCardViewModel.LogoImage))
+        {
+            OnPropertyChanged(nameof(HasVisibleSelectedGameLogo));
+        }
+    }
 
     public void OpenSelectedGame()
     {

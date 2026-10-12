@@ -1,6 +1,7 @@
-using Avalonia.Media.Imaging;
-using Hatband.Core.Models.Games;
 using System.Net.Http;
+using Avalonia.Media.Imaging;
+using Hatband.Core.Abstractions.Games;
+using Hatband.Core.Models.Games;
 
 namespace Hatband.App.Services;
 
@@ -8,16 +9,22 @@ public sealed class ArtworkImageLoader
 {
     private readonly IAppDataFileSystem appDataFileSystem;
     private readonly IHttpClientFactory httpClientFactory;
+    private readonly IGameLogoNormalizationService gameLogoNormalizationService;
 
-    public ArtworkImageLoader(IAppDataFileSystem appDataFileSystem, IHttpClientFactory httpClientFactory)
+    public ArtworkImageLoader(
+        IAppDataFileSystem appDataFileSystem,
+        IHttpClientFactory httpClientFactory,
+        IGameLogoNormalizationService gameLogoNormalizationService)
     {
         ArgumentNullException.ThrowIfNull(appDataFileSystem);
         ArgumentNullException.ThrowIfNull(httpClientFactory);
+        ArgumentNullException.ThrowIfNull(gameLogoNormalizationService);
         this.appDataFileSystem = appDataFileSystem;
         this.httpClientFactory = httpClientFactory;
+        this.gameLogoNormalizationService = gameLogoNormalizationService;
     }
 
-    public async Task<Bitmap?> LoadAsync(string? source)
+    public async Task<Bitmap?> LoadAsync(string? source, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(source))
         {
@@ -32,15 +39,14 @@ public sealed class ArtworkImageLoader
             }
 
             var imageBytes = Path.IsPathRooted(source)
-                ? await File.ReadAllBytesAsync(source)
-                : await appDataFileSystem.ReadAllBytesAsync(source);
+                ? await File.ReadAllBytesAsync(source, cancellationToken)
+                : await appDataFileSystem.ReadAllBytesAsync(source, cancellationToken);
             if (imageBytes is not { Length: > 0 })
             {
                 return null;
             }
 
-            using var stream = new MemoryStream(imageBytes);
-            return new Bitmap(stream);
+            return await Task.Run(() => DecodeBitmap(imageBytes, cancellationToken), cancellationToken);
         }
         catch (IOException)
         {
@@ -58,6 +64,54 @@ public sealed class ArtworkImageLoader
         {
             return null;
         }
+    }
+
+    public async Task<(Bitmap? Image, bool IsNormalized)> LoadLogoAsync(
+        Guid gameId,
+        string? source,
+        bool normalize,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return (null, false);
+        }
+
+        if (Path.IsPathRooted(source) ? !File.Exists(source) : !appDataFileSystem.FileExists(source))
+        {
+            return (null, false);
+        }
+
+        if (normalize)
+        {
+            var normalizedPath = await Task.Run(
+                () => gameLogoNormalizationService.TryGetNormalizedPathAsync(gameId, source, cancellationToken),
+                cancellationToken);
+            if (normalizedPath is not null)
+            {
+                var normalizedImage = await LoadAsync(normalizedPath, cancellationToken);
+                if (normalizedImage is not null)
+                {
+                    return (normalizedImage, true);
+                }
+            }
+        }
+
+        return (await LoadAsync(source, cancellationToken), false);
+    }
+
+    private static Bitmap? DecodeBitmap(byte[] imageBytes, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var stream = new MemoryStream(imageBytes);
+        var bitmap = new Bitmap(stream);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            bitmap.Dispose();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return bitmap;
     }
 
     public async Task<Bitmap?> LoadRemoteAsync(string source, CancellationToken cancellationToken = default)
@@ -114,4 +168,5 @@ public sealed class ArtworkImageLoader
         using var stream = new MemoryStream(image.Content);
         return Task.FromResult<Bitmap?>(new Bitmap(stream));
     }
+
 }

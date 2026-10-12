@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using LibraryTitleModeOption = Hatband.Core.Models.Settings.LibraryTitleMode;
 
 namespace Hatband.Core.Models.Settings;
 
@@ -11,7 +12,9 @@ public sealed class AppearanceSettings
     [Range(0, 100)]
     public int BackgroundDimmingPercent { get; set; } = 14;
 
-    public bool ShowSelectedGameTitle { get; set; }
+    public LibraryTitleMode LibraryTitleMode { get; set; } = LibraryTitleModeOption.None;
 
     public LibraryTitleFont TitleFont { get; set; } = LibraryTitleFont.Cinema;
+
+    public bool NormalizeLibraryLogos { get; set; }
 }

@@ -178,7 +178,9 @@ public partial class ArtworkPickerModalView : ModalView
     private void OnArtworkPickerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(GameArtworkPickerViewModel.IsCoverPickerActive) or
-            nameof(GameArtworkPickerViewModel.IsBackgroundPickerActive))
+            nameof(GameArtworkPickerViewModel.IsBackgroundPickerActive) or
+            nameof(GameArtworkPickerViewModel.IsLogoPickerActive) or
+            nameof(GameArtworkPickerViewModel.IsIconPickerActive))
         {
             Dispatcher.UIThread.Post(FocusSelectedArtworkOption, DispatcherPriority.Background);
         }
@@ -222,9 +224,14 @@ public partial class ArtworkPickerModalView : ModalView
             return null;
         }
 
-        return viewModel.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
-            ? CoverArtworkList
-            : BackgroundArtworkList;
+        return viewModel.ArtworkPicker.ActiveArtworkSlot switch
+        {
+            GameArtworkSlot.Cover => CoverArtworkList,
+            GameArtworkSlot.Background => BackgroundArtworkList,
+            GameArtworkSlot.Icon => IconArtworkList,
+            GameArtworkSlot.Logo => LogoArtworkList,
+            _ => throw new ArgumentOutOfRangeException(nameof(viewModel.ArtworkPicker.ActiveArtworkSlot))
+        };
     }
 
     private bool IsFocusedWithin(Control control) =>

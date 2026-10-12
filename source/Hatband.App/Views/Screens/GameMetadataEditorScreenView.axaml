@@ -97,7 +97,7 @@
                                   IsVisible="False">
                             <StackPanel Spacing="12" Margin="0,8,8,0">
                         <TextBlock Text="{x:Static lang:Resources.GameArtwork}" FontSize="{DynamicResource Typography.Subheading}" FontWeight="SemiBold" Margin="0,8,0,0" />
-                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                             <StackPanel Spacing="3">
                                 <TextBlock Text="{x:Static lang:Resources.Cover}" Foreground="#D9E0E5" />
                                 <TextBlock Text="{Binding CoverArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" />
@@ -108,9 +108,10 @@
                                     Classes="subtle-action"
                                     Tag="Cover"
                                     Click="OnSearchArtworkClick" />
-                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Cover" Click="OnRestoreArtworkClick" />
+                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Cover" Click="OnRestoreArtworkClick" IsEnabled="{Binding CanRestoreCover}" />
+                            <Button Grid.Column="3" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Cover" Click="OnImportArtworkClick" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                             <StackPanel Spacing="3">
                                 <TextBlock Text="{x:Static lang:Resources.Background}" Foreground="#D9E0E5" />
                                 <TextBlock Text="{Binding BackgroundArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" />
@@ -121,7 +122,26 @@
                                     Classes="subtle-action"
                                     Tag="Background"
                                     Click="OnSearchArtworkClick" />
-                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Background" Click="OnRestoreArtworkClick" />
+                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Background" Click="OnRestoreArtworkClick" IsEnabled="{Binding CanRestoreBackground}" />
+                            <Button Grid.Column="3" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Background" Click="OnImportArtworkClick" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{x:Static lang:Resources.Icon}" Foreground="#D9E0E5" />
+                                <TextBlock Text="{Binding IconArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button x:Name="SearchIconArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Icon" Click="OnSearchArtworkClick" />
+                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Icon" Click="OnRestoreArtworkClick" IsEnabled="{Binding CanRestoreIcon}" />
+                            <Button Grid.Column="3" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Icon" Click="OnImportArtworkClick" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{x:Static lang:Resources.Logo}" Foreground="#D9E0E5" />
+                                <TextBlock Text="{Binding LogoArtworkSelection}" Foreground="#AFC0CC" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <Button x:Name="SearchLogoArtworkButton" Grid.Column="1" Content="{x:Static lang:Resources.SearchArtwork}" Classes="subtle-action" Tag="Logo" Click="OnSearchArtworkClick" />
+                            <Button Grid.Column="2" Content="{x:Static lang:Resources.RestoreSource}" Classes="subtle-action" Tag="Logo" Click="OnRestoreArtworkClick" IsEnabled="{Binding CanRestoreLogo}" />
+                            <Button Grid.Column="3" Content="{x:Static lang:Resources.ImportArtwork}" Classes="subtle-action" Tag="Logo" Click="OnImportArtworkClick" />
                         </Grid>
 
                             </StackPanel>

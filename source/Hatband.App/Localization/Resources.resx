@@ -222,11 +222,20 @@
   <data name="Icon" xml:space="preserve">
     <value>Icon</value>
   </data>
+  <data name="Logo" xml:space="preserve">
+    <value>Logo</value>
+  </data>
   <data name="UseArtwork" xml:space="preserve">
     <value>Use image</value>
   </data>
   <data name="SearchArtwork" xml:space="preserve">
     <value>Browse images</value>
+  </data>
+  <data name="ImportArtwork" xml:space="preserve">
+    <value>Import file</value>
+  </data>
+  <data name="LocalFileArtwork" xml:space="preserve">
+    <value>Local file</value>
   </data>
   <data name="ArtworkPickerTitle" xml:space="preserve">
     <value>Choose artwork</value>
@@ -980,14 +989,32 @@
   <data name="BackgroundDimmingPercent" xml:space="preserve">
     <value>Background dimming (%)</value>
   </data>
-  <data name="ShowSelectedGameTitle" xml:space="preserve">
-    <value>Show title in library</value>
+  <data name="LibraryTitleModeLabel" xml:space="preserve">
+    <value>Selected game title</value>
+  </data>
+  <data name="LibraryTitleModeNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="LibraryTitleModeText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="LibraryTitleModeLogo" xml:space="preserve">
+    <value>Logo</value>
   </data>
   <data name="BackgroundDimmingHint" xml:space="preserve">
     <value>At 0%, uniform dimming is removed. The bottom gradient remains.</value>
   </data>
   <data name="LibraryTitleFontLabel" xml:space="preserve">
     <value>Title font</value>
+  </data>
+  <data name="NormalizeLibraryLogos" xml:space="preserve">
+    <value>Normalize library logos</value>
+  </data>
+  <data name="LibraryLogoNormalizationPreparing" xml:space="preserve">
+    <value>Preparing logo normalization…</value>
+  </data>
+  <data name="LibraryLogoNormalizationProgress" xml:space="preserve">
+    <value>Normalizing logos ({0}/{1})</value>
   </data>
   <data name="LibraryTitleFontCinema" xml:space="preserve">
     <value>Cinema — Bebas Neue</value>

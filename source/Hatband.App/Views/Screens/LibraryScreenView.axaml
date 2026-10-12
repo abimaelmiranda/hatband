@@ -40,7 +40,7 @@
                       IsVisible="{Binding !Session.IsLibraryBusy}">
                     <TextBlock Grid.Row="{Binding TitleRow}"
                                Text="{Binding Session.SelectedGameCard.Name}"
-                               IsVisible="{Binding ShowSelectedGameTitle}"
+                               IsVisible="{Binding IsTextTitleMode}"
                                FontSize="{DynamicResource Typography.LibraryGameTitle}"
                                LineHeight="{DynamicResource Typography.LibraryGameTitleLineHeight}"
                                FontFamily="{Binding TitleFontFamily}"
@@ -50,6 +50,14 @@
                                TextTrimming="CharacterEllipsis"
                                MaxLines="2"
                                Margin="24,4,24,4" />
+                    <Image Grid.Row="{Binding TitleRow}"
+                           Source="{Binding Session.SelectedGameCard.LogoImage}"
+                           IsVisible="{Binding HasVisibleSelectedGameLogo}"
+                           MaxWidth="300"
+                           MaxHeight="120"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Left"
+                           Margin="24,4,24,4" />
                     <ListBox x:Name="GameCarousel"
                              Grid.Row="{Binding CarouselRow}"
                              Classes="game-carousel"

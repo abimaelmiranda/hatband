@@ -8,6 +8,7 @@ using Hatband.App.ViewModels;
 using Hatband.App.Views.Components;
 using Hatband.App.Views.Navigation;
 using Hatband.Core.Models.Games;
+using Hatband.Core.Enums.Artwork;
 using AppResources = Hatband.App.Localization.Resources;
 
 namespace Hatband.App.Views.Screens;
@@ -64,10 +65,7 @@ public partial class AddGameScreenView : FullScreenView
             return;
         }
 
-        var button = viewModel.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
-            ? SearchCoverArtworkButton
-            : SearchBackgroundArtworkButton;
-        DirectionalFocusNavigator.Focus(button);
+        DirectionalFocusNavigator.Focus(GetArtworkSearchButton(viewModel.ArtworkPicker.ActiveArtworkSlot));
     }
 
     public void FocusSelectedSection()
@@ -149,9 +147,7 @@ public partial class AddGameScreenView : FullScreenView
         {
             var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
             viewModel.CloseArtworkSearch();
-            DirectionalFocusNavigator.Focus(slot == GameArtworkSlot.Cover
-                ? SearchCoverArtworkButton
-                : SearchBackgroundArtworkButton);
+            DirectionalFocusNavigator.Focus(GetArtworkSearchButton(slot));
             return true;
         }
 
@@ -405,16 +401,79 @@ public partial class AddGameScreenView : FullScreenView
             return;
         }
 
-        var slot = slotName switch
-        {
-            "Cover" => GameArtworkSlot.Cover,
-            "Background" => GameArtworkSlot.Background,
-            _ => throw new ArgumentOutOfRangeException(nameof(slotName), slotName, "Unknown artwork slot.")
-        };
+        var slot = ParseArtworkSlot(slotName);
         e.Handled = true;
         await viewModel.SearchArtworkAsync(slot);
         FocusSelectedArtworkOption();
     }
+
+    private async void OnImportArtworkClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not AddGameViewModel viewModel || sender is not Button { Tag: string slotName })
+        {
+            return;
+        }
+
+        var storageProvider = TopLevel.GetTopLevel(this)?.StorageProvider;
+        if (storageProvider is null)
+        {
+            viewModel.StatusMessage = AppResources.FilePickerError;
+            return;
+        }
+
+        var slot = ParseArtworkSlot(slotName);
+        try
+        {
+            var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = AppResources.ImportArtwork,
+                AllowMultiple = false
+            });
+            if (files.Count == 0)
+            {
+                return;
+            }
+
+            var path = files[0].TryGetLocalPath();
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                viewModel.StatusMessage = AppResources.ChooseLocalFile;
+                return;
+            }
+
+            var contentType = GetArtworkContentType(path);
+            viewModel.ImportArtwork(new GameArtworkImage
+            {
+                Slot = slot,
+                Content = await File.ReadAllBytesAsync(path),
+                ContentType = contentType
+            });
+            viewModel.StatusMessage = null;
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = string.Format(AppResources.ArtworkSourcesError, exception.Message);
+        }
+    }
+
+    private static string GetArtworkContentType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".webp" => "image/webp",
+        ".bmp" => "image/bmp",
+        ".gif" => "image/gif",
+        _ => throw new InvalidOperationException("Select a supported image file.")
+    };
+
+    private static GameArtworkSlot ParseArtworkSlot(string slotName) => slotName switch
+    {
+        "Cover" => GameArtworkSlot.Cover,
+        "Background" => GameArtworkSlot.Background,
+        "Icon" => GameArtworkSlot.Icon,
+        "Logo" => GameArtworkSlot.Logo,
+        _ => throw new ArgumentOutOfRangeException(nameof(slotName), slotName, "Unknown artwork slot.")
+    };
 
     private void OnUseSelectedArtworkClick(object? sender, RoutedEventArgs e)
     {
@@ -445,9 +504,7 @@ public partial class AddGameScreenView : FullScreenView
         e.Handled = true;
         var slot = viewModel.ArtworkPicker.ActiveArtworkSlot;
         viewModel.CloseArtworkSearch();
-        DirectionalFocusNavigator.Focus(slot == GameArtworkSlot.Cover
-            ? SearchCoverArtworkButton
-            : SearchBackgroundArtworkButton);
+        DirectionalFocusNavigator.Focus(GetArtworkSearchButton(slot));
     }
 
     private ListBox? GetActiveArtworkList()
@@ -458,8 +515,22 @@ public partial class AddGameScreenView : FullScreenView
             return null;
         }
 
-        return viewModel.ArtworkPicker.ActiveArtworkSlot == GameArtworkSlot.Cover
-            ? CoverArtworkOptions
-            : BackgroundArtworkOptions;
+        return viewModel.ArtworkPicker.ActiveArtworkSlot switch
+        {
+            GameArtworkSlot.Cover => CoverArtworkOptions,
+            GameArtworkSlot.Background => BackgroundArtworkOptions,
+            GameArtworkSlot.Icon => IconArtworkOptions,
+            GameArtworkSlot.Logo => LogoArtworkOptions,
+            _ => throw new ArgumentOutOfRangeException(nameof(viewModel.ArtworkPicker.ActiveArtworkSlot))
+        };
     }
+
+    private Button GetArtworkSearchButton(GameArtworkSlot slot) => slot switch
+    {
+        GameArtworkSlot.Cover => SearchCoverArtworkButton,
+        GameArtworkSlot.Background => SearchBackgroundArtworkButton,
+        GameArtworkSlot.Icon => SearchIconArtworkButton,
+        GameArtworkSlot.Logo => SearchLogoArtworkButton,
+        _ => throw new ArgumentOutOfRangeException(nameof(slot))
+    };
 }

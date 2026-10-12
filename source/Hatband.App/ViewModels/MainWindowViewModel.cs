@@ -204,9 +204,14 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Navigation.GoBack();
     }
 
-    private void OnGameMetadataEditorSaved(object? sender, Game game)
+    private void OnGameMetadataEditorSaved(GameMetadataEditorSaveResult result)
     {
-        Session.UpdateGameCard(game);
+        Session.UpdateGameCard(result.Game);
+        if (result.LogoChanged)
+        {
+            Session.RequestLibraryLogoNormalization();
+        }
+
         Navigation.GoBack();
         Session.StatusMessage = Resources.GameDetailsSaved;
     }

@@ -2,12 +2,15 @@ using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Hatband.Core.Abstractions.Settings;
+using Hatband.Core.Models.Settings;
 
 namespace Hatband.App.ViewModels.Settings;
 
 public partial class SettingsNavigationViewModel : ObservableObject
 {
     private readonly int connectorTabCount;
+    private bool showAppearanceTitleFont = true;
+    private bool showAppearanceLogoNormalization;
 
     public SettingsNavigationViewModel(IEnumerable<ISettingsSection> sections, int connectorTabCount = 0)
     {
@@ -54,9 +57,53 @@ public partial class SettingsNavigationViewModel : ObservableObject
 
     public bool IsSettingsDataSection => !IsCompatibilitySection;
 
-    public int SelectedFieldCount => IsCompatibilitySection
-        ? compatibilityFieldCount
-        : IsConnectorsSection ? 1 : SelectedSection.GetFieldCount(SelectedSettingsTabIndex);
+    public int SelectedFieldCount
+    {
+        get
+        {
+            if (IsCompatibilitySection)
+            {
+                return compatibilityFieldCount;
+            }
+
+            if (IsConnectorsSection)
+            {
+                return 1;
+            }
+
+            var fieldCount = SelectedSection.GetFieldCount(SelectedSettingsTabIndex);
+            if (SelectedSection.Id != SettingsSectionOptionViewModel.AppearanceSectionId)
+            {
+                return fieldCount;
+            }
+
+            var hiddenAppearanceFields = 0;
+            if (!showAppearanceTitleFont)
+            {
+                hiddenAppearanceFields++;
+            }
+
+            if (!showAppearanceLogoNormalization)
+            {
+                hiddenAppearanceFields++;
+            }
+
+            return Math.Max(fieldCount - hiddenAppearanceFields, 0);
+        }
+    }
+
+    public void SetAppearanceTitleOptions(LibraryTitleMode mode)
+    {
+        showAppearanceTitleFont = mode == LibraryTitleMode.Text;
+        showAppearanceLogoNormalization = mode == LibraryTitleMode.Logo;
+        if (!showAppearanceTitleFont && SelectedSection.Id == SettingsSectionOptionViewModel.AppearanceSectionId &&
+            SelectedFieldIndex >= SelectedFieldCount)
+        {
+            SelectedFieldIndex = Math.Max(SelectedFieldCount - 1, 0);
+        }
+
+        NotifyFieldCountChanged();
+    }
 
     private int compatibilityFieldCount = 1;
 
