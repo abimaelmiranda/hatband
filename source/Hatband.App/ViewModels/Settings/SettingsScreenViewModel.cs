@@ -15,8 +15,7 @@ using Hatband.Core.Abstractions.Services;
 using Hatband.Core.Abstractions.Settings;
 using Hatband.Core.Models.Settings;
 using Hatband.Infrastructure.Persistence;
-using Hatband.Integrations.Settings;
-using Hatband.Integrations.Steam.Settings;
+using Hatband.SDK.UI.Connectors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -28,10 +27,13 @@ namespace Hatband.App.ViewModels.Settings;
 public partial class SettingsScreenViewModel : ScreenViewModel
 {
     private readonly ISettingsApi _settingsApi;
+    private readonly IGameSourceCatalog _gameSourceCatalog;
     private readonly IDbContextFactory<HatbandDbContext> _dbContextFactory;
     private readonly IMemoryCache _memoryCache;
     private readonly DateTimeDisplayFormatter _dateTimeDisplayFormatter;
-    private readonly ObservableCollection<ConnectorLoginViewModel> _connectors;
+    private readonly IReadOnlyList<IConnectorUiProvider> _connectorUiProviders;
+    private readonly Dictionary<string, PluginPanel> _connectorPanels = new(StringComparer.Ordinal);
+    private readonly IReadOnlyDictionary<string, IConnectorSessionProvider> _connectorSessionProviders;
     private readonly Dictionary<Type, object> _settingsByType = [];
     private readonly SemaphoreSlim _settingsSaveGate = new(1, 1);
     private ICommand? _refreshMetadataCommand;
@@ -39,14 +41,12 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     private bool _isUpdatingSelectedOptions;
     private bool _canRefreshMetadata = true;
     private bool _shouldFocusConnectorsPrimaryAction;
+    private Func<string, CancellationToken, Task<int>>? _synchronizeLibrary;
+    private bool _isLibrarySyncRunning;
 
     /// <summary>Indicates that settings sections are still loading or a failed load left them unavailable.</summary>
     [ObservableProperty]
     public partial bool IsSettingsLoading { get; set; } = true;
-
-    /// <summary>Cached Steam silent-mode setting consumed by game-launch behavior.</summary>
-    [ObservableProperty]
-    public partial bool IsSteamSilentModeEnabled { get; set; }
 
     /// <summary>Current language choice; changing it updates cached general settings and raises <see cref="LanguageChanged"/>.</summary>
     [ObservableProperty]
@@ -66,7 +66,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         IsGeneralSettingsSection && !string.IsNullOrWhiteSpace(CacheCleanupMessage);
 
     /// <summary>
-    /// Creates the settings screen and its connector authentication flows.
+    /// Creates the settings screen and its plugin supplied connector panels.
     /// </summary>
     public SettingsScreenViewModel(
         ISettingsApi settingsApi,
@@ -74,44 +74,30 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         IMemoryCache memoryCache,
         ProtonManagementViewModel protonManagement,
         DateTimeDisplayFormatter dateTimeDisplayFormatter,
-        IEnumerable<IQrCodeLoginProvider> qrLoginProviders,
+        IEnumerable<IConnectorUiProvider> connectorUiProviders,
         IEnumerable<IConnectorSessionProvider> connectorSessionProviders,
-        IEnumerable<IGameStoreIntegration> storeIntegrations)
+        IGameSourceCatalog gameSourceCatalog)
     {
         ArgumentNullException.ThrowIfNull(settingsApi);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(protonManagement);
         ArgumentNullException.ThrowIfNull(dateTimeDisplayFormatter);
-        ArgumentNullException.ThrowIfNull(qrLoginProviders);
+        ArgumentNullException.ThrowIfNull(connectorUiProviders);
         ArgumentNullException.ThrowIfNull(connectorSessionProviders);
-        ArgumentNullException.ThrowIfNull(storeIntegrations);
+        ArgumentNullException.ThrowIfNull(gameSourceCatalog);
 
         _settingsApi = settingsApi;
+        _gameSourceCatalog = gameSourceCatalog;
         _dbContextFactory = dbContextFactory;
         _memoryCache = memoryCache;
         _dateTimeDisplayFormatter = dateTimeDisplayFormatter;
         ProtonManagement = protonManagement;
-        Navigation = new SettingsNavigationViewModel(settingsApi.GetSections());
+        _connectorUiProviders = connectorUiProviders.OrderBy(provider => provider.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToArray();
+        _connectorSessionProviders = connectorSessionProviders.ToDictionary(provider => provider.SourceId, StringComparer.Ordinal);
+        Navigation = new SettingsNavigationViewModel(settingsApi.GetSections(), _connectorUiProviders.Count);
         Navigation.PropertyChanged += OnSettingsNavigationPropertyChanged;
         ProtonManagement.PropertyChanged += OnProtonManagementPropertyChanged;
-
-        var qrProvidersBySource = qrLoginProviders.ToDictionary(provider => provider.SourceId, StringComparer.Ordinal);
-        var storeIntegrationsBySource = storeIntegrations.ToDictionary(provider => provider.SourceId, StringComparer.Ordinal);
-        _connectors = new ObservableCollection<ConnectorLoginViewModel>(connectorSessionProviders
-            .OrderBy(provider => provider.SourceId, StringComparer.Ordinal)
-            .Where(sessionProvider => qrProvidersBySource.ContainsKey(sessionProvider.SourceId) &&
-                                      storeIntegrationsBySource.ContainsKey(sessionProvider.SourceId))
-            .Select(sessionProvider => new ConnectorLoginViewModel(
-                sessionProvider.SourceId,
-                storeIntegrationsBySource[sessionProvider.SourceId].DisplayName,
-                qrProvidersBySource[sessionProvider.SourceId],
-                sessionProvider)));
-        foreach (var connector in _connectors)
-        {
-            connector.ErrorOccurred += OnConnectorError;
-            connector.Disconnected += OnConnectorDisconnected;
-        }
 
         LanguageOptions = CreateLanguageOptions();
         TimeZoneOptions = CreateTimeZoneOptions();
@@ -199,8 +185,10 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     /// <summary>Gets the focus border for a settings field by its navigation index.</summary>
     public IBrush GetSettingsFieldBorderBrush(int index) => Navigation.GetFieldBorderBrush(index);
 
-    /// <summary>Connector account panels supplied by registered authentication plugins.</summary>
-    public ObservableCollection<ConnectorLoginViewModel> Connectors => _connectors;
+    /// <summary>Connector panels supplied by registered plugins.</summary>
+    public IReadOnlyList<IConnectorUiProvider> ConnectorUiProviders => _connectorUiProviders;
+
+    public bool IsLibrarySyncRunning => _isLibrarySyncRunning;
 
     /// <summary>
     /// Connects each registered connector to the shared library synchronization workflow.
@@ -208,29 +196,24 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     public void SetLibrarySyncCallback(Func<string, CancellationToken, Task<int>> callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
-        foreach (var connector in _connectors)
-        {
-            connector.SetLibrarySyncCallback(callback);
-        }
+        _synchronizeLibrary = callback;
     }
 
     /// <summary>Updates connector synchronization availability from the shared library session.</summary>
     public void SetLibrarySyncRunning(bool value)
     {
-        foreach (var connector in _connectors)
-        {
-            connector.SetLibrarySyncRunning(value);
-        }
+        _isLibrarySyncRunning = value;
+        OnPropertyChanged(nameof(IsLibrarySyncRunning));
     }
 
     public async Task<IReadOnlyList<string>> RestoreConnectorSessionsAsync(CancellationToken cancellationToken = default)
     {
         var restoredSourceIds = new List<string>();
-        foreach (var connector in _connectors)
+        foreach (var connector in _connectorSessionProviders.Values.OrderBy(provider => provider.SourceId, StringComparer.Ordinal))
         {
             try
             {
-                if (await connector.RestoreSessionAsync(cancellationToken))
+                if (await connector.RestoreAsync(cancellationToken))
                 {
                     restoredSourceIds.Add(connector.SourceId);
                 }
@@ -251,7 +234,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
     public string GetConnectorDisplayName(string sourceId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceId);
-        return _connectors.Single(connector => connector.SourceId == sourceId).DisplayName;
+        return _gameSourceCatalog.GetDisplayName(sourceId);
     }
 
     public void ReportConnectorRestoreError(string sourceId, Exception exception)
@@ -261,8 +244,34 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         SettingsError?.Invoke(string.Format(
             CultureInfo.CurrentCulture,
             Resources.ConnectorLoginError,
-            _connectors.Single(connector => connector.SourceId == sourceId).DisplayName,
+            GetConnectorDisplayName(sourceId),
             exception.Message));
+    }
+
+    public PluginPanel CreateConnectorPanel(IConnectorUiProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        if (_connectorPanels.TryGetValue(provider.SourceId, out var existingPanel))
+        {
+            return existingPanel;
+        }
+
+        var panel = provider.CreatePanel(new ConnectorUiContext(
+            provider.SourceId,
+            async cancellationToken =>
+            {
+                var synchronize = _synchronizeLibrary
+                    ?? throw new InvalidOperationException("The library synchronization callback has not been configured.");
+                await synchronize(provider.SourceId, cancellationToken);
+            }));
+        _connectorPanels.Add(provider.SourceId, panel);
+        return panel;
+    }
+
+    public void ReportConnectorPanelError(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        SettingsError?.Invoke(exception.Message);
     }
 
     /// <summary>Supplies the session-owned metadata refresh command used by the general settings view.</summary>
@@ -374,11 +383,7 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             ControllerDisplayModeChanged?.Invoke(generalSettings.ControllerDisplayMode);
             AppearanceSettingsChanged?.Invoke(GetSettings<AppearanceSettings>());
             UpdateSelectedSettingsOptions();
-            IsSteamSilentModeEnabled = TryGetSettings<ConnectorsSettings>(out var connectorSettings) &&
-                connectorSettings is not null &&
-                connectorSettings.Steam.SilentModeEnabled;
             _settingsLoaded = true;
-            RefreshConnectorStatuses();
         }
         catch (Exception exception)
         {
@@ -402,19 +407,6 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         }
 
         throw new InvalidOperationException($"Settings section for '{typeof(TSettings).Name}' is not registered or has not been loaded.");
-    }
-
-    private bool TryGetSettings<TSettings>(out TSettings? result) where TSettings : class
-    {
-        if (!_settingsByType.TryGetValue(typeof(TSettings), out var settings))
-        {
-            result = null;
-            return false;
-        }
-
-        result = settings as TSettings
-            ?? throw new InvalidOperationException($"Settings section for '{typeof(TSettings).Name}' has an invalid settings object.");
-        return true;
     }
 
     /// <summary>Selects a section in this screen's navigation model.</summary>
@@ -463,14 +455,10 @@ public partial class SettingsScreenViewModel : ScreenViewModel
         return true;
     }
 
-    /// <summary>Activates the selected section and refreshes connector account status when applicable.</summary>
+    /// <summary>Activates the selected settings section.</summary>
     public void ActivateSettingsSection()
     {
         ActivateSection();
-        if (!IsSettingsLoading && IsConnectorsSettingsSection)
-        {
-            RefreshConnectorStatuses();
-        }
     }
 
     /// <summary>Returns focus navigation from section fields to the section list.</summary>
@@ -484,15 +472,6 @@ public partial class SettingsScreenViewModel : ScreenViewModel
 
     /// <summary>Convenience entry point used by the settings section list.</summary>
     public void SelectSettingsSection(SettingsSectionOptionViewModel section) => SelectSection(section);
-
-    /// <summary>Cancels an in-progress QR login, typically when this screen deactivates.</summary>
-    public void CancelLogin()
-    {
-        foreach (var connector in _connectors)
-        {
-            connector.CancelLogin();
-        }
-    }
 
     /// <summary>
     /// Applies an editor value to the cached settings object. Language and time-zone edits flow
@@ -587,26 +566,27 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             ControllerDisplayModeChanged?.Invoke(controllerDisplayMode);
         }
 
-        if (descriptor.SettingsType == typeof(ConnectorsSettings) &&
-            propertyPath.Count == 2 &&
-            propertyPath[0].Name == nameof(ConnectorsSettings.Steam) &&
-            property.Name == nameof(SteamSettings.SilentModeEnabled))
-        {
-            IsSteamSilentModeEnabled = GetRequiredBoolean(value, property.Name);
-        }
-
         _ = SaveSettingsSectionAsync(section);
     }
 
-    /// <summary>Cancels transient login work and returns section focus to the navigation list.</summary>
+    /// <summary>Returns section focus to the navigation list.</summary>
     protected override void OnDeactivated()
     {
-        CancelLogin();
+        foreach (var panel in _connectorPanels.Values)
+        {
+            panel.Deactivate();
+        }
+
         Navigation.DeactivateContent();
     }
 
-    /// <summary>Ensures discarded screen instances have no pending login work.</summary>
-    protected override void OnDiscarded() => CancelLogin();
+    protected override void OnDiscarded()
+    {
+        foreach (var panel in _connectorPanels.Values)
+        {
+            panel.Deactivate();
+        }
+    }
 
     /// <summary>Persists the field's owning section after a non-general setting changes.</summary>
     private async Task SaveSettingsSectionAsync(SettingsSectionOptionViewModel section)
@@ -730,14 +710,6 @@ public partial class SettingsScreenViewModel : ScreenViewModel
                 .OrderBy(option => option.Label, StringComparer.CurrentCultureIgnoreCase));
     }
 
-    private void RefreshConnectorStatuses()
-    {
-        foreach (var connector in _connectors)
-        {
-            connector.RefreshConnectionStatus();
-        }
-    }
-
     private static void ValidateAppearanceSettings(AppearanceSettings settings)
     {
         if (!Enum.IsDefined(settings.TitleFont))
@@ -853,10 +825,6 @@ public partial class SettingsScreenViewModel : ScreenViewModel
             Navigation.SetCompatibilityFieldCount(ProtonManagement.NavigationFieldCount);
         }
     }
-
-    private void OnConnectorError(string message) => SettingsError?.Invoke(message);
-
-    private void OnConnectorDisconnected(string message) => SettingsError?.Invoke(message);
 
     partial void OnSelectedLanguageOptionChanged(SettingsOptionViewModel? value)
     {

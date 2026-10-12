@@ -30,7 +30,7 @@
                         <components:ConsoleNavigationItemView x:Name="CompatibilitySectionItem"
                                                               IconGlyph="Toolbox"
                                                               Title="{x:Static lang:Resources.Compatibility}"
-                                                              IsVisible="{Binding CompatibilityEditor.IsLinux}"
+                                                              IsVisible="{Binding CompatibilityEditor.SupportsCustomCompatibility}"
                                                               FocusEntered="OnCompatibilitySectionFocusEntered"
                                                               Activated="OnCompatibilitySectionActivated" />
                     </StackPanel>

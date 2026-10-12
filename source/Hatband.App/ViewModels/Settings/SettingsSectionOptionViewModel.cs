@@ -35,6 +35,13 @@ public partial class SettingsSectionOptionViewModel : ObservableObject
         EditorDefinition = SettingsFieldConvention.CreateEditorDefinition(descriptor.SettingsType);
     }
 
+    private SettingsSectionOptionViewModel()
+    {
+        Id = ConnectorsSectionId;
+        Title = Resources.ConnectorsFallback;
+        IconGlyph = FluentIconGlyph.ArrowSwap;
+    }
+
     private SettingsSectionOptionViewModel(string id, string title, FluentIconGlyph iconGlyph)
     {
         Id = id;
@@ -45,6 +52,8 @@ public partial class SettingsSectionOptionViewModel : ObservableObject
 
     public static SettingsSectionOptionViewModel CreateCompatibilitySection() =>
         new(CompatibilitySectionId, Resources.Compatibility, FluentIconGlyph.Toolbox);
+
+    public static SettingsSectionOptionViewModel CreateConnectorsSection() => new();
 
     public bool IsConnectorsSection => Id == ConnectorsSectionId;
 

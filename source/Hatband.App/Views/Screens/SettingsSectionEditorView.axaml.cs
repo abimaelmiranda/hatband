@@ -15,6 +15,7 @@ using Hatband.App.ViewModels.Settings;
 using Hatband.App.ViewModels.Settings.Fields;
 using Hatband.App.Views.Components;
 using Hatband.Core.Models.Settings;
+using Hatband.SDK.UI.Connectors;
 using AppResources = Hatband.App.Localization.Resources;
 using LayoutHorizontalAlignment = Avalonia.Layout.HorizontalAlignment;
 using LayoutVerticalAlignment = Avalonia.Layout.VerticalAlignment;
@@ -45,10 +46,12 @@ public partial class SettingsSectionEditorView : UserControl
         AvaloniaProperty.Register<SettingsSectionEditorView, SettingsSectionOptionViewModel?>(nameof(Section));
 
     private readonly List<PanelEditorState> panelStates = [];
+    private readonly List<PluginPanel> connectorPanels = [];
     private SettingsSectionOptionViewModel? observedSection;
     private SettingsScreenViewModel? observedViewModel;
     private TabControl? sectionTabControl;
     private PanelEditorState? activePanel;
+    private PluginPanel? activeConnectorPanel;
     private bool isApplyingTabSelection;
     private bool isObservingViewModel;
     private bool isObservingSection;
@@ -110,6 +113,12 @@ public partial class SettingsSectionEditorView : UserControl
             return null;
         }
 
+        if (Section?.IsConnectorsSection == true)
+        {
+            FocusConnectorPrimaryAction();
+            return null;
+        }
+
         pendingFieldFocusIndex = index;
         pendingFieldFocusSection = Section;
         if (TryFocusPendingField())
@@ -121,19 +130,41 @@ public partial class SettingsSectionEditorView : UserControl
         return null;
     }
 
-    public Button? GetConnectorPrimaryActionControl() => SettingsFieldsPanel.GetVisualDescendants()
-        .OfType<ConnectorSettingsView>()
-        .Select(view => view.GetPrimaryActionControl())
-        .FirstOrDefault(button => button is not null);
+    public Button? GetConnectorPrimaryActionControl() => GetActiveConnectorPanel()?.GetVisualDescendants()
+        .OfType<Button>()
+        .FirstOrDefault(button => button.IsVisible && button.IsEnabled);
+
+    public Control? GetConnectorInitialFocusTarget()
+    {
+        if (GetActiveConnectorPanel() is not { } panel || !panel.FocusInitial())
+        {
+            return GetConnectorPrimaryActionControl();
+        }
+
+        var focusedControl = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+        if (focusedControl is not null && focusedControl.GetVisualAncestors().Contains(panel))
+        {
+            return focusedControl;
+        }
+
+        return GetConnectorPrimaryActionControl();
+    }
 
     public void FocusConnectorPrimaryAction()
     {
+        if (GetActiveConnectorPanel() is { } panel && panel.FocusInitial())
+        {
+            return;
+        }
+
         var control = GetConnectorPrimaryActionControl();
         if (control is not null)
         {
             DirectionalFocusNavigator.Focus(control);
         }
     }
+
+    public bool TryHandleConnectorBack() => GetActiveConnectorPanel()?.TryHandleBack() ?? false;
 
     public bool HasOpenComboBox() => SettingsFieldsPanel.GetVisualDescendants()
         .OfType<ComboBox>()
@@ -179,6 +210,7 @@ public partial class SettingsSectionEditorView : UserControl
     private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs args)
     {
         isAttachedToVisualTree = false;
+        DeactivateConnectorPanels();
         StopObservingViewModel();
         StopObservingSection();
     }
@@ -253,8 +285,20 @@ public partial class SettingsSectionEditorView : UserControl
         {
             SelectTabFromNavigation();
         }
-        else if (args.PropertyName == nameof(SettingsNavigationViewModel.SelectedFieldIndex) ||
-                 args.PropertyName == nameof(SettingsNavigationViewModel.IsContentActive))
+        else if (args.PropertyName == nameof(SettingsNavigationViewModel.IsContentActive))
+        {
+            if (observedViewModel?.Navigation.IsContentActive == true && Section?.IsConnectorsSection == true)
+            {
+                ActivatePanel(observedViewModel.Navigation.SelectedSettingsTabIndex);
+            }
+            else if (observedViewModel?.Navigation.IsContentActive == false)
+            {
+                DeactivateConnectorPanels();
+            }
+
+            UpdateFieldSelectionBorders();
+        }
+        else if (args.PropertyName == nameof(SettingsNavigationViewModel.SelectedFieldIndex))
         {
             UpdateFieldSelectionBorders();
         }
@@ -276,10 +320,19 @@ public partial class SettingsSectionEditorView : UserControl
             return;
         }
 
+        DeactivateConnectorPanels();
+        DetachConnectorPanelsFromTabs();
         SettingsFieldsPanel.Children.Clear();
         panelStates.Clear();
+        connectorPanels.Clear();
         sectionTabControl = null;
         activePanel = null;
+        if (Section?.IsConnectorsSection == true)
+        {
+            BuildConnectorSection();
+            return;
+        }
+
         if (Section?.Descriptor is not { } descriptor || Section.Settings is not { } settings ||
             Section.EditorDefinition is not { } definition)
         {
@@ -292,7 +345,6 @@ public partial class SettingsSectionEditorView : UserControl
             {
                 SettingsSectionOptionViewModel.GeneralSectionId => AppResources.General,
                 SettingsSectionOptionViewModel.AppearanceSectionId => AppResources.Appearance,
-                SettingsSectionOptionViewModel.ConnectorsSectionId => AppResources.ConnectorsFallback,
                 _ => descriptor.DisplayName
             },
             Classes = { "typography-section-title" },
@@ -329,6 +381,36 @@ public partial class SettingsSectionEditorView : UserControl
         SchedulePendingFieldFocus();
     }
 
+    private void BuildConnectorSection()
+    {
+        SettingsFieldsPanel.Children.Add(new TextBlock
+        {
+            Text = AppResources.ConnectorsFallback,
+            Classes = { "typography-section-title" },
+            FontWeight = FontWeight.SemiBold
+        });
+        SettingsFieldsPanel.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#39454F")) });
+
+        sectionTabControl = new TabControl();
+        var tabs = new List<TabItem>();
+        if (observedViewModel is not null)
+        {
+            foreach (var provider in observedViewModel.ConnectorUiProviders)
+            {
+                var panel = observedViewModel.CreateConnectorPanel(provider);
+                connectorPanels.Add(panel);
+                tabs.Add(new TabItem { Header = provider.DisplayName, Content = panel });
+            }
+        }
+
+        sectionTabControl.ItemsSource = tabs;
+        sectionTabControl.SelectedIndex = observedViewModel?.Navigation.SelectedSettingsTabIndex ?? 0;
+        sectionTabControl.SelectionChanged += OnSectionTabSelectionChanged;
+        SettingsFieldsPanel.Children.Add(sectionTabControl);
+        ActivatePanel(sectionTabControl.SelectedIndex);
+        UpdateFieldSelectionBorders();
+    }
+
     private void BuildTabbedSection(object settings, SettingsEditorDefinition definition)
     {
         sectionTabControl = new TabControl();
@@ -343,15 +425,6 @@ public partial class SettingsSectionEditorView : UserControl
             var panelState = new PanelEditorState();
             panelStates.Add(panelState);
             var panel = BuildPanelEditor(settings, tab.Content, panelState);
-            if (Section?.IsConnectorsSection == true && tab.Property is not null)
-            {
-                var connector = observedViewModel?.Connectors.SingleOrDefault(item =>
-                    string.Equals(item.SourceId, tab.Property.Name, StringComparison.OrdinalIgnoreCase));
-                if (connector is not null)
-                {
-                    panel.Children.Add(CreateConnectorPanel(connector));
-                }
-            }
 
             var item = new TabItem
             {
@@ -474,8 +547,60 @@ public partial class SettingsSectionEditorView : UserControl
     private void ActivatePanel(int index)
     {
         activePanel = index >= 0 && index < panelStates.Count ? panelStates[index] : null;
+        var targetPanel = Section?.IsConnectorsSection == true && index >= 0 && index < connectorPanels.Count
+            ? connectorPanels[index]
+            : null;
+        if (!ReferenceEquals(activeConnectorPanel, targetPanel))
+        {
+            activeConnectorPanel?.Deactivate();
+            activeConnectorPanel = targetPanel;
+            if (activeConnectorPanel is not null)
+            {
+                _ = ActivateConnectorPanelAsync(activeConnectorPanel);
+            }
+        }
+
         UpdateFieldSelectionBorders();
     }
+
+    private async Task ActivateConnectorPanelAsync(PluginPanel panel)
+    {
+        try
+        {
+            await panel.ActivateAsync();
+        }
+        catch (Exception exception)
+        {
+            observedViewModel?.ReportConnectorPanelError(exception);
+        }
+    }
+
+    private void DeactivateConnectorPanels()
+    {
+        activeConnectorPanel?.Deactivate();
+        activeConnectorPanel = null;
+    }
+
+    private void DetachConnectorPanelsFromTabs()
+    {
+        if (sectionTabControl is null)
+        {
+            return;
+        }
+
+        foreach (var item in sectionTabControl.Items.OfType<TabItem>())
+        {
+            item.Content = null;
+        }
+
+        sectionTabControl.ItemsSource = null;
+    }
+
+    private PluginPanel? GetActiveConnectorPanel() =>
+        sectionTabControl?.SelectedIndex is int selectedIndex &&
+        selectedIndex >= 0 && selectedIndex < connectorPanels.Count
+            ? connectorPanels[selectedIndex]
+            : null;
 
     private object GetOrCreateNestedSettings(object settings, IReadOnlyList<PropertyInfo> propertyPath)
     {
@@ -495,24 +620,6 @@ public partial class SettingsSectionEditorView : UserControl
         }
 
         return current;
-    }
-
-    private static Control CreateConnectorPanel(ConnectorLoginViewModel connector)
-    {
-        var panel = new StackPanel { Spacing = 12 };
-        if (connector.SourceId == "steam")
-        {
-            panel.Children.Add(new TextBlock
-            {
-                Text = AppResources.SteamSilentModeDescription,
-                Foreground = new SolidColorBrush(Color.Parse("#AEBBC5")),
-                Classes = { "typography-caption" },
-                TextWrapping = TextWrapping.Wrap
-            });
-        }
-
-        panel.Children.Add(new ConnectorSettingsView { DataContext = connector });
-        return panel;
     }
 
     private Control CreateEditor(object settings, SettingsPanelDefinition.Field field)
@@ -720,20 +827,6 @@ public partial class SettingsSectionEditorView : UserControl
                     _ => SettingsFieldConvention.GetDisplayName(property)
                 }
                 : SettingsFieldConvention.GetDisplayName(property);
-        if (Section?.IsConnectorsSection == true && editor is CheckBox connectorCheckBox)
-        {
-            connectorCheckBox.Content = fieldLabel;
-            connectorCheckBox.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-            ToolTip.SetTip(editor, property.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description);
-            return new Border
-            {
-                Padding = new Thickness(0, 7),
-                BorderThickness = new Thickness(1),
-                BorderBrush = fieldIndex >= 0 ? observedViewModel?.GetSettingsFieldBorderBrush(fieldIndex) ?? Brushes.Transparent : Brushes.Transparent,
-                Child = editor
-            };
-        }
-
         Control editorContent = editor;
         if (property.DeclaringType == typeof(GeneralSettings) && property.Name == nameof(GeneralSettings.LanguageTag))
         {

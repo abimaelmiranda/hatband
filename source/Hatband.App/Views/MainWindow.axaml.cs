@@ -75,7 +75,7 @@ public partial class MainWindow : Window
         viewModel.Session.GameSessionEnded += OnGameSessionEnded;
         viewModel.Session.GameInstallationCompleted += OnGameInstallationCompleted;
         viewModel.Session.GameUninstallationCompleted += OnGameUninstallationCompleted;
-        viewModel.Session.SteamFallbackRequested += OnSteamFallbackRequested;
+        viewModel.Session.StoreFallbackRequested += OnStoreFallbackRequested;
         viewModel.Session.WindowTopmostRequested += OnWindowTopmostRequested;
         await viewModel.InitializeAsync();
         if (_closed)
@@ -117,7 +117,7 @@ public partial class MainWindow : Window
             viewModel.Session.GameSessionEnded -= OnGameSessionEnded;
             viewModel.Session.GameInstallationCompleted -= OnGameInstallationCompleted;
             viewModel.Session.GameUninstallationCompleted -= OnGameUninstallationCompleted;
-            viewModel.Session.SteamFallbackRequested -= OnSteamFallbackRequested;
+            viewModel.Session.StoreFallbackRequested -= OnStoreFallbackRequested;
             viewModel.Session.WindowTopmostRequested -= OnWindowTopmostRequested;
             viewModel.Session.StopPendingInstallationPolling();
             viewModel.Session.StopGameProcessMonitoring();
@@ -160,7 +160,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(Activate);
     }
 
-    private async void OnSteamFallbackRequested(object? sender, EventArgs e)
+    private async void OnStoreFallbackRequested(object? sender, EventArgs e)
     {
         await Task.Delay(TimeSpan.FromMilliseconds(700));
         if (IsVisible)

@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -12,13 +14,24 @@ namespace Hatband.App.Views.Screens;
 
 public partial class SettingsScreenView : FullScreenView
 {
+    private SettingsScreenViewModel? pendingCompatibilityRefreshFocusViewModel;
+    private SettingsSectionOptionViewModel? pendingCompatibilityRefreshFocusSection;
+
     public SettingsScreenView()
     {
         InitializeComponent();
+        ProtonRefreshButton.PropertyChanged += OnProtonRefreshButtonPropertyChanged;
+        AddHandler(InputElement.GotFocusEvent, OnControlGotFocus, RoutingStrategies.Bubble);
     }
 
     public override bool SupportsTabNavigation =>
         DataContext is SettingsScreenViewModel { IsSettingsContentActive: true } && SettingsSectionEditor.HasTabs;
+
+    protected override void OnViewDeactivated()
+    {
+        ClearPendingCompatibilityRefreshFocus();
+        base.OnViewDeactivated();
+    }
 
     /// <summary>Reports whether keyboard focus is on a settings section item.</summary>
     public bool IsSectionNavigationFocused => SettingsSectionList.GetVisualDescendants()
@@ -48,15 +61,10 @@ public partial class SettingsScreenView : FullScreenView
     /// <summary>Selects and focuses the compatibility catalog refresh action.</summary>
     public void FocusCompatibilityRefreshButton()
     {
-        if (DataContext is not SettingsScreenViewModel viewModel)
+        if (DataContext is SettingsScreenViewModel viewModel && IsSectionNavigationFocused)
         {
-            return;
+            RequestCompatibilityRefreshButtonFocus(viewModel);
         }
-
-        var protonManagement = viewModel.ProtonManagement;
-        var refreshButtonIndex = protonManagement.Providers.Count;
-        viewModel.SelectSettingsField(refreshButtonIndex);
-        FocusSelectedCompatibilityField(refreshButtonIndex);
     }
 
     /// <summary>Reports whether a settings editor combo box is currently expanded.</summary>
@@ -86,12 +94,11 @@ public partial class SettingsScreenView : FullScreenView
     /// <summary>Uses a pending connector action request or the selected section as the initial focus target.</summary>
     protected override Control? GetInitialFocusTarget()
     {
-        var connectorAction = SettingsSectionEditor.GetConnectorPrimaryActionControl();
-        if (connectorAction is not null &&
-            DataContext is SettingsScreenViewModel viewModel &&
+        if (DataContext is SettingsScreenViewModel viewModel &&
             viewModel.ConsumeConnectorsPrimaryActionFocusRequest())
         {
-            return connectorAction;
+            return SettingsSectionEditor.GetConnectorInitialFocusTarget()
+                ?? FindSelectedSectionItem()?.GetVisualDescendants().OfType<Button>().FirstOrDefault();
         }
 
         return FindSelectedSectionItem()?
@@ -186,6 +193,11 @@ public partial class SettingsScreenView : FullScreenView
     /// <summary>Closes an expanded combo box or returns focus from content to the section list.</summary>
     public override bool TryHandleBack()
     {
+        if (SettingsSectionEditor.TryHandleConnectorBack())
+        {
+            return true;
+        }
+
         if (CloseOpenComboBox())
         {
             return true;
@@ -214,6 +226,7 @@ public partial class SettingsScreenView : FullScreenView
 
     private void OnSettingsSectionFocusEntered(object? sender, EventArgs e)
     {
+        ClearPendingCompatibilityRefreshFocus();
         if (DataContext is SettingsScreenViewModel viewModel &&
             sender is ConsoleNavigationItemView { DataContext: SettingsSectionOptionViewModel section })
         {
@@ -248,6 +261,68 @@ public partial class SettingsScreenView : FullScreenView
 
         viewModel.ProtonManagement.SelectProvider(provider);
         viewModel.SelectSettingsField(providerIndex);
+    }
+
+    private void RequestCompatibilityRefreshButtonFocus(SettingsScreenViewModel viewModel)
+    {
+        ClearPendingCompatibilityRefreshFocus();
+        pendingCompatibilityRefreshFocusViewModel = viewModel;
+        pendingCompatibilityRefreshFocusSection = viewModel.SelectedSettingsSection;
+        TryFocusPendingCompatibilityRefreshButton();
+    }
+
+    private void TryFocusPendingCompatibilityRefreshButton()
+    {
+        var viewModel = pendingCompatibilityRefreshFocusViewModel;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(DataContext, viewModel) ||
+            !viewModel.IsSettingsContentActive ||
+            !viewModel.IsCompatibilitySettingsSection ||
+            !ReferenceEquals(viewModel.SelectedSettingsSection, pendingCompatibilityRefreshFocusSection) ||
+            !IsSectionNavigationFocused ||
+            !IsLoaded)
+        {
+            ClearPendingCompatibilityRefreshFocus();
+            return;
+        }
+
+        if (!IsFocusable(ProtonRefreshButton))
+        {
+            return;
+        }
+
+        if (DirectionalFocusNavigator.Focus(ProtonRefreshButton))
+        {
+            ClearPendingCompatibilityRefreshFocus();
+        }
+    }
+
+    private void OnProtonRefreshButtonPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == InputElement.IsEffectivelyEnabledProperty &&
+            ProtonRefreshButton.IsEffectivelyEnabled &&
+            pendingCompatibilityRefreshFocusViewModel is not null)
+        {
+            Dispatcher.UIThread.Post(TryFocusPendingCompatibilityRefreshButton, DispatcherPriority.Loaded);
+        }
+    }
+
+    private void OnControlGotFocus(object? sender, RoutedEventArgs e)
+    {
+        if (pendingCompatibilityRefreshFocusViewModel is not null && !ReferenceEquals(e.Source, ProtonRefreshButton))
+        {
+            ClearPendingCompatibilityRefreshFocus();
+        }
+    }
+
+    private void ClearPendingCompatibilityRefreshFocus()
+    {
+        pendingCompatibilityRefreshFocusViewModel = null;
+        pendingCompatibilityRefreshFocusSection = null;
     }
 
     private void FocusSelectedCompatibilityField(int fieldIndex)
@@ -308,5 +383,5 @@ public partial class SettingsScreenView : FullScreenView
     }
 
     private static bool IsFocusable(Control control) =>
-        control.IsVisible && control.IsEnabled && control.Focusable && control.IsTabStop;
+        control.IsEffectivelyVisible && control.IsEffectivelyEnabled && control.Focusable && control.IsTabStop;
 }

@@ -141,15 +141,6 @@
   <data name="ConnectorDescription" xml:space="preserve">
     <value>Conectar conta e sincronizar biblioteca</value>
   </data>
-  <data name="SteamSilentMode" xml:space="preserve">
-    <value>Modo silencioso</value>
-  </data>
-  <data name="SteamAccount" xml:space="preserve">
-    <value>Conta Steam</value>
-  </data>
-  <data name="SteamSilentModeDescription" xml:space="preserve">
-    <value>Ao jogar com o modo silencioso ativado, o Hatband inicia a Steam em segundo plano se ela estiver fechada ou usa um link da Steam se ela estiver aberta. Instalações e desinstalações silenciosas podem reiniciar a Steam. Se não conseguir iniciar um comando, o Hatband usa um link da Steam.</value>
-  </data>
   <data name="ChooseConnectionMethod" xml:space="preserve">
     <value>Escolha como deseja conectar sua conta.</value>
   </data>
@@ -607,14 +598,14 @@
   <data name="Unavailable" xml:space="preserve">
     <value>{0} (indisponível)</value>
   </data>
-  <data name="SteamInstallRequested" xml:space="preserve">
-    <value>A solicitação de instalação foi enviada à Steam. Escolha o disco na janela da Steam.</value>
+  <data name="GameInstallRequested" xml:space="preserve">
+    <value>Instalação solicitada.</value>
   </data>
-  <data name="SteamUninstallRequested" xml:space="preserve">
-    <value>A solicitação de desinstalação foi enviada à Steam.</value>
+  <data name="GameUninstallRequested" xml:space="preserve">
+    <value>Desinstalação solicitada.</value>
   </data>
   <data name="GameLaunchRequested" xml:space="preserve">
-    <value>A solicitação para iniciar o jogo foi enviada à Steam.</value>
+    <value>Inicialização solicitada.</value>
   </data>
   <data name="StoreClientOpened" xml:space="preserve">
     <value>A Steam foi aberta. Conclua a ação no cliente.</value>
@@ -952,9 +943,9 @@
   <data name="CompatibilitySaveError" xml:space="preserve"><value>Não foi possível salvar as opções de compatibilidade: {0}</value></data>
   <data name="CompatibilityOriginal" xml:space="preserve"><value>Original</value></data>
   <data name="CompatibilityCustom" xml:space="preserve"><value>Personalizado</value></data>
-  <data name="CompatibilityLaunchOption" xml:space="preserve"><value>Opção de inicialização da Steam</value></data>
+  <data name="CompatibilityLaunchOption" xml:space="preserve"><value>Opção de inicialização</value></data>
   <data name="CompatibilitySelectLaunchOption" xml:space="preserve"><value>Selecione uma opção de inicialização</value></data>
-  <data name="CompatibilityExecutableFallback" xml:space="preserve"><value>Informe um executável manualmente se as opções da Steam não estiverem disponíveis.</value></data>
+  <data name="CompatibilityExecutableFallback" xml:space="preserve"><value>Informe um executável se não houver opções de inicialização disponíveis.</value></data>
   <data name="CompatibilityExecutablePath" xml:space="preserve"><value>Caminho do executável</value></data>
   <data name="CompatibilityWorkingDirectory" xml:space="preserve"><value>Diretório de trabalho</value></data>
   <data name="CompatibilityLaunchArguments" xml:space="preserve"><value>Argumentos de inicialização da Steam</value></data>
@@ -964,7 +955,7 @@
   <data name="CompatibilityAddEnvironmentVariable" xml:space="preserve"><value>Adicionar variável</value></data>
   <data name="CompatibilityEnvironmentVariableInvalid" xml:space="preserve"><value>Os nomes das variáveis devem usar letras, números e sublinhados, sem começar por número.</value></data>
   <data name="CompatibilityEnvironmentVariableReserved" xml:space="preserve"><value>Os nomes devem ser únicos e não podem substituir configurações do Proton ou UMU.</value></data>
-  <data name="CompatibilityLaunchOptionRequired" xml:space="preserve"><value>Selecione uma opção da Steam ou informe o caminho de um executável.</value></data>
+  <data name="CompatibilityLaunchOptionRequired" xml:space="preserve"><value>Selecione uma opção de inicialização ou informe o caminho de um executável.</value></data>
   <data name="GameLaunchPreparing" xml:space="preserve"><value>Preparando jogo…</value></data>
   <data name="GameLaunchFailed" xml:space="preserve"><value>Não foi possível iniciar o jogo. Consulte os logs de execução.</value></data>
   <data name="GameLaunchTimedOut" xml:space="preserve"><value>O jogo não iniciou dentro do tempo esperado.</value></data>

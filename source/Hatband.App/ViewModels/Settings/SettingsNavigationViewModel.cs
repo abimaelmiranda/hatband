@@ -7,12 +7,19 @@ namespace Hatband.App.ViewModels.Settings;
 
 public partial class SettingsNavigationViewModel : ObservableObject
 {
-    public SettingsNavigationViewModel(IEnumerable<ISettingsSection> sections)
+    private readonly int connectorTabCount;
+
+    public SettingsNavigationViewModel(IEnumerable<ISettingsSection> sections, int connectorTabCount = 0)
     {
         ArgumentNullException.ThrowIfNull(sections);
-        var discoveredSections = sections.Select(section => new SettingsSectionOptionViewModel(section));
+        ArgumentOutOfRangeException.ThrowIfNegative(connectorTabCount);
+        this.connectorTabCount = connectorTabCount;
+        var discoveredSections = sections
+            .Where(section => section.ShowInSettingsNavigation)
+            .Select(section => new SettingsSectionOptionViewModel(section));
         Sections = new ObservableCollection<SettingsSectionOptionViewModel>(discoveredSections)
         {
+            SettingsSectionOptionViewModel.CreateConnectorsSection(),
             SettingsSectionOptionViewModel.CreateCompatibilitySection()
         };
         if (Sections.Count == 0)
@@ -49,7 +56,7 @@ public partial class SettingsNavigationViewModel : ObservableObject
 
     public int SelectedFieldCount => IsCompatibilitySection
         ? compatibilityFieldCount
-        : SelectedSection.GetFieldCount(SelectedSettingsTabIndex);
+        : IsConnectorsSection ? 1 : SelectedSection.GetFieldCount(SelectedSettingsTabIndex);
 
     private int compatibilityFieldCount = 1;
 
@@ -81,8 +88,10 @@ public partial class SettingsNavigationViewModel : ObservableObject
 
     public void SelectSettingsTab(int index)
     {
-        if (IsCompatibilitySection || SelectedSection.EditorDefinition?.HasTabs != true ||
-            index < 0 || index >= SelectedSection.EditorDefinition.Tabs.Count)
+        var tabCount = IsConnectorsSection
+            ? connectorTabCount
+            : SelectedSection.EditorDefinition?.Tabs.Count ?? 0;
+        if (IsCompatibilitySection || index < 0 || index >= tabCount)
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }

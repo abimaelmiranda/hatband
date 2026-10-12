@@ -141,15 +141,6 @@
   <data name="ConnectorDescription" xml:space="preserve">
     <value>Connect an account and sync its library</value>
   </data>
-  <data name="SteamSilentMode" xml:space="preserve">
-    <value>Silent mode</value>
-  </data>
-  <data name="SteamAccount" xml:space="preserve">
-    <value>Steam account</value>
-  </data>
-  <data name="SteamSilentModeDescription" xml:space="preserve">
-    <value>When launching a game with silent mode on, Hatband starts Steam in the background if it is closed or uses a Steam link if it is open. Silent installs and uninstalls may restart Steam. If a command cannot start, Hatband falls back to a Steam link.</value>
-  </data>
   <data name="ChooseConnectionMethod" xml:space="preserve">
     <value>Choose how you want to connect your account.</value>
   </data>
@@ -607,14 +598,14 @@
   <data name="Unavailable" xml:space="preserve">
     <value>{0} (unavailable)</value>
   </data>
-  <data name="SteamInstallRequested" xml:space="preserve">
-    <value>Installation was sent to Steam. Choose a drive in the Steam window.</value>
+  <data name="GameInstallRequested" xml:space="preserve">
+    <value>Installation requested.</value>
   </data>
-  <data name="SteamUninstallRequested" xml:space="preserve">
-    <value>Uninstallation was sent to Steam.</value>
+  <data name="GameUninstallRequested" xml:space="preserve">
+    <value>Uninstallation requested.</value>
   </data>
   <data name="GameLaunchRequested" xml:space="preserve">
-    <value>The launch request was sent to Steam.</value>
+    <value>Launch requested.</value>
   </data>
   <data name="StoreClientOpened" xml:space="preserve">
     <value>Steam was opened. Complete the action in its client.</value>
@@ -952,9 +943,9 @@
   <data name="CompatibilitySaveError" xml:space="preserve"><value>Could not save compatibility settings: {0}</value></data>
   <data name="CompatibilityOriginal" xml:space="preserve"><value>Original</value></data>
   <data name="CompatibilityCustom" xml:space="preserve"><value>Custom</value></data>
-  <data name="CompatibilityLaunchOption" xml:space="preserve"><value>Steam launch option</value></data>
+  <data name="CompatibilityLaunchOption" xml:space="preserve"><value>Launch option</value></data>
   <data name="CompatibilitySelectLaunchOption" xml:space="preserve"><value>Select a launch option</value></data>
-  <data name="CompatibilityExecutableFallback" xml:space="preserve"><value>Set an executable manually if Steam launch options are unavailable.</value></data>
+  <data name="CompatibilityExecutableFallback" xml:space="preserve"><value>Enter an executable path if no launch options are available.</value></data>
   <data name="CompatibilityExecutablePath" xml:space="preserve"><value>Executable path</value></data>
   <data name="CompatibilityWorkingDirectory" xml:space="preserve"><value>Working directory</value></data>
   <data name="CompatibilityLaunchArguments" xml:space="preserve"><value>Steam launch arguments</value></data>
@@ -964,7 +955,7 @@
   <data name="CompatibilityAddEnvironmentVariable" xml:space="preserve"><value>Add variable</value></data>
   <data name="CompatibilityEnvironmentVariableInvalid" xml:space="preserve"><value>Environment variable names must use letters, numbers, and underscores, and cannot start with a number.</value></data>
   <data name="CompatibilityEnvironmentVariableReserved" xml:space="preserve"><value>Environment variable names must be unique and cannot override Proton or UMU settings.</value></data>
-  <data name="CompatibilityLaunchOptionRequired" xml:space="preserve"><value>Select a Steam launch option or enter an executable path.</value></data>
+  <data name="CompatibilityLaunchOptionRequired" xml:space="preserve"><value>Select a launch option or enter an executable path.</value></data>
   <data name="GameLaunchPreparing" xml:space="preserve"><value>Preparing game…</value></data>
   <data name="GameLaunchFailed" xml:space="preserve"><value>The game could not start. Check the launch logs.</value></data>
   <data name="GameLaunchTimedOut" xml:space="preserve"><value>The game did not start within the expected time.</value></data>

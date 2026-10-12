@@ -14,6 +14,8 @@ using Hatband.Infrastructure.FileSystem;
 using Hatband.Infrastructure.Persistence;
 using Hatband.Infrastructure.Plugins;
 using Hatband.Infrastructure.Host;
+using Hatband.SDK.Plugins;
+using Hatband.SDK.UI.Connectors;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -38,9 +40,13 @@ public partial class App : Application
             services.AddSingleton<IAppDataFileSystem>(appDataFileSystem);
             services.AddLogging(logging => logging
                 .SetMinimumLevel(LogLevel.Information)
-                .AddFilter("System.Net.Http.HttpClient.SteamPlayer", LogLevel.Warning)
+                .AddFilter("System.Net.Http.HttpClient", LogLevel.Warning)
                 .AddProvider(new FileLoggerProvider(appDataFileSystem.GetPath("hatband.log"))));
-            services.AddHatbandInfrastructure($"Data Source={databasePath}", appDataFileSystem);
+            var pluginLoading = new PluginLoadingOptions(
+                Path.Combine(AppContext.BaseDirectory, "plugins"),
+                sharedAssemblies: [typeof(PluginPanel).Assembly, typeof(Application).Assembly],
+                additionalCapabilityTypes: [typeof(IConnectorUiProvider)]);
+            services.AddHatbandInfrastructure($"Data Source={databasePath}", appDataFileSystem, pluginLoading);
             services.AddSingleton<GamepadInputService>();
             services.AddSingleton<ArtworkImageLoader>();
             services.AddSingleton<DateTimeDisplayFormatter>();
