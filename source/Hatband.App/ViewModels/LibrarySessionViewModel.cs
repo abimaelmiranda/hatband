@@ -39,6 +39,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly HashSet<Guid> _pendingLaunchGameIds = [];
     private readonly SemaphoreSlim _installationStateRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _librarySyncGate = new(1, 1);
+    private readonly SemaphoreSlim _coverLoadGate = new(MaximumConcurrentCoverLoads, MaximumConcurrentCoverLoads);
+    private readonly List<Task> _synchronizedCoverLoads = [];
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
     private readonly Dictionary<Guid, GamePreparationActivityViewModel> _preparations = [];
     private readonly Dictionary<Guid, CachedGameLogo> _cachedGameLogos = [];
@@ -58,6 +60,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private string? _librarySyncSourceName;
     private Guid? _activeGameSessionId;
     private const int MaximumCachedGameLogos = 8;
+    private static readonly TimeSpan SelectionQuietPeriod = TimeSpan.FromMilliseconds(100);
+    private const int MaximumConcurrentCoverLoads = 4;
 
     private sealed record CachedGameLogo(
         string? Source,
@@ -1040,7 +1044,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             var savedGames = await _gameRepository.GetAllAsync(cancellationToken);
             SetGames(savedGames.Select(game => new GameCardViewModel(game, _dateTimeDisplayFormatter, _hostSystemInfo)));
 
-            await Task.WhenAll(_allGames.Select(game => game.LoadCoverAsync(_artworkImageLoader)));
+            await LoadCoversAsync(_allGames);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -1092,7 +1096,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             var savedGames = await _gameRepository.GetAllAsync();
             SetGames(savedGames.Select(savedGame => new GameCardViewModel(savedGame, _dateTimeDisplayFormatter, _hostSystemInfo)));
             SelectedGameCard = Games.FirstOrDefault(item => item.Game.Id == game.Id);
-            await Task.WhenAll(_allGames.Select(item => item.LoadCoverAsync(_artworkImageLoader)));
+            await LoadCoversAsync(_allGames);
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameAdded, game.Name);
         }
         catch (Exception exception)
@@ -1160,7 +1164,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             games.Count));
 
         await Dispatcher.UIThread.InvokeAsync(() => AddMissingSynchronizedGames(games));
-        await Task.WhenAll(_allGames.Select(card => card.LoadCoverAsync(_artworkImageLoader)));
+        await Task.WhenAll(_synchronizedCoverLoads);
+        _synchronizedCoverLoads.Clear();
     }
 
     private void AddMissingSynchronizedGames(IReadOnlyList<Game> games)
@@ -1172,6 +1177,63 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             {
                 AddSynchronizedGame(game);
             }
+        }
+    }
+
+    private async Task LoadCoversAsync(IReadOnlyList<GameCardViewModel> cards)
+    {
+        if (cards.Count == 0)
+        {
+            return;
+        }
+
+        var nextIndex = -1;
+        var workerCount = Math.Min(MaximumConcurrentCoverLoads, cards.Count);
+        var workers = Enumerable.Range(0, workerCount).Select(_ => LoadNextCoverAsync());
+        await Task.WhenAll(workers);
+
+        async Task LoadNextCoverAsync()
+        {
+            while (true)
+            {
+                var index = Interlocked.Increment(ref nextIndex);
+                if (index >= cards.Count)
+                {
+                    return;
+                }
+
+                await LoadCoverWithLimitAsync(cards[index]);
+            }
+        }
+    }
+
+    private async Task LoadCoverWithLimitAsync(GameCardViewModel card)
+    {
+        await _coverLoadGate.WaitAsync();
+        try
+        {
+            await card.LoadCoverAsync(_artworkImageLoader);
+        }
+        finally
+        {
+            _coverLoadGate.Release();
+        }
+    }
+
+    private void QueueSynchronizedCoverLoad(GameCardViewModel card)
+    {
+        _synchronizedCoverLoads.Add(LoadSynchronizedCoverSafelyAsync(card));
+    }
+
+    private async Task LoadSynchronizedCoverSafelyAsync(GameCardViewModel card)
+    {
+        try
+        {
+            await LoadCoverWithLimitAsync(card);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Could not load cover for synchronized game {GameId}.", card.Game.Id);
         }
     }
 
@@ -1217,7 +1279,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
 
         OnLibraryActivityChanged();
-        _ = card.LoadCoverAsync(_artworkImageLoader);
+        QueueSynchronizedCoverLoad(card);
     }
 
     private void OnLibrarySyncProgressPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -1272,6 +1334,11 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         {
             IsSelected = wasSelected
         };
+        if (string.Equals(previousCard.CoverSource, card.CoverSource, StringComparison.Ordinal))
+        {
+            card.CoverImage = previousCard.CoverImage;
+        }
+
         if (_cachedGameLogos.TryGetValue(game.Id, out var cachedLogo))
         {
             if (string.Equals(cachedLogo.Source, game.Artwork.LogoPath, StringComparison.Ordinal) &&
@@ -1300,7 +1367,11 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             SelectedGameCard = card;
         }
 
-        _ = card.LoadCoverAsync(_artworkImageLoader);
+        if (previousCard.CoverImage is null ||
+            !string.Equals(previousCard.CoverSource, card.CoverSource, StringComparison.Ordinal))
+        {
+            QueueSynchronizedCoverLoad(card);
+        }
     }
 
     partial void OnIsShowingHiddenGamesChanged(bool value)
