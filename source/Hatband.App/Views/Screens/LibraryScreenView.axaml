@@ -48,6 +48,7 @@
                                MaxWidth="140"
                                MaxHeight="40"
                                Stretch="Uniform"
+                               RenderOptions.BitmapInterpolationMode="MediumQuality"
                                VerticalAlignment="{Binding StoreLogoVerticalAlignment}"
                                HorizontalAlignment="Right"
                                Margin="24,4,24,4" />
@@ -86,7 +87,9 @@
                              IsTabStop="True">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                <VirtualizingStackPanel Orientation="Horizontal"
+                                                        CacheLength="0.5"
+                                                        VerticalAlignment="Center" />
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                         <ListBox.ItemTemplate>

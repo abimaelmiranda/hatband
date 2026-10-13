@@ -7,7 +7,9 @@
     <Border CornerRadius="9" ClipToBounds="True">
         <Grid>
             <Border Background="{Binding AccentBrush}" />
-            <Image Source="{Binding CoverImage}" Stretch="UniformToFill" />
+            <Image Source="{Binding CoverImage}"
+                   Stretch="UniformToFill"
+                   RenderOptions.BitmapInterpolationMode="MediumQuality" />
             <Border VerticalAlignment="Bottom" Padding="10,26,10,10"
                     x:CompileBindings="False"
                     IsVisible="{Binding ShowTitle, ElementName=Root}">

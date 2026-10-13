@@ -235,6 +235,7 @@
                            Width="88"
                            Height="28"
                            Stretch="Uniform"
+                           RenderOptions.BitmapInterpolationMode="MediumQuality"
                            IsVisible="{Binding Session.SelectedGameCard.IsSteamSource}" />
                     <TextBlock Grid.Column="2"
                                Text="{Binding Session.SelectedGameCard.SourceDisplayName}"

@@ -32,7 +32,7 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
 
     public void BeginSync(string sourceName)
     {
-        Dispatcher.UIThread.Post(() =>
+        DispatchToUi(() =>
         {
             IsLibraryEnrichmentRunning = true;
             LibraryEnrichmentProgressPercent = 0;
@@ -52,7 +52,7 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(progress);
         var sourceName = _librarySyncSourceName
             ?? throw new InvalidOperationException("A source name must be set before reporting library sync progress.");
-        Dispatcher.UIThread.Post(() =>
+        DispatchToUi(() =>
         {
             switch (progress.Stage)
             {
@@ -93,7 +93,7 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
 
     public void CompleteSync(string sourceName, Exception? error = null)
     {
-        Dispatcher.UIThread.Post(() =>
+        DispatchToUi(() =>
         {
             IsLibraryEnrichmentRunning = false;
             LibraryEnrichmentProgressPercent = error is null ? 100 : 0;
@@ -105,5 +105,16 @@ public partial class LibrarySyncProgressViewModel : ViewModelBase
                 CompletionError?.Invoke(LibraryEnrichmentStatus);
             }
         });
+    }
+
+    private static void DispatchToUi(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        Dispatcher.UIThread.Post(action);
     }
 }

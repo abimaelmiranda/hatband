@@ -40,7 +40,6 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _installationStateRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _librarySyncGate = new(1, 1);
     private readonly SemaphoreSlim _coverLoadGate = new(MaximumConcurrentCoverLoads, MaximumConcurrentCoverLoads);
-    private readonly List<Task> _synchronizedCoverLoads = [];
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
     private readonly Dictionary<Guid, GamePreparationActivityViewModel> _preparations = [];
     private readonly Dictionary<Guid, CachedGameLogo> _cachedGameLogos = [];
@@ -1138,11 +1137,13 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             _librarySyncProgress.BeginLibrarySync(_librarySyncSourceName);
             StatusMessage = null;
             var progress = new CallbackProgress<GameLibrarySyncProgress>(ReportLibrarySyncProgress);
-            var games = await _gameLibrarySyncService.SynchronizeAsync(
-                sourceId,
-                progress,
-                cancellationToken,
-                mode);
+            var games = await Task.Run(
+                () => _gameLibrarySyncService.SynchronizeAsync(
+                    sourceId,
+                    progress,
+                    cancellationToken,
+                    mode),
+                cancellationToken);
             await FinishLibrarySyncAsync(games);
             HasCompletedLibrarySync = true;
             _librarySyncProgress.CompleteSync(_sourceCatalog.GetDisplayName(sourceId));
@@ -1170,8 +1171,6 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             games.Count));
 
         await Dispatcher.UIThread.InvokeAsync(() => AddMissingSynchronizedGames(games));
-        await Task.WhenAll(_synchronizedCoverLoads);
-        _synchronizedCoverLoads.Clear();
     }
 
     private void AddMissingSynchronizedGames(IReadOnlyList<Game> games)
@@ -1228,7 +1227,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     private void QueueSynchronizedCoverLoad(GameCardViewModel card)
     {
-        _synchronizedCoverLoads.Add(LoadSynchronizedCoverSafelyAsync(card));
+        _ = LoadSynchronizedCoverSafelyAsync(card);
     }
 
     private async Task LoadSynchronizedCoverSafelyAsync(GameCardViewModel card)
