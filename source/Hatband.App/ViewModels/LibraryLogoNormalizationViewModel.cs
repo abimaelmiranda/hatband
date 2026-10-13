@@ -100,7 +100,9 @@ public partial class LibraryLogoNormalizationViewModel : ObservableObject, IDisp
                 {
                     var progress = new CallbackProgress<GameLogoNormalizationProgress>(gameProgress =>
                         Dispatcher.UIThread.Post(() => ApplyProgress(gameProgress, cancellationToken, currentRunRevision)));
-                    await normalizationService.NormalizeLibraryAsync(progress, cancellationToken);
+                    await Task.Run(
+                        () => normalizationService.NormalizeLibraryAsync(progress, cancellationToken),
+                        cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {

@@ -10,11 +10,13 @@
     <Grid RowDefinitions="Auto,*,Auto">
             <Image Grid.RowSpan="3"
                    Classes="background-art"
+                   Classes.navigation-held="{Binding Session.IsNavigationHeld}"
                    Source="{Binding Session.PreviousBackgroundImage}"
                    Opacity="{Binding Session.PreviousBackgroundImageOpacity}"
                    Stretch="UniformToFill" />
             <Image Grid.RowSpan="3"
                    Classes="background-art"
+                   Classes.navigation-held="{Binding Session.IsNavigationHeld}"
                    Source="{Binding Session.BackgroundImage}"
                    Opacity="{Binding Session.BackgroundImageOpacity}"
                    Stretch="UniformToFill" />
@@ -64,14 +66,21 @@
                                    TextTrimming="CharacterEllipsis"
                                    MaxLines="2"
                                    Margin="24,4,24,4" />
-                        <Image Grid.Column="0"
-                               Source="{Binding Session.SelectedGameCard.LogoImage}"
-                               IsVisible="{Binding HasVisibleSelectedGameLogo}"
-                               MaxWidth="300"
-                               MaxHeight="120"
-                               Stretch="Uniform"
-                               HorizontalAlignment="Left"
-                               Margin="24,4,24,4" />
+                         <Image Grid.Column="0"
+                                Source="{Binding Session.PresentedGameLogoImage}"
+                                IsVisible="{Binding HasVisibleSelectedGameLogo}"
+                                MaxWidth="300"
+                                MaxHeight="120"
+                                Stretch="Uniform"
+                                HorizontalAlignment="Left"
+                                Margin="24,4,24,4"
+                                Opacity="{Binding Session.PresentedGameLogoOpacity}">
+                             <Image.Transitions>
+                                 <Transitions>
+                                     <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                                 </Transitions>
+                             </Image.Transitions>
+                         </Image>
                     </Grid>
                     <ListBox x:Name="GameCarousel"
                              Grid.Row="{Binding CarouselRow}"
@@ -96,16 +105,22 @@
                             <DataTemplate x:DataType="models:GameCardViewModel">
                                 <Border Width="{Binding CardWidth}"
                                         Height="{Binding CardHeight}"
+                                        RenderTransformOrigin="0.5,0.5"
                                         CornerRadius="9"
                                         BorderBrush="{Binding SelectionBrush}"
                                         BorderThickness="{Binding SelectionBorderThickness}"
                                         Padding="3">
-                                    <Border.Transitions>
-                                        <Transitions>
-                                            <DoubleTransition Property="Width" Duration="0:0:0.18" />
-                                            <DoubleTransition Property="Height" Duration="0:0:0.18" />
-                                        </Transitions>
-                                    </Border.Transitions>
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleX="{Binding CardScale}"
+                                                        ScaleY="{Binding CardScale}">
+                                            <ScaleTransform.Transitions>
+                                                <Transitions>
+                                                    <DoubleTransition Property="ScaleX" Duration="0:0:0.18" />
+                                                    <DoubleTransition Property="ScaleY" Duration="0:0:0.18" />
+                                                </Transitions>
+                                            </ScaleTransform.Transitions>
+                                        </ScaleTransform>
+                                    </Border.RenderTransform>
                                     <components:GameArtworkView ShowTitle="{Binding $parent[navigation:FullScreenView].((vm:LibraryScreenViewModel)DataContext).ShowCoverTitles}" />
                                 </Border>
                             </DataTemplate>

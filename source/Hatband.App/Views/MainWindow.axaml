@@ -222,7 +222,14 @@
         <Style Selector="Image.background-art">
             <Setter Property="Transitions">
                 <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.45" />
+                     <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Image.background-art.navigation-held">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
                 </Transitions>
             </Setter>
         </Style>

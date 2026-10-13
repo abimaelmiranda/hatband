@@ -22,6 +22,7 @@ public sealed class GamepadInputService : IDisposable
     private bool _disposed;
     private bool _subsystemsInitialized;
     private bool _inputEnabled;
+    private bool _directionIsPressed;
     private bool _suppressUntilNeutral;
     private GamepadState _previousState;
     private NavigationAction? _currentDirection;
@@ -36,6 +37,8 @@ public sealed class GamepadInputService : IDisposable
     }
 
     public event Action<NavigationAction>? ActionRequested;
+
+    public event Action<bool>? DirectionPressedChanged;
 
     public event Action<bool>? ConnectionChanged;
 
@@ -127,6 +130,10 @@ public sealed class GamepadInputService : IDisposable
         _suppressUntilNeutral = enabled;
         ResetNavigationRepeat();
         _previousState = default;
+        if (!enabled)
+        {
+            SetDirectionPressed(false);
+        }
     }
 
     private void OnTimerTick(object? sender, EventArgs eventArgs)
@@ -142,6 +149,7 @@ public sealed class GamepadInputService : IDisposable
             PollEvents();
             SDL3.SDL_UpdateGamepads();
             state = ReadState();
+            SetDirectionPressed(state.Direction is NavigationAction.Left or NavigationAction.Right);
         }
         catch (Exception exception)
         {
@@ -164,6 +172,17 @@ public sealed class GamepadInputService : IDisposable
         {
             _previousState = state;
         }
+    }
+
+    private void SetDirectionPressed(bool pressed)
+    {
+        if (_directionIsPressed == pressed)
+        {
+            return;
+        }
+
+        _directionIsPressed = pressed;
+        DirectionPressedChanged?.Invoke(pressed);
     }
 
     private unsafe void PollEvents()

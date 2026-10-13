@@ -1,23 +1,22 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using System.Globalization;
+using Hatband.App.Navigation;
 using Hatband.App.Services;
 using Hatband.App.Services.Input;
-using Hatband.App.Navigation;
 using Hatband.App.ViewModels;
 using Hatband.App.ViewModels.Settings;
 using Hatband.App.Views;
-using Hatband.Core.Models.Settings;
 using Hatband.Infrastructure.DependencyInjection;
 using Hatband.Infrastructure.FileSystem;
+using Hatband.Infrastructure.Host;
 using Hatband.Infrastructure.Persistence;
 using Hatband.Infrastructure.Plugins;
-using Hatband.Infrastructure.Host;
 using Hatband.SDK.Plugins;
 using Hatband.SDK.UI.Connectors;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace Hatband.App;
 
@@ -38,16 +37,20 @@ public partial class App : Application
             var services = new ServiceCollection();
             services.AddSingleton<IHostSystemInfo>(hostSystemInfo);
             services.AddSingleton<IAppDataFileSystem>(appDataFileSystem);
+
             services.AddLogging(logging => logging
                 .SetMinimumLevel(LogLevel.Information)
                 .AddFilter("System.Net.Http.HttpClient", LogLevel.Warning)
                 .AddProvider(new FileLoggerProvider(appDataFileSystem.GetPath("hatband.log"))));
+
             var pluginLoading = new PluginLoadingOptions(
                 Path.Combine(AppContext.BaseDirectory, "plugins"),
                 sharedAssemblies: [typeof(PluginPanel).Assembly, typeof(Application).Assembly],
                 additionalCapabilityTypes: [typeof(IConnectorUiProvider)]);
+
             services.AddHatbandInfrastructure($"Data Source={databasePath}", appDataFileSystem, pluginLoading);
             services.AddSingleton<GamepadInputService>();
+            services.AddSingleton<ArtworkBitmapCache>();
             services.AddSingleton<ArtworkImageLoader>();
             services.AddSingleton<DateTimeDisplayFormatter>();
             services.AddSingleton<GameProcessSessionService>();

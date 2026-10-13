@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -31,6 +32,10 @@ public partial class MainWindow : Window
     private readonly SettingsScreenViewModel _settings;
     private bool _inputReady;
     private bool _closed;
+    private readonly HashSet<Key> _heldKeyboardDirections = [];
+    private bool _gamepadDirectionHeld;
+    private bool _navigationHoldActive;
+    private INavigationHoldView? _heldNavigationView;
 
     public MainWindow(GamepadInputService gamepadInput, SettingsScreenViewModel settings)
     {
@@ -40,7 +45,9 @@ public partial class MainWindow : Window
         _settings = settings;
         InitializeComponent();
         AddHandler(InputElement.KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(InputElement.KeyUpEvent, OnWindowKeyUp, RoutingStrategies.Tunnel);
         Activated += OnWindowActivated;
+        Deactivated += OnWindowDeactivated;
         Closed += OnWindowClosed;
     }
 
@@ -65,6 +72,7 @@ public partial class MainWindow : Window
         }
 
         _gamepadInput.ActionRequested += OnGamepadActionRequested;
+        _gamepadInput.DirectionPressedChanged += OnGamepadDirectionPressedChanged;
         _gamepadInput.ConnectionChanged += OnGamepadConnectionChanged;
         _gamepadInput.InitializationFailed += OnGamepadInitializationFailed;
         _settings.ControllerDisplayModeChanged += OnControllerDisplayModeChanged;
@@ -99,11 +107,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnWindowDeactivated(object? sender, EventArgs e)
+    {
+        _heldKeyboardDirections.Clear();
+        _gamepadDirectionHeld = false;
+        UpdateNavigationHold();
+    }
+
     private void OnWindowClosed(object? sender, EventArgs e)
     {
         _closed = true;
         _inputReady = false;
         _gamepadInput.ActionRequested -= OnGamepadActionRequested;
+        _gamepadInput.DirectionPressedChanged -= OnGamepadDirectionPressedChanged;
+        EndNavigationHold();
         _gamepadInput.ConnectionChanged -= OnGamepadConnectionChanged;
         _gamepadInput.InitializationFailed -= OnGamepadInitializationFailed;
         _settings.ControllerDisplayModeChanged -= OnControllerDisplayModeChanged;
@@ -210,7 +227,21 @@ public partial class MainWindow : Window
         var action = GetNavigationAction(e);
         if (action is not null && _inputReady)
         {
+            if (action is NavigationAction.Left or NavigationAction.Right &&
+                _heldKeyboardDirections.Add(e.Key))
+            {
+                UpdateNavigationHold();
+            }
+
             e.Handled = DispatchNavigationAction(action.Value, InputSource.Keyboard);
+        }
+    }
+
+    private void OnWindowKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (_heldKeyboardDirections.Remove(e.Key))
+        {
+            UpdateNavigationHold();
         }
     }
 
@@ -220,6 +251,40 @@ public partial class MainWindow : Window
         {
             DispatchNavigationAction(action, InputSource.Gamepad);
         }
+    }
+
+    private void OnGamepadDirectionPressedChanged(bool pressed)
+    {
+        if (!CanUseGamepadInput())
+        {
+            _gamepadDirectionHeld = false;
+            UpdateNavigationHold();
+            return;
+        }
+
+        _gamepadDirectionHeld = pressed;
+        UpdateNavigationHold();
+    }
+
+    private void UpdateNavigationHold()
+    {
+        var shouldHold = _heldKeyboardDirections.Count > 0 || _gamepadDirectionHeld;
+        if (_navigationHoldActive == shouldHold)
+        {
+            return;
+        }
+
+        _navigationHoldActive = shouldHold;
+        _heldNavigationView = ScreenHost.ActiveView as INavigationHoldView;
+        _heldNavigationView?.SetNavigationHeld(shouldHold);
+    }
+
+    private void EndNavigationHold()
+    {
+        _navigationHoldActive = false;
+        var heldView = _heldNavigationView;
+        _heldNavigationView = null;
+        heldView?.SetNavigationHeld(false);
     }
 
     private bool DispatchNavigationAction(NavigationAction action, InputSource source)
@@ -303,6 +368,9 @@ public partial class MainWindow : Window
 
     private void OnNavigationContextChanged(object? sender, PropertyChangedEventArgs e)
     {
+        _heldKeyboardDirections.Clear();
+        _gamepadDirectionHeld = false;
+        EndNavigationHold();
         Dispatcher.UIThread.Post(RefreshInputHints);
     }
 

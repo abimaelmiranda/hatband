@@ -9,7 +9,7 @@ namespace Hatband.App.Views.Screens;
 /// <summary>
 /// Owns carousel navigation and empty-library actions within the active fullscreen focus scope.
 /// </summary>
-public partial class LibraryScreenView : FullScreenView
+public partial class LibraryScreenView : FullScreenView, INavigationHoldView
 {
     public LibraryScreenView()
     {
@@ -32,6 +32,14 @@ public partial class LibraryScreenView : FullScreenView
         DirectionalFocusNavigator.Focus(viewModel.Session.IsShowingHiddenGames
             ? EmptyShowAllButton
             : EmptyConnectButton);
+    }
+
+    public void SetNavigationHeld(bool held)
+    {
+        if (DataContext is LibraryScreenViewModel viewModel)
+        {
+            viewModel.Session.SetNavigationHeld(held);
+        }
     }
 
     public override NavigationActionHandling HandleNavigationAction(NavigationAction action, NavigationInputContext context)

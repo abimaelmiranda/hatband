@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Collections.Generic;
 using Hatband.App.Localization;
 using Hatband.App.Services;
 using Hatband.Core.Enums.Games;
@@ -12,10 +13,15 @@ namespace Hatband.App.ViewModels;
 
 public partial class GameCardViewModel : ObservableObject
 {
-    private readonly string? coverSource;
+    private string? coverSource;
     private string? backgroundSource;
     private readonly DateTimeDisplayFormatter dateTimeDisplayFormatter;
     private readonly HostPlatformCompatibilityStatus platformCompatibilityStatus;
+    private Func<string?, int, CancellationToken, Task<ArtworkBitmapLease?>>? coverLoader;
+    private CancellationTokenSource? coverLoadCancellation;
+    private ArtworkBitmapLease? coverLease;
+    private int coverDecodeWidth;
+    private readonly HashSet<object> coverConsumers = new(ReferenceEqualityComparer.Instance);
 
     [ObservableProperty]
     public partial Bitmap? CoverImage { get; set; }
@@ -222,13 +228,117 @@ public partial class GameCardViewModel : ObservableObject
 
     public string? BackgroundSource => backgroundSource;
 
-    public Task<(Bitmap? Image, bool IsNormalized)> LoadLogoAsync(
+    public Task<(ArtworkBitmapLease? Image, bool IsNormalized)> LoadLogoAsync(
         ArtworkImageLoader loader,
         bool normalize,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(loader);
-        return loader.LoadLogoAsync(Game.Id, Game.Artwork.LogoPath, normalize, cancellationToken);
+        return loader.LoadCachedLogoAsync(Game.Id, Game.Artwork.LogoPath, normalize, cancellationToken);
+    }
+
+    public void ConfigureCoverLoader(Func<string?, int, CancellationToken, Task<ArtworkBitmapLease?>> loader)
+    {
+        ArgumentNullException.ThrowIfNull(loader);
+        coverLoader = loader;
+    }
+
+    public void AttachCoverConsumer(object consumer, int decodeWidth)
+    {
+        ArgumentNullException.ThrowIfNull(consumer);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(decodeWidth);
+        coverConsumers.Add(consumer);
+        coverDecodeWidth = decodeWidth;
+        StartCoverLoadIfNeeded();
+    }
+
+    private void StartCoverLoadIfNeeded()
+    {
+        if (coverConsumers.Count == 0)
+        {
+            return;
+        }
+
+        if (CoverImage is not null || coverLoadCancellation is not null || coverLoader is null)
+        {
+            return;
+        }
+
+        var cancellation = new CancellationTokenSource();
+        coverLoadCancellation = cancellation;
+        _ = LoadCoverForConsumerAsync(cancellation);
+    }
+
+    public void DetachCoverConsumer(object consumer)
+    {
+        ArgumentNullException.ThrowIfNull(consumer);
+        if (!coverConsumers.Remove(consumer) || coverConsumers.Count > 0)
+        {
+            return;
+        }
+
+        coverLoadCancellation?.Cancel();
+        coverLease?.Dispose();
+        coverLease = null;
+        CoverImage = null;
+    }
+
+    public void CopyCoverFrom(GameCardViewModel previousCard)
+    {
+        ArgumentNullException.ThrowIfNull(previousCard);
+        if (previousCard.coverLease is null)
+        {
+            return;
+        }
+
+        coverLease?.Dispose();
+        coverLease = previousCard.coverLease.Clone();
+        CoverImage = coverLease.Bitmap;
+    }
+
+    public void DisposeCover()
+    {
+        foreach (var consumer in coverConsumers.ToArray())
+        {
+            DetachCoverConsumer(consumer);
+        }
+
+        coverLease?.Dispose();
+        coverLease = null;
+        CoverImage = null;
+    }
+
+    private async Task LoadCoverForConsumerAsync(CancellationTokenSource cancellation)
+    {
+        ArtworkBitmapLease? loadedCover = null;
+        try
+        {
+            loadedCover = await coverLoader!(CoverSource, coverDecodeWidth, cancellation.Token);
+            if (cancellation.IsCancellationRequested || !ReferenceEquals(coverLoadCancellation, cancellation))
+            {
+                loadedCover?.Dispose();
+                return;
+            }
+
+            coverLease?.Dispose();
+            coverLease = loadedCover;
+            CoverImage = loadedCover?.Bitmap;
+            loadedCover = null;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            loadedCover?.Dispose();
+            if (ReferenceEquals(coverLoadCancellation, cancellation))
+            {
+                coverLoadCancellation = null;
+            }
+
+            cancellation.Dispose();
+            StartCoverLoadIfNeeded();
+        }
     }
 
     public void RefreshArtwork(Game game)
@@ -239,10 +349,34 @@ public partial class GameCardViewModel : ObservableObject
             throw new ArgumentException("The artwork game does not match this card.", nameof(game));
         }
 
+        var updatedCoverSource = game.Artwork.CoverImagePath;
+        var coverSourceChanged = !string.Equals(coverSource, updatedCoverSource, StringComparison.Ordinal);
+        var activeConsumers = coverConsumers.ToArray();
+        if (coverSourceChanged)
+        {
+            foreach (var consumer in activeConsumers)
+            {
+                DetachCoverConsumer(consumer);
+            }
+        }
+
         Game.Artwork = game.Artwork;
         Game.DefaultArtwork = game.DefaultArtwork;
+        coverSource = updatedCoverSource;
         backgroundSource = game.Artwork.BackgroundImagePath;
+        if (coverSourceChanged)
+        {
+            OnPropertyChanged(nameof(CoverSource));
+        }
+
         OnPropertyChanged(nameof(BackgroundSource));
+        if (coverSourceChanged)
+        {
+            foreach (var consumer in activeConsumers)
+            {
+                AttachCoverConsumer(consumer, coverDecodeWidth);
+            }
+        }
     }
 
     public IBrush AccentBrush { get; }
@@ -251,9 +385,11 @@ public partial class GameCardViewModel : ObservableObject
 
     public Thickness SelectionBorderThickness => IsSelected ? new Thickness(4) : new Thickness(0);
 
-    public double CardWidth => IsScaleSelected ? 184 : 158;
+    public double CardWidth => 184;
 
-    public double CardHeight => IsScaleSelected ? 264 : 226;
+    public double CardHeight => 264;
+
+    public double CardScale => IsScaleSelected ? 1 : 0.86;
 
     partial void OnIsSelectedChanged(bool value)
     {
@@ -263,13 +399,7 @@ public partial class GameCardViewModel : ObservableObject
 
     partial void OnIsScaleSelectedChanged(bool value)
     {
-        OnPropertyChanged(nameof(CardWidth));
-        OnPropertyChanged(nameof(CardHeight));
-    }
-
-    public async Task LoadCoverAsync(Services.ArtworkImageLoader loader)
-    {
-        CoverImage = await loader.LoadAsync(CoverSource);
+        OnPropertyChanged(nameof(CardScale));
     }
 
     public async Task LoadBackgroundAsync(Services.ArtworkImageLoader loader)

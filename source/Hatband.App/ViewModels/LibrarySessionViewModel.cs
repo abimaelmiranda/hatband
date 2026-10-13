@@ -39,7 +39,6 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private readonly HashSet<Guid> _pendingLaunchGameIds = [];
     private readonly SemaphoreSlim _installationStateRefreshGate = new(1, 1);
     private readonly SemaphoreSlim _librarySyncGate = new(1, 1);
-    private readonly SemaphoreSlim _coverLoadGate = new(MaximumConcurrentCoverLoads, MaximumConcurrentCoverLoads);
     private readonly Dictionary<Guid, GameCardViewModel> _activeMonitoredGames = [];
     private readonly Dictionary<Guid, GamePreparationActivityViewModel> _preparations = [];
     private readonly Dictionary<Guid, CachedGameLogo> _cachedGameLogos = [];
@@ -49,6 +48,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource? _statusMessageTimeoutCancellation;
     private CancellationTokenSource? _selectedLogoCancellation;
     private CancellationTokenSource? _selectedBackgroundCancellation;
+    private CancellationTokenSource? _selectedArtworkDebounceCancellation;
     private CancellationTokenSource? _selectedLogoDebounceCancellation;
     private CancellationTokenSource? _selectedCardScaleDebounceCancellation;
     private long _selectedLogoRevision;
@@ -59,18 +59,31 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private bool _showSelectedGameLogos;
     private bool _isLibraryScreenActive;
     private Task? _installationPollingTask;
+    private ArtworkBitmapLease? _backgroundBitmapLease;
+    private ArtworkBitmapLease? _previousBackgroundBitmapLease;
+    private string? _presentedBackgroundSource;
     private string? _librarySyncSourceName;
     private Guid? _activeGameSessionId;
     private const int MaximumCachedGameLogos = 8;
     private static readonly TimeSpan SelectionQuietPeriod = TimeSpan.FromMilliseconds(100);
-    private const int MaximumConcurrentCoverLoads = 4;
 
-    private sealed record CachedGameLogo(
-        string? Source,
-        bool NormalizationRequested,
-        bool IsNormalized,
-        Bitmap Image,
-        LinkedListNode<Guid> Node);
+    private sealed class CachedGameLogo(
+        string? source,
+        bool normalizationRequested,
+        bool isNormalized,
+        Bitmap image,
+        ArtworkBitmapLease lease,
+        GameCardViewModel card,
+        LinkedListNode<Guid> node)
+    {
+        public string? Source { get; } = source;
+        public bool NormalizationRequested { get; } = normalizationRequested;
+        public bool IsNormalized { get; } = isNormalized;
+        public Bitmap Image { get; } = image;
+        public ArtworkBitmapLease Lease { get; } = lease;
+        public GameCardViewModel Card { get; set; } = card;
+        public LinkedListNode<Guid> Node { get; } = node;
+    }
 
     public LibrarySessionViewModel(
         IGameRepository gameRepository,
@@ -131,6 +144,46 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public void SetNavigationHeld(bool held)
+    {
+        if (IsNavigationHeld == held)
+        {
+            return;
+        }
+
+        IsNavigationHeld = held;
+        if (held)
+        {
+            BackgroundImageOpacity = BackgroundImage is null ? 0 : 0.35;
+            PreviousBackgroundImageOpacity = PreviousBackgroundImage is null ? 0 : 0.35;
+            PresentedGameLogoOpacity = PresentedGameLogoImage is null ? 0 : 0.35;
+            CancelSelectedArtworkDebounce();
+            CancelSelectedLogoDebounce();
+            CancelSelectedGameLogoRequest();
+            CancelSelectedBackgroundLoad();
+            return;
+        }
+
+        _ = LoadSelectedArtworkAsync();
+    }
+
+    private async Task LoadSelectedArtworkAsync()
+    {
+        if (SelectedGameCard is not { } selectedGame || !_isLibraryScreenActive)
+        {
+            return;
+        }
+
+        PresentedGameLogoOpacity = 0;
+        await LoadBackgroundAsync(selectedGame);
+        if (IsNavigationHeld || !ReferenceEquals(SelectedGameCard, selectedGame))
+        {
+            return;
+        }
+
+        ScheduleSelectedLogoLoad(selectedGame);
+    }
+
     private void OnTimeZoneChanged(string timeZone)
     {
         foreach (var game in _allGames)
@@ -151,22 +204,23 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         _applicationLifetime.Dispose();
         CancelSelectedLogoDebounce();
         CancelSelectedCardScaleDebounce();
+        CancelSelectedArtworkDebounce();
         _selectedLogoCancellation?.Cancel();
         _selectedBackgroundCancellation?.Cancel();
         ClearGameLogoCache();
         foreach (var gameCard in _allGames)
         {
             gameCard.LogoImage = null;
-        }
-
-        BackgroundImage?.Dispose();
-        if (PreviousBackgroundImage is not null && !ReferenceEquals(PreviousBackgroundImage, BackgroundImage))
-        {
-            PreviousBackgroundImage.Dispose();
+            gameCard.DisposeCover();
         }
 
         BackgroundImage = null;
         PreviousBackgroundImage = null;
+        _backgroundBitmapLease?.Dispose();
+        _previousBackgroundBitmapLease?.Dispose();
+        _backgroundBitmapLease = null;
+        _previousBackgroundBitmapLease = null;
+        PresentedGameLogoImage = null;
         StopPendingInstallationPolling();
         StopGameProcessMonitoring();
         _statusMessageTimeoutCancellation?.Cancel();
@@ -195,6 +249,15 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial double PreviousBackgroundImageOpacity { get; set; }
+
+    [ObservableProperty]
+    public partial Bitmap? PresentedGameLogoImage { get; set; }
+
+    [ObservableProperty]
+    public partial double PresentedGameLogoOpacity { get; set; } = 1;
+
+    [ObservableProperty]
+    public partial bool IsNavigationHeld { get; set; }
 
     [ObservableProperty]
     public partial bool IsShowingHiddenGames { get; set; }
@@ -477,6 +540,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         {
             await _gameRepository.DeleteAsync(gameCard.Game.Id, cancellationToken);
             _allGames.RemoveAll(game => game.Game.Id == gameCard.Game.Id);
+            gameCard.DisposeCover();
             RefreshVisibleGames();
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameDeleted, gameCard.Name);
             return true;
@@ -1047,9 +1111,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             }
 
             var savedGames = await _gameRepository.GetAllAsync(cancellationToken);
-            SetGames(savedGames.Select(game => new GameCardViewModel(game, _dateTimeDisplayFormatter, _hostSystemInfo)));
-
-            await LoadCoversAsync(_allGames);
+            SetGames(savedGames.Select(CreateGameCard));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -1068,6 +1130,11 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     private void SetGames(IEnumerable<GameCardViewModel> games)
     {
         ClearGameLogoCache();
+        foreach (var game in _allGames)
+        {
+            game.DisposeCover();
+        }
+
         _allGames = games.ToList();
         RefreshVisibleGames();
     }
@@ -1098,10 +1165,17 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var savedGames = await _gameRepository.GetAllAsync();
-            SetGames(savedGames.Select(savedGame => new GameCardViewModel(savedGame, _dateTimeDisplayFormatter, _hostSystemInfo)));
+            var existingCard = _allGames.FirstOrDefault(card => card.Game.Id == game.Id);
+            if (existingCard is null)
+            {
+                AddSynchronizedGame(game);
+            }
+            else
+            {
+                UpdateGameCard(game);
+            }
+
             SelectedGameCard = Games.FirstOrDefault(item => item.Game.Id == game.Id);
-            await LoadCoversAsync(_allGames);
             StatusMessage = string.Format(CultureInfo.CurrentCulture, Resources.GameAdded, game.Name);
         }
         catch (Exception exception)
@@ -1185,61 +1259,12 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private async Task LoadCoversAsync(IReadOnlyList<GameCardViewModel> cards)
+    private GameCardViewModel CreateGameCard(Game game)
     {
-        if (cards.Count == 0)
-        {
-            return;
-        }
-
-        var nextIndex = -1;
-        var workerCount = Math.Min(MaximumConcurrentCoverLoads, cards.Count);
-        var workers = Enumerable.Range(0, workerCount).Select(_ => LoadNextCoverAsync());
-        await Task.WhenAll(workers);
-
-        async Task LoadNextCoverAsync()
-        {
-            while (true)
-            {
-                var index = Interlocked.Increment(ref nextIndex);
-                if (index >= cards.Count)
-                {
-                    return;
-                }
-
-                await LoadCoverWithLimitAsync(cards[index]);
-            }
-        }
-    }
-
-    private async Task LoadCoverWithLimitAsync(GameCardViewModel card)
-    {
-        await _coverLoadGate.WaitAsync();
-        try
-        {
-            await card.LoadCoverAsync(_artworkImageLoader);
-        }
-        finally
-        {
-            _coverLoadGate.Release();
-        }
-    }
-
-    private void QueueSynchronizedCoverLoad(GameCardViewModel card)
-    {
-        _ = LoadSynchronizedCoverSafelyAsync(card);
-    }
-
-    private async Task LoadSynchronizedCoverSafelyAsync(GameCardViewModel card)
-    {
-        try
-        {
-            await LoadCoverWithLimitAsync(card);
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Could not load cover for synchronized game {GameId}.", card.Game.Id);
-        }
+        var card = new GameCardViewModel(game, _dateTimeDisplayFormatter, _hostSystemInfo);
+        card.ConfigureCoverLoader((source, width, cancellationToken) =>
+            _artworkImageLoader.LoadCachedAsync(source, width, cancellationToken));
+        return card;
     }
 
     private void ReportLibrarySyncProgress(GameLibrarySyncProgress progress)
@@ -1275,7 +1300,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     private void AddSynchronizedGame(Game game)
     {
-        var card = new GameCardViewModel(game, _dateTimeDisplayFormatter, _hostSystemInfo);
+        var card = CreateGameCard(game);
         _allGames.Add(card);
         if (game.IsHidden == IsShowingHiddenGames)
         {
@@ -1284,7 +1309,6 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
 
         OnLibraryActivityChanged();
-        QueueSynchronizedCoverLoad(card);
     }
 
     private void OnLibrarySyncProgressPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -1335,13 +1359,11 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         var previousCard = _allGames[allGamesIndex];
         var wasSelected = ReferenceEquals(SelectedGameCard, previousCard);
         game.IsHidden = previousCard.Game.IsHidden;
-        var card = new GameCardViewModel(game, _dateTimeDisplayFormatter, _hostSystemInfo)
-        {
-            IsSelected = wasSelected
-        };
+        var card = CreateGameCard(game);
+        card.IsSelected = wasSelected;
         if (string.Equals(previousCard.CoverSource, card.CoverSource, StringComparison.Ordinal))
         {
-            card.CoverImage = previousCard.CoverImage;
+            card.CopyCoverFrom(previousCard);
         }
 
         if (_cachedGameLogos.TryGetValue(game.Id, out var cachedLogo))
@@ -1350,6 +1372,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 cachedLogo.NormalizationRequested == _normalizeLibraryLogos)
             {
                 card.LogoImage = cachedLogo.Image;
+                cachedLogo.Card = card;
                 TouchCachedGameLogo(cachedLogo);
             }
             else
@@ -1360,6 +1383,7 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
         _allGames[allGamesIndex] = card;
         previousCard.LogoImage = null;
+        previousCard.DisposeCover();
 
         var visibleGameIndex = Games.IndexOf(previousCard);
         if (visibleGameIndex >= 0)
@@ -1372,11 +1396,6 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             SelectedGameCard = card;
         }
 
-        if (previousCard.CoverImage is null ||
-            !string.Equals(previousCard.CoverSource, card.CoverSource, StringComparison.Ordinal))
-        {
-            QueueSynchronizedCoverLoad(card);
-        }
     }
 
     partial void OnIsShowingHiddenGamesChanged(bool value)
@@ -1438,8 +1457,10 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         {
             newValue.IsSelected = true;
             ScheduleSelectedCardScale(newValue);
-            _ = LoadBackgroundAsync(newValue);
-            ScheduleSelectedLogoLoad(newValue);
+            if (!IsNavigationHeld)
+            {
+                ScheduleSelectedArtworkLoad(newValue);
+            }
             return;
         }
 
@@ -1448,6 +1469,54 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         CancelSelectedLogoDebounce();
         CancelSelectedGameLogoRequest();
         CancelSelectedBackgroundLoad();
+        PresentedGameLogoImage = null;
+        PresentedGameLogoOpacity = 1;
+    }
+
+    private void ScheduleSelectedArtworkLoad(GameCardViewModel gameCard)
+    {
+        CancelSelectedArtworkDebounce();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_applicationLifetime.Token);
+        _selectedArtworkDebounceCancellation = cancellation;
+        _ = LoadSelectedArtworkAfterQuietPeriodAsync(gameCard, cancellation);
+    }
+
+    private async Task LoadSelectedArtworkAfterQuietPeriodAsync(
+        GameCardViewModel gameCard,
+        CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(150), cancellation.Token);
+            if (!IsNavigationHeld && _isLibraryScreenActive && ReferenceEquals(SelectedGameCard, gameCard))
+            {
+                PresentedGameLogoOpacity = 0;
+                await LoadBackgroundAsync(gameCard);
+                if (!IsNavigationHeld && ReferenceEquals(SelectedGameCard, gameCard))
+                {
+                    ScheduleSelectedLogoLoad(gameCard);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_selectedArtworkDebounceCancellation, cancellation))
+            {
+                _selectedArtworkDebounceCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private void CancelSelectedArtworkDebounce()
+    {
+        var cancellation = _selectedArtworkDebounceCancellation;
+        _selectedArtworkDebounceCancellation = null;
+        cancellation?.Cancel();
     }
 
     private void OnAppearanceSettingsChanged(AppearanceSettings settings)
@@ -1671,6 +1740,11 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     private async Task LoadSelectedGameLogoAsync(GameCardViewModel gameCard)
     {
+        if (IsNavigationHeld || !_isLibraryScreenActive || !ReferenceEquals(SelectedGameCard, gameCard))
+        {
+            return;
+        }
+
         if (_selectedLogoCancellation is not null && !ReferenceEquals(_selectedLogoCard, gameCard))
         {
             CancelSelectedGameLogoRequest();
@@ -1721,6 +1795,8 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
                 return;
             }
 
+            PresentGameLogo(null);
+
             var updatedGame = await _gameLibrarySyncService.EnsureArtworkAsync(
                 gameCard.Game.Id,
                 new HashSet<GameArtworkSlot> { GameArtworkSlot.Logo },
@@ -1741,6 +1817,10 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             if (logo.Image is not null)
             {
                 CacheGameLogo(gameCard, logo.Image, normalize, logo.IsNormalized);
+            }
+            else
+            {
+                PresentGameLogo(null);
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -1791,17 +1871,37 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
         TouchCachedGameLogo(cachedLogo);
         image = cachedLogo.Image;
+        if (!IsNavigationHeld && ReferenceEquals(SelectedGameCard, gameCard))
+        {
+            PresentGameLogo(image);
+        }
         return true;
     }
 
-    private void CacheGameLogo(GameCardViewModel gameCard, Bitmap image, bool normalize, bool isNormalized)
+    private void CacheGameLogo(
+        GameCardViewModel gameCard,
+        ArtworkBitmapLease imageLease,
+        bool normalize,
+        bool isNormalized)
     {
         RemoveCachedGameLogo(gameCard.Game.Id);
+        var image = imageLease.Bitmap;
         var node = _gameLogoCacheLru.AddFirst(gameCard.Game.Id);
         _cachedGameLogos.Add(
             gameCard.Game.Id,
-            new CachedGameLogo(gameCard.Game.Artwork.LogoPath, normalize, isNormalized, image, node));
+            new CachedGameLogo(
+                gameCard.Game.Artwork.LogoPath,
+                normalize,
+                isNormalized,
+                image,
+                imageLease,
+                gameCard,
+                node));
         gameCard.LogoImage = image;
+        if (!IsNavigationHeld && ReferenceEquals(SelectedGameCard, gameCard))
+        {
+            PresentGameLogo(image);
+        }
 
         while (_cachedGameLogos.Count > MaximumCachedGameLogos)
         {
@@ -1829,34 +1929,58 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         }
 
         _gameLogoCacheLru.Remove(cachedLogo.Node);
-        foreach (var card in _allGames)
+        if (ReferenceEquals(cachedLogo.Card.LogoImage, cachedLogo.Image))
         {
-            if (ReferenceEquals(card.LogoImage, cachedLogo.Image))
-            {
-                card.LogoImage = null;
-            }
+            cachedLogo.Card.LogoImage = null;
         }
 
-        cachedLogo.Image.Dispose();
+        if (ReferenceEquals(PresentedGameLogoImage, cachedLogo.Image))
+        {
+            PresentedGameLogoImage = null;
+        }
+
+        cachedLogo.Lease.Dispose();
     }
 
     private void ClearGameLogoCache()
     {
         foreach (var cachedLogo in _cachedGameLogos.Values)
         {
-            foreach (var card in _allGames)
+            if (ReferenceEquals(cachedLogo.Card.LogoImage, cachedLogo.Image))
             {
-                if (ReferenceEquals(card.LogoImage, cachedLogo.Image))
-                {
-                    card.LogoImage = null;
-                }
+                cachedLogo.Card.LogoImage = null;
             }
 
-            cachedLogo.Image.Dispose();
+            if (ReferenceEquals(PresentedGameLogoImage, cachedLogo.Image))
+            {
+                PresentedGameLogoImage = null;
+            }
+
+            cachedLogo.Lease.Dispose();
         }
 
         _cachedGameLogos.Clear();
         _gameLogoCacheLru.Clear();
+    }
+
+    private void PresentGameLogo(Bitmap? image)
+    {
+        if (image is null)
+        {
+            PresentedGameLogoImage = null;
+            PresentedGameLogoOpacity = 1;
+            return;
+        }
+
+        PresentedGameLogoOpacity = 0;
+        PresentedGameLogoImage = image;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsNavigationHeld && ReferenceEquals(PresentedGameLogoImage, image))
+            {
+                PresentedGameLogoOpacity = 1;
+            }
+        }, DispatcherPriority.Render);
     }
 
     private void CancelSelectedBackgroundLoad()
@@ -1867,6 +1991,13 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
 
     private async Task LoadBackgroundAsync(GameCardViewModel game)
     {
+        if (_presentedBackgroundSource == game.BackgroundSource && BackgroundImage is not null)
+        {
+            BackgroundImageOpacity = 1;
+            PreviousBackgroundImageOpacity = 0;
+            return;
+        }
+
         CancelSelectedBackgroundLoad();
         var revision = ++_selectedBackgroundRevision;
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_applicationLifetime.Token);
@@ -1874,24 +2005,32 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
         _selectedBackgroundCancellation = cancellation;
         try
         {
-            var image = await _artworkImageLoader.LoadAsync(game.BackgroundSource, cancellationToken);
+            var imageLease = await _artworkImageLoader.LoadCachedAsync(
+                game.BackgroundSource,
+                1920,
+                cancellationToken);
             if (cancellationToken.IsCancellationRequested ||
                 revision != _selectedBackgroundRevision ||
-                !ReferenceEquals(SelectedGameCard, game))
+                !ReferenceEquals(SelectedGameCard, game) || IsNavigationHeld)
             {
-                image?.Dispose();
+                imageLease?.Dispose();
                 return;
             }
 
-            var obsoletePreviousImage = PreviousBackgroundImage;
+            var obsoletePreviousLease = _previousBackgroundBitmapLease;
+            _previousBackgroundBitmapLease = _backgroundBitmapLease;
             PreviousBackgroundImage = BackgroundImage;
             PreviousBackgroundImageOpacity = PreviousBackgroundImage is null ? 0 : 1;
-            BackgroundImage = image;
+            _backgroundBitmapLease = imageLease;
+            _presentedBackgroundSource = game.BackgroundSource;
+            BackgroundImage = imageLease?.Bitmap;
             BackgroundImageOpacity = 1;
             PreviousBackgroundImageOpacity = 0;
-            if (obsoletePreviousImage is not null && !ReferenceEquals(obsoletePreviousImage, BackgroundImage))
+            PresentedGameLogoOpacity = 1;
+            obsoletePreviousLease?.Dispose();
+            if (_previousBackgroundBitmapLease is { } previousLease)
             {
-                obsoletePreviousImage.Dispose();
+                _ = ReleasePreviousBackgroundAfterFadeAsync(previousLease);
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -1909,6 +2048,19 @@ public partial class LibrarySessionViewModel : ViewModelBase, IDisposable
             }
 
             cancellation.Dispose();
+        }
+    }
+
+    private async Task ReleasePreviousBackgroundAfterFadeAsync(ArtworkBitmapLease previousLease)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(240));
+        if (!IsNavigationHeld &&
+            ReferenceEquals(_previousBackgroundBitmapLease, previousLease) &&
+            PreviousBackgroundImageOpacity == 0)
+        {
+            PreviousBackgroundImage = null;
+            _previousBackgroundBitmapLease = null;
+            previousLease.Dispose();
         }
     }
 
